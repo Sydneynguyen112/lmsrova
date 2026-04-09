@@ -1,0 +1,195 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Shadcn core mappings */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+
+  /* Shadcn semantic colors */
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Charts */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Radius */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* ===== ROVA Brand Gold Palette ===== */
+  --color-gold: #C89B3C;
+  --color-gold-light: #D4AD54;
+  --color-gold-medium: #A6762A;
+  --color-gold-dark: #7A531F;
+  --color-gold-shadow: #4A2E12;
+  --color-gold-black: #1A0F05;
+}
+
+/* ===== ROVA Dark Theme (always dark) ===== */
+:root {
+  --radius: 0.75rem;
+
+  /* Background & Surface */
+  --background: #1A0F05;
+  --foreground: #F5E6D0;
+
+  /* Cards & Popover */
+  --card: #231608;
+  --card-foreground: #F5E6D0;
+  --popover: #231608;
+  --popover-foreground: #F5E6D0;
+
+  /* Primary = Gold */
+  --primary: #C89B3C;
+  --primary-foreground: #1A0F05;
+
+  /* Secondary = Bronze */
+  --secondary: #7A531F;
+  --secondary-foreground: #F5E6D0;
+
+  /* Muted */
+  --muted: #2D1A0C;
+  --muted-foreground: #A0896E;
+
+  /* Accent = Gold medium */
+  --accent: #4A2E12;
+  --accent-foreground: #F5E6D0;
+
+  /* Destructive */
+  --destructive: #DC2626;
+
+  /* Borders & Inputs */
+  --border: #4A2E12;
+  --input: #4A2E12;
+  --ring: #C89B3C;
+
+  /* Charts */
+  --chart-1: #C89B3C;
+  --chart-2: #A6762A;
+  --chart-3: #7A531F;
+  --chart-4: #4A2E12;
+  --chart-5: #D4AD54;
+
+  /* Sidebar */
+  --sidebar: #1A0F05;
+  --sidebar-foreground: #F5E6D0;
+  --sidebar-primary: #C89B3C;
+  --sidebar-primary-foreground: #1A0F05;
+  --sidebar-accent: #2D1A0C;
+  --sidebar-accent-foreground: #F5E6D0;
+  --sidebar-border: #4A2E12;
+  --sidebar-ring: #C89B3C;
+}
+
+/* Also set .dark class for shadcn compatibility */
+.dark {
+  --background: #1A0F05;
+  --foreground: #F5E6D0;
+  --card: #231608;
+  --card-foreground: #F5E6D0;
+  --popover: #231608;
+  --popover-foreground: #F5E6D0;
+  --primary: #C89B3C;
+  --primary-foreground: #1A0F05;
+  --secondary: #7A531F;
+  --secondary-foreground: #F5E6D0;
+  --muted: #2D1A0C;
+  --muted-foreground: #A0896E;
+  --accent: #4A2E12;
+  --accent-foreground: #F5E6D0;
+  --destructive: #DC2626;
+  --border: #4A2E12;
+  --input: #4A2E12;
+  --ring: #C89B3C;
+  --chart-1: #C89B3C;
+  --chart-2: #A6762A;
+  --chart-3: #7A531F;
+  --chart-4: #4A2E12;
+  --chart-5: #D4AD54;
+  --sidebar: #1A0F05;
+  --sidebar-foreground: #F5E6D0;
+  --sidebar-primary: #C89B3C;
+  --sidebar-primary-foreground: #1A0F05;
+  --sidebar-accent: #2D1A0C;
+  --sidebar-accent-foreground: #F5E6D0;
+  --sidebar-border: #4A2E12;
+  --sidebar-ring: #C89B3C;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans scroll-smooth;
+  }
+}
+
+/* ===== ROVA Custom Utilities ===== */
+@layer utilities {
+  .gold-gradient {
+    background: linear-gradient(135deg, #1A0F05, #4A2E12, #7A531F, #C89B3C);
+  }
+  .gold-gradient-text {
+    background: linear-gradient(135deg, #C89B3C, #D4AD54, #A6762A);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .gold-gradient-horizontal {
+    background: linear-gradient(90deg, #1A0F05, #4A2E12, #7A531F, #C89B3C);
+  }
+  .gold-gradient-radial {
+    background: radial-gradient(ellipse at center, #4A2E12 0%, #1A0F05 70%);
+  }
+  .gold-glow {
+    box-shadow: 0 0 20px rgba(200, 155, 60, 0.15), 0 0 60px rgba(200, 155, 60, 0.05);
+  }
+  .gold-border-glow {
+    border-color: rgba(200, 155, 60, 0.3);
+    box-shadow: 0 0 15px rgba(200, 155, 60, 0.1);
+  }
+}
