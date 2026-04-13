@@ -7,8 +7,7 @@ import { motion } from "framer-motion";
 import { LogIn, Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabase";
-import { signIn } from "@/lib/auth";
+import { signInWithEmail, signInWithGoogle } from "@/lib/auth";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -22,24 +21,27 @@ export default function SignInPage() {
     setError("");
     setLoading(true);
 
-    const { data: user } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("email", form.email.trim().toLowerCase())
-      .single();
+    const profile = await signInWithEmail(form.email);
 
-    if (!user) {
+    if (!profile) {
       setError("Email không tồn tại trong hệ thống");
       setLoading(false);
       return;
     }
 
-    signIn(user.id);
     setLoading(false);
 
-    if (user.role === "admin") router.push("/admin");
-    else if (user.role === "mentor") router.push("/mentor");
+    if (profile.role === "admin") router.push("/admin");
+    else if (profile.role === "mentor") router.push("/mentor");
     else router.push("/student");
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch {
+      setError("Không thể đăng nhập bằng Google");
+    }
   };
 
   return (
@@ -145,10 +147,7 @@ export default function SignInPage() {
       {/* Google Sign In */}
       <button
         type="button"
-        onClick={() => {
-          signIn("u-student-001");
-          router.push("/student");
-        }}
+        onClick={handleGoogleSignIn}
         className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-border bg-card hover:bg-accent text-foreground font-medium text-sm transition-colors"
       >
         <svg width="20" height="20" viewBox="0 0 24 24">

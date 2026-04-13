@@ -7,7 +7,8 @@ import { motion } from "framer-motion";
 import { UserPlus, Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { signIn } from "@/lib/auth";
+import { signInWithGoogle } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,11 +20,58 @@ export default function RegisterPage() {
     password: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Register:", form);
-    signIn("u-student-001");
+    setError("");
+    setLoading(true);
+
+    // Check if email already exists
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", form.email.trim().toLowerCase())
+      .single();
+
+    if (existing) {
+      setError("Email đã tồn tại. Hãy đăng nhập.");
+      setLoading(false);
+      return;
+    }
+
+    // Create new profile
+    const { data: profile, error: insertError } = await supabase
+      .from("profiles")
+      .insert({
+        full_name: form.full_name,
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone,
+        role: "student",
+        classification: "newbie",
+        risk_tag: "normal",
+      })
+      .select()
+      .single();
+
+    if (insertError || !profile) {
+      setError("Không thể tạo tài khoản. Thử lại sau.");
+      setLoading(false);
+      return;
+    }
+
+    localStorage.setItem("rova_current_user_id", profile.id);
+    setLoading(false);
     router.push("/onboarding");
+  };
+
+  const handleGoogleRegister = async () => {
+    try {
+      await signInWithGoogle();
+    } catch {
+      setError("Không thể đăng ký bằng Google");
+    }
   };
 
   const update = (field: string, value: string) =>
@@ -155,10 +203,7 @@ export default function RegisterPage() {
       {/* Google Sign Up */}
       <button
         type="button"
-        onClick={() => {
-          signIn("u-student-001");
-          router.push("/onboarding");
-        }}
+        onClick={handleGoogleRegister}
         className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-border bg-card hover:bg-accent text-foreground font-medium text-sm transition-colors"
       >
         <svg width="20" height="20" viewBox="0 0 24 24">

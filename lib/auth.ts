@@ -32,9 +32,10 @@ export function signIn(userId: string) {
   localStorage.setItem(STORAGE_KEY, userId);
 }
 
-export function signOut() {
+export async function signOut() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(STORAGE_KEY);
+  await supabase.auth.signOut();
 }
 
 export function getStoredUserId(): string | null {
@@ -43,8 +44,82 @@ export function getStoredUserId(): string | null {
 }
 
 /**
+ * Sign in with Google via Supabase OAuth
+ */
+export async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback`
+        : undefined,
+    },
+  });
+  if (error) throw error;
+}
+
+/**
+ * Sign in with email (lookup from profiles table — for existing mock users)
+ */
+export async function signInWithEmail(email: string) {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("email", email.trim().toLowerCase())
+    .single();
+
+  if (!profile) return null;
+
+  signIn(profile.id);
+  return profile as Profile;
+}
+
+/**
+ * After Google OAuth callback, ensure a profile exists in our profiles table.
+ * If new user → create profile with role "student".
+ * Returns the profile.
+ */
+export async function ensureProfile(): Promise<Profile | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  // Check if profile already exists
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("email", user.email)
+    .single();
+
+  if (existing) {
+    signIn(existing.id);
+    return existing as Profile;
+  }
+
+  // Create new profile for Google user
+  const { data: newProfile } = await supabase
+    .from("profiles")
+    .insert({
+      full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Học viên",
+      email: user.email!,
+      avatar_url: user.user_metadata?.avatar_url || null,
+      role: "student",
+      classification: "newbie",
+      risk_tag: "normal",
+    })
+    .select()
+    .single();
+
+  if (newProfile) {
+    signIn(newProfile.id);
+    return newProfile as Profile;
+  }
+
+  return null;
+}
+
+/**
  * Hook to get the currently logged-in user from Supabase.
- * Falls back to default user per role for dev convenience.
+ * Checks: Supabase Auth session → localStorage → fallback role.
  */
 export function useCurrentUser(fallbackRole: string | null = null): Profile | null {
   const [user, setUser] = useState<Profile | null>(null);
@@ -53,9 +128,23 @@ export function useCurrentUser(fallbackRole: string | null = null): Profile | nu
     let cancelled = false;
 
     async function load() {
-      const storedId = getStoredUserId();
+      // 1. Check Supabase Auth session
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser?.email && !cancelled) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("email", authUser.email)
+          .single();
+        if (!cancelled && data) {
+          localStorage.setItem(STORAGE_KEY, data.id);
+          setUser(data as Profile);
+          return;
+        }
+      }
 
-      // Try stored ID first
+      // 2. Try stored ID from localStorage
+      const storedId = getStoredUserId();
       if (storedId) {
         const { data } = await supabase
           .from("profiles")
@@ -68,7 +157,7 @@ export function useCurrentUser(fallbackRole: string | null = null): Profile | nu
         }
       }
 
-      // Fallback: load by default email for role
+      // 3. Fallback: load by default email for role (dev only)
       if (fallbackRole) {
         const email = DEFAULT_EMAIL_BY_ROLE[fallbackRole];
         if (email) {
@@ -78,7 +167,6 @@ export function useCurrentUser(fallbackRole: string | null = null): Profile | nu
             .eq("email", email)
             .single();
           if (!cancelled && data) {
-            // Also store in localStorage for consistency
             localStorage.setItem(STORAGE_KEY, data.id);
             setUser(data as Profile);
             return;
@@ -90,7 +178,16 @@ export function useCurrentUser(fallbackRole: string | null = null): Profile | nu
     }
 
     load();
-    return () => { cancelled = true; };
+
+    // Listen for auth state changes (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      load();
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [fallbackRole]);
 
   return user;
