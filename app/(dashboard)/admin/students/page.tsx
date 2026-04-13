@@ -2,22 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search } from "lucide-react";
-import Link from "next/link";
+import { Search, Unlock, BookOpen, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/auth";
-import {
-  users as mockUsers,
-  getEnrollmentsByUser,
-  getCourseById,
-} from "@/lib/mock-data";
 import { formatDate } from "@/lib/utils";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableHeader,
@@ -26,6 +29,19 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
+
+interface CourseItem {
+  id: string;
+  title: string;
+}
+
+interface EnrollmentItem {
+  id: string;
+  user_id: string;
+  course_id: string;
+  status: string;
+  progress_pct: number;
+}
 
 const classificationStyles: Record<string, string> = {
   newbie: "bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30",
@@ -67,31 +83,85 @@ const item = {
 
 export default function AdminStudentsPage() {
   const [search, setSearch] = useState("");
-  const [dbStudents, setDbStudents] = useState<Profile[]>([]);
+  const [students, setStudents] = useState<Profile[]>([]);
+  const [courses, setCourses] = useState<CourseItem[]>([]);
+  const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadStudents() {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("role", "student")
-        .order("created_at", { ascending: false });
-      if (data) setDbStudents(data as Profile[]);
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Profile | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollSuccess, setEnrollSuccess] = useState<string | null>(null);
+
+  async function loadData() {
+    const [{ data: s }, { data: c }, { data: e }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("role", "student").order("created_at", { ascending: false }),
+      supabase.from("courses").select("id, title"),
+      supabase.from("enrollments").select("*"),
+    ]);
+    if (s) setStudents(s as Profile[]);
+    if (c) setCourses(c as CourseItem[]);
+    if (e) setEnrollments(e as EnrollmentItem[]);
+    setLoading(false);
+  }
+
+  useEffect(() => { loadData(); }, []);
+
+  // Enrollments cho student được chọn
+  const studentEnrollments = selectedStudent
+    ? enrollments.filter((e) => e.user_id === selectedStudent.id)
+    : [];
+  const enrolledCourseIds = new Set(studentEnrollments.map((e) => e.course_id));
+  const availableCourses = courses.filter((c) => !enrolledCourseIds.has(c.id));
+
+  function openEnrollDialog(student: Profile) {
+    setSelectedStudent(student);
+    setEnrollSuccess(null);
+    setDialogOpen(true);
+  }
+
+  async function handleEnroll(courseId: string) {
+    if (!selectedStudent) return;
+    setEnrolling(true);
+    const { error } = await supabase.from("enrollments").insert({
+      user_id: selectedStudent.id,
+      course_id: courseId,
+      status: "active",
+      progress_pct: 0,
+    });
+    setEnrolling(false);
+
+    if (!error) {
+      const course = courses.find((c) => c.id === courseId);
+      setEnrollSuccess(course?.title || courseId);
+      // Reload enrollments
+      const { data: e } = await supabase.from("enrollments").select("*");
+      if (e) setEnrollments(e as EnrollmentItem[]);
     }
-    loadStudents();
-  }, []);
+  }
 
-  // Kết hợp: Supabase students + mock students (loại trùng email)
-  const dbEmails = new Set(dbStudents.map((s) => s.email));
-  const mockStudents = mockUsers
-    .filter((u) => u.role === "student" && !dbEmails.has(u.email));
-  const allStudents = [...dbStudents, ...mockStudents];
+  // Helper: get enrollment info cho một student
+  function getStudentCourseInfo(studentId: string) {
+    const studentEnrolls = enrollments.filter((e) => e.user_id === studentId);
+    const active = studentEnrolls.find((e) => e.status === "active");
+    const course = active ? courses.find((c) => c.id === active.course_id) : null;
+    return { enrollCount: studentEnrolls.length, activeCourse: course, progressPct: active?.progress_pct || 0 };
+  }
 
-  const filtered = allStudents.filter(
+  const filtered = students.filter(
     (s) =>
       s.full_name.toLowerCase().includes(search.toLowerCase()) ||
       s.email.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-muted-foreground">Đang tải...</div>
+      </div>
+    );
+  }
 
   return (
     <PageTransition>
@@ -133,12 +203,12 @@ export default function AdminStudentsPage() {
                     <TableRow>
                       <TableHead>Học viên</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Mentor</TableHead>
                       <TableHead>Phân loại</TableHead>
                       <TableHead>Khoá học</TableHead>
                       <TableHead>Tiến độ</TableHead>
                       <TableHead>Trạng thái</TableHead>
                       <TableHead>Ngày tham gia</TableHead>
+                      <TableHead className="text-center">Hành động</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -152,19 +222,7 @@ export default function AdminStudentsPage() {
                       </TableRow>
                     ) : (
                       filtered.map((student) => {
-                        const enrollmentList = getEnrollmentsByUser(student.id);
-                        const activeEnrollment = enrollmentList.find(
-                          (e) => e.status === "active"
-                        );
-                        const progressPct = activeEnrollment
-                          ? activeEnrollment.progress_pct
-                          : 0;
-                        const course = activeEnrollment
-                          ? getCourseById(activeEnrollment.course_id)
-                          : null;
-                        const mentor = [...dbStudents, ...mockUsers].find(
-                          (u) => u.id === student.mentor_id
-                        );
+                        const { activeCourse, progressPct } = getStudentCourseInfo(student.id);
                         const initials = student.full_name
                           .split(" ")
                           .map((n) => n[0])
@@ -188,25 +246,18 @@ export default function AdminStudentsPage() {
                             <TableCell className="text-muted-foreground">
                               {student.email}
                             </TableCell>
-                            <TableCell className="text-muted-foreground text-sm">
-                              {mentor?.full_name ?? "—"}
-                            </TableCell>
                             <TableCell>
                               <Badge
                                 variant="outline"
                                 className={
-                                  classificationStyles[
-                                    student.classification || "newbie"
-                                  ]
+                                  classificationStyles[student.classification || "newbie"]
                                 }
                               >
-                                {classificationLabels[
-                                  student.classification || "newbie"
-                                ]}
+                                {classificationLabels[student.classification || "newbie"]}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm">
-                              {course?.title || "—"}
+                              {activeCourse?.title || "Chưa có"}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2 min-w-[120px]">
@@ -229,6 +280,17 @@ export default function AdminStudentsPage() {
                             <TableCell className="text-muted-foreground text-sm">
                               {formatDate(student.created_at)}
                             </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-gold/50 text-gold hover:bg-gold/10"
+                                onClick={() => openEnrollDialog(student)}
+                              >
+                                <Unlock className="h-3.5 w-3.5 mr-1.5" />
+                                Mở khoá
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         );
                       })
@@ -240,6 +302,103 @@ export default function AdminStudentsPage() {
           </Card>
         </motion.div>
       </motion.div>
+
+      {/* ── Dialog Mở khoá khoá học ── */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mở khoá khoá học</DialogTitle>
+            <DialogDescription>
+              Chọn khoá học để mở cho{" "}
+              <span className="font-semibold text-foreground">
+                {selectedStudent?.full_name}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {/* Khoá học đã đăng ký */}
+            {studentEnrollments.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Đã đăng ký
+                </p>
+                {studentEnrollments.map((enrollment) => {
+                  const course = courses.find((c) => c.id === enrollment.course_id);
+                  return (
+                    <div
+                      key={enrollment.id}
+                      className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <span className="text-sm font-medium text-foreground flex-1">
+                        {course?.title || enrollment.course_id}
+                      </span>
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {enrollment.status}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Khoá học có thể mở */}
+            {availableCourses.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Có thể mở khoá
+                </p>
+                {availableCourses.map((course) => (
+                  <div
+                    key={course.id}
+                    className="flex items-center gap-3 rounded-lg border border-gold-shadow/30 p-3 hover:bg-gold/5 transition-colors"
+                  >
+                    <BookOpen className="h-4 w-4 text-gold shrink-0" />
+                    <span className="text-sm font-medium text-foreground flex-1">
+                      {course.title}
+                    </span>
+                    <Button
+                      size="sm"
+                      disabled={enrolling}
+                      className="bg-gold hover:bg-gold/90 text-black font-semibold"
+                      onClick={() => handleEnroll(course.id)}
+                    >
+                      {enrolling ? "Đang mở..." : "Mở khoá"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              !enrollSuccess && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Học viên đã được đăng ký tất cả khoá học.
+                </p>
+              )
+            )}
+
+            {/* Success message */}
+            {enrollSuccess && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 flex items-center gap-2"
+              >
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <span className="text-sm text-emerald-700 dark:text-emerald-300">
+                  Đã mở khoá <strong>{enrollSuccess}</strong> thành công!
+                </span>
+              </motion.div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageTransition>
   );
 }
