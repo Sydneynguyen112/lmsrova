@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import type { Profile } from "@/lib/auth";
 import {
-  users,
+  users as mockUsers,
   getEnrollmentsByUser,
   getCourseById,
 } from "@/lib/mock-data";
@@ -65,8 +67,25 @@ const item = {
 
 export default function AdminStudentsPage() {
   const [search, setSearch] = useState("");
+  const [dbStudents, setDbStudents] = useState<Profile[]>([]);
 
-  const allStudents = users.filter((u) => u.role === "student");
+  useEffect(() => {
+    async function loadStudents() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "student")
+        .order("created_at", { ascending: false });
+      if (data) setDbStudents(data as Profile[]);
+    }
+    loadStudents();
+  }, []);
+
+  // Kết hợp: Supabase students + mock students (loại trùng email)
+  const dbEmails = new Set(dbStudents.map((s) => s.email));
+  const mockStudents = mockUsers
+    .filter((u) => u.role === "student" && !dbEmails.has(u.email));
+  const allStudents = [...dbStudents, ...mockStudents];
 
   const filtered = allStudents.filter(
     (s) =>
@@ -143,7 +162,7 @@ export default function AdminStudentsPage() {
                         const course = activeEnrollment
                           ? getCourseById(activeEnrollment.course_id)
                           : null;
-                        const mentor = users.find(
+                        const mentor = [...dbStudents, ...mockUsers].find(
                           (u) => u.id === student.mentor_id
                         );
                         const initials = student.full_name
