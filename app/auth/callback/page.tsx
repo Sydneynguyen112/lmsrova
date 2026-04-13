@@ -11,17 +11,20 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     async function handle() {
       try {
-        const profile = await ensureProfile();
+        const result = await ensureProfile();
 
-        if (!profile) {
+        if (!result) {
           setStatus("Không thể xác thực. Đang chuyển hướng...");
           setTimeout(() => router.push("/sign-in"), 2000);
           return;
         }
 
+        const { profile, isNewUser } = result;
         setStatus(`Xin chào ${profile.full_name}! Đang chuyển hướng...`);
 
-        if (profile.role === "admin") router.push("/admin");
+        if (isNewUser && profile.role === "student") {
+          router.push("/onboarding");
+        } else if (profile.role === "admin") router.push("/admin");
         else if (profile.role === "mentor") router.push("/mentor");
         else router.push("/student");
       } catch {

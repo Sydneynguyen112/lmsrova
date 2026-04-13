@@ -19,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { getStoredUserId } from "@/lib/auth";
 
 // ── Question definitions derived from mock-data answers ──
 
@@ -220,23 +222,21 @@ export default function OnboardingPage() {
   const classification = classifyScore(totalScore, hasAnyOne);
   const result = classificationInfo[classification];
 
-  const handleFinish = () => {
-    const surveyData = {
-      answers: Object.fromEntries(
-        questions.map((q) => {
-          if (q.type === "scored") {
-            const option = q.options.find((o) => o.score === answers[q.id]);
-            return [q.id, { score: answers[q.id], answer: option?.label || "" }];
-          }
-          return [q.id, answers[q.id]];
-        })
-      ),
-      total_score: totalScore,
-      has_any_one: hasAnyOne,
-      classification,
-      completed_at: new Date().toISOString(),
-    };
-    console.log("Onboarding survey completed:", surveyData);
+  const [saving, setSaving] = useState(false);
+
+  const handleFinish = async () => {
+    setSaving(true);
+    try {
+      const userId = getStoredUserId();
+      if (userId) {
+        await supabase
+          .from("profiles")
+          .update({ classification })
+          .eq("id", userId);
+      }
+    } catch (err) {
+      console.error("Failed to save classification:", err);
+    }
     router.push("/student");
   };
 
@@ -411,10 +411,11 @@ export default function OnboardingPage() {
               </Button>
               <Button
                 onClick={handleFinish}
+                disabled={saving}
                 className="bg-gold hover:bg-gold-medium text-gold-black font-bold px-8 py-5 rounded-xl"
               >
-                Bắt đầu học ngay
-                <ArrowRight size={16} className="ml-2" />
+                {saving ? "Đang lưu..." : "Bắt đầu học ngay"}
+                {!saving && <ArrowRight size={16} className="ml-2" />}
               </Button>
             </div>
           </motion.div>

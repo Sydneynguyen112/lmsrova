@@ -79,7 +79,7 @@ export async function signInWithEmail(email: string) {
  * If new user → create profile with role "student".
  * Returns the profile.
  */
-export async function ensureProfile(): Promise<Profile | null> {
+export async function ensureProfile(): Promise<{ profile: Profile; isNewUser: boolean } | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
@@ -92,7 +92,7 @@ export async function ensureProfile(): Promise<Profile | null> {
 
   if (existing) {
     signIn(existing.id);
-    return existing as Profile;
+    return { profile: existing as Profile, isNewUser: false };
   }
 
   // Create new profile for Google user
@@ -119,7 +119,7 @@ export async function ensureProfile(): Promise<Profile | null> {
 
   if (newProfile) {
     signIn(newProfile.id);
-    return newProfile as Profile;
+    return { profile: newProfile as Profile, isNewUser: true };
   }
 
   return null;
