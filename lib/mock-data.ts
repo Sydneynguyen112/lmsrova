@@ -439,7 +439,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Giới thiệu khoá học & Tư duy đúng về Trading",
       thumbnail_url: "/thumbnails/lessons/pro-01.jpg",
-      video_url: "https://video.rova.vn/pro/01-intro.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Cheatsheet: Tư duy Trader", url: "/files/pro-01-cheatsheet.pdf", type: "pdf" },
       ],
@@ -451,7 +451,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Cách đọc biểu đồ nến Nhật",
       thumbnail_url: "/thumbnails/lessons/pro-02.jpg",
-      video_url: "https://video.rova.vn/pro/02-candlestick.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Cheatsheet: Các mẫu nến quan trọng", url: "/files/pro-02-cheatsheet.pdf", type: "pdf" },
         { name: "Slide bài giảng", url: "/files/pro-02-slide.pdf", type: "slide" },
@@ -464,7 +464,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Cách vẽ Trendline chính xác",
       thumbnail_url: "/thumbnails/lessons/pro-03.jpg",
-      video_url: "https://video.rova.vn/pro/03-trendline.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Cheatsheet: Quy tắc vẽ Trendline", url: "/files/pro-03-cheatsheet.pdf", type: "pdf" },
       ],
@@ -476,7 +476,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Vùng hỗ trợ & kháng cự (Support/Resistance)",
       thumbnail_url: "/thumbnails/lessons/pro-04.jpg",
-      video_url: "https://video.rova.vn/pro/04-sr.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Cheatsheet: Cách xác định S/R", url: "/files/pro-04-cheatsheet.pdf", type: "pdf" },
       ],
@@ -488,7 +488,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Cung cầu (Supply/Demand) cơ bản",
       thumbnail_url: "/thumbnails/lessons/pro-05.jpg",
-      video_url: "https://video.rova.vn/pro/05-supply-demand.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Slide: Supply & Demand", url: "/files/pro-05-slide.pdf", type: "slide" },
       ],
@@ -500,7 +500,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Mô hình giá (Chart Patterns)",
       thumbnail_url: "/thumbnails/lessons/pro-06.jpg",
-      video_url: "https://video.rova.vn/pro/06-patterns.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Cheatsheet: 10 mô hình giá quan trọng", url: "/files/pro-06-cheatsheet.pdf", type: "pdf" },
       ],
@@ -512,7 +512,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Công thức 1: Entry cơ bản",
       thumbnail_url: "/thumbnails/lessons/pro-07.jpg",
-      video_url: "https://video.rova.vn/pro/07-entry.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Cheatsheet: Công thức Entry", url: "/files/pro-07-cheatsheet.pdf", type: "pdf" },
       ],
@@ -524,7 +524,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Stoploss & Take Profit đúng cách",
       thumbnail_url: "/thumbnails/lessons/pro-08.jpg",
-      video_url: "https://video.rova.vn/pro/08-sl-tp.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Cheatsheet: Quy tắc SL/TP", url: "/files/pro-08-cheatsheet.pdf", type: "pdf" },
       ],
@@ -536,7 +536,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Quản lý vốn (Risk Management)",
       thumbnail_url: "/thumbnails/lessons/pro-09.jpg",
-      video_url: "https://video.rova.vn/pro/09-risk.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Bảng tính quản lý vốn (Excel)", url: "/files/pro-09-calculator.xlsx", type: "excel" },
       ],
@@ -548,7 +548,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Tâm lý giao dịch — Kẻ thù lớn nhất là chính mình",
       thumbnail_url: "/thumbnails/lessons/pro-10.jpg",
-      video_url: "https://video.rova.vn/pro/10-psychology.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Checklist: Kiểm soát cảm xúc", url: "/files/pro-10-checklist.pdf", type: "pdf" },
       ],
@@ -560,7 +560,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Xây dựng Trading Plan cá nhân",
       thumbnail_url: "/thumbnails/lessons/pro-11.jpg",
-      video_url: "https://video.rova.vn/pro/11-plan.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Template: Trading Plan", url: "/files/pro-11-template.pdf", type: "pdf" },
       ],
@@ -572,7 +572,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Tổng kết & Bước tiếp theo",
       thumbnail_url: "/thumbnails/lessons/pro-12.jpg",
-      video_url: "https://video.rova.vn/pro/12-summary.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [],
       duration_sec: 600,
       order_index: 12,
@@ -583,7 +583,7 @@ export const users = [
       module_id: "m-coach-1",
       title: "Price Action nâng cao: Order Flow",
       thumbnail_url: "/thumbnails/lessons/coach-01.jpg",
-      video_url: "https://video.rova.vn/coaching/01-order-flow.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Slide: Order Flow", url: "/files/coach-01-slide.pdf", type: "slide" },
       ],
@@ -595,7 +595,7 @@ export const users = [
       module_id: "m-coach-1",
       title: "Liquidity Sweep & Stop Hunt",
       thumbnail_url: "/thumbnails/lessons/coach-02.jpg",
-      video_url: "https://video.rova.vn/coaching/02-liquidity.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Cheatsheet: Liquidity", url: "/files/coach-02-cheatsheet.pdf", type: "pdf" },
       ],
@@ -607,7 +607,7 @@ export const users = [
       module_id: "m-coach-1",
       title: "Multi-timeframe Analysis",
       thumbnail_url: "/thumbnails/lessons/coach-03.jpg",
-      video_url: "https://video.rova.vn/coaching/03-mtf.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [],
       duration_sec: 900,
       order_index: 3,
@@ -617,7 +617,7 @@ export const users = [
       module_id: "m-coach-1",
       title: "Confluence Zone — Giao điểm xác suất cao",
       thumbnail_url: "/thumbnails/lessons/coach-04.jpg",
-      video_url: "https://video.rova.vn/coaching/04-confluence.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Cheatsheet: Confluence", url: "/files/coach-04-cheatsheet.pdf", type: "pdf" },
       ],
@@ -629,7 +629,7 @@ export const users = [
       module_id: "m-coach-1",
       title: "Case Study: Phân tích giao dịch thực tế",
       thumbnail_url: "/thumbnails/lessons/coach-05.jpg",
-      video_url: "https://video.rova.vn/coaching/05-case-study.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "PDF: 5 case studies", url: "/files/coach-05-cases.pdf", type: "pdf" },
       ],
@@ -642,7 +642,7 @@ export const users = [
       module_id: "m-coach-2",
       title: "Position Sizing nâng cao",
       thumbnail_url: "/thumbnails/lessons/coach-06.jpg",
-      video_url: "https://video.rova.vn/coaching/06-position-size.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Calculator: Position Size", url: "/files/coach-06-calc.xlsx", type: "excel" },
       ],
@@ -654,7 +654,7 @@ export const users = [
       module_id: "m-coach-2",
       title: "Drawdown & Recovery Plan",
       thumbnail_url: "/thumbnails/lessons/coach-07.jpg",
-      video_url: "https://video.rova.vn/coaching/07-drawdown.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [],
       duration_sec: 790,
       order_index: 2,
@@ -664,7 +664,7 @@ export const users = [
       module_id: "m-coach-2",
       title: "Portfolio Management cho Retail Trader",
       thumbnail_url: "/thumbnails/lessons/coach-08.jpg",
-      video_url: "https://video.rova.vn/coaching/08-portfolio.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Template: Portfolio Tracker", url: "/files/coach-08-tracker.xlsx", type: "excel" },
       ],
@@ -676,7 +676,7 @@ export const users = [
       module_id: "m-coach-2",
       title: "Risk per Trade vs Risk per Day",
       thumbnail_url: "/thumbnails/lessons/coach-09.jpg",
-      video_url: "https://video.rova.vn/coaching/09-risk-rules.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [],
       duration_sec: 750,
       order_index: 4,
@@ -686,7 +686,7 @@ export const users = [
       module_id: "m-coach-2",
       title: "Khi nào nên nghỉ trading",
       thumbnail_url: "/thumbnails/lessons/coach-10.jpg",
-      video_url: "https://video.rova.vn/coaching/10-when-stop.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Checklist: Dấu hiệu cần nghỉ", url: "/files/coach-10-checklist.pdf", type: "pdf" },
       ],
@@ -699,7 +699,7 @@ export const users = [
       module_id: "m-coach-3",
       title: "Nhận diện FOMO & Revenge Trading",
       thumbnail_url: "/thumbnails/lessons/coach-11.jpg",
-      video_url: "https://video.rova.vn/coaching/11-fomo.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [],
       duration_sec: 830,
       order_index: 1,
@@ -709,7 +709,7 @@ export const users = [
       module_id: "m-coach-3",
       title: "Trading Journal — Gương phản chiếu",
       thumbnail_url: "/thumbnails/lessons/coach-12.jpg",
-      video_url: "https://video.rova.vn/coaching/12-journal.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Template: Trading Journal", url: "/files/coach-12-journal.xlsx", type: "excel" },
       ],
@@ -721,7 +721,7 @@ export const users = [
       module_id: "m-coach-3",
       title: "Kỷ luật — Skill #1 của Trader",
       thumbnail_url: "/thumbnails/lessons/coach-13.jpg",
-      video_url: "https://video.rova.vn/coaching/13-discipline.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [],
       duration_sec: 810,
       order_index: 3,
@@ -731,7 +731,7 @@ export const users = [
       module_id: "m-coach-3",
       title: "Xây dựng Routine giao dịch hàng ngày",
       thumbnail_url: "/thumbnails/lessons/coach-14.jpg",
-      video_url: "https://video.rova.vn/coaching/14-routine.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Template: Daily Routine", url: "/files/coach-14-routine.pdf", type: "pdf" },
       ],
@@ -743,7 +743,7 @@ export const users = [
       module_id: "m-coach-3",
       title: "Roadmap: Từ học viên đến Trader độc lập",
       thumbnail_url: "/thumbnails/lessons/coach-15.jpg",
-      video_url: "https://video.rova.vn/coaching/15-roadmap.mp4",
+      video_url: "I3R99QMGKyiSbjrdkyEvETe5uIteq01jwbvRea8sRANU",
       materials: [
         { name: "Roadmap PDF", url: "/files/coach-15-roadmap.pdf", type: "pdf" },
       ],
