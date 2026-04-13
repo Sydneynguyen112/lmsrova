@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const navLinks = [
   { href: "/", label: "Trang chủ" },
@@ -17,7 +18,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-gold-shadow/30 bg-gold-black/80 backdrop-blur-xl">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
@@ -39,6 +40,7 @@ export function Navbar() {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
+          <ThemeToggle />
           <Link href="/sign-in">
             <Button variant="ghost" className="text-foreground/70 hover:text-gold hover:bg-gold/5">
               Đăng nhập
@@ -67,7 +69,7 @@ export function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-gold-shadow/30 bg-gold-black/95 backdrop-blur-xl overflow-hidden"
+            className="md:hidden border-t border-border bg-background/95 backdrop-blur-xl overflow-hidden"
           >
             <div className="px-4 py-4 space-y-1">
               {navLinks.map((link) => (
@@ -80,7 +82,7 @@ export function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              <div className="pt-4 border-t border-gold-shadow/30 space-y-2">
+              <div className="pt-4 border-t border-border space-y-2">
                 <Link href="/sign-in" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" className="w-full justify-center text-foreground/70 hover:text-gold">
                     Đăng nhập

@@ -36,10 +36,10 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 
 const classificationStyles: Record<string, string> = {
-  newbie: "bg-gray-500/20 text-gray-300 border-gray-500/30",
-  beginner: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  intermediate: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  advanced: "bg-green-500/20 text-green-300 border-green-500/30",
+  newbie: "bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30",
+  beginner: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  intermediate: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  advanced: "bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30",
 };
 
 const classificationLabels: Record<string, string> = {
@@ -50,10 +50,10 @@ const classificationLabels: Record<string, string> = {
 };
 
 const riskStyles: Record<string, string> = {
-  normal: "bg-green-500/20 text-green-300 border-green-500/30",
-  at_risk: "bg-red-500/20 text-red-300 border-red-500/30",
-  watch: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-  churned: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+  normal: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  at_risk: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
+  watch: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
+  churned: "bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/30",
 };
 
 const riskLabels: Record<string, string> = {
@@ -227,12 +227,12 @@ export function StudentDetailView({ studentId }: Props) {
                             variant="outline"
                             className={
                               enrollment.status === "completed"
-                                ? "bg-green-500/20 text-green-300 border-green-500/30"
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
                                 : enrollment.status === "active"
-                                ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                                ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
                                 : enrollment.status === "paused"
-                                ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
-                                : "bg-gray-500/20 text-gray-400 border-gray-500/30"
+                                ? "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30"
+                                : "bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/30"
                             }
                           >
                             {enrollment.status === "completed"
@@ -300,8 +300,8 @@ export function StudentDetailView({ studentId }: Props) {
                             variant="outline"
                             className={
                               isGraded
-                                ? "bg-green-500/20 text-green-300 border-green-500/30"
-                                : "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                : "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30"
                             }
                           >
                             {isGraded ? "Đã chấm" : "Chưa chấm"}
@@ -414,7 +414,7 @@ export function StudentDetailView({ studentId }: Props) {
                     {classificationLabels[survey.classification]}
                   </Badge>
                   {survey.has_any_one && (
-                    <Badge variant="outline" className="bg-red-500/20 text-red-300 border-red-500/30">
+                    <Badge variant="outline" className="bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30">
                       <AlertTriangle className="h-3 w-3 mr-1" />
                       Có điểm 1
                     </Badge>

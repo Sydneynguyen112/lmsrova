@@ -1,13 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, MessageSquare } from "lucide-react";
-import { users, getReviewsByMentor, getAvgRating } from "@/lib/mock-data";
-import { formatDate } from "@/lib/utils";
+import { Star } from "lucide-react";
+import { getReviewsByMentor, getAvgRating, getReviewsPerDay } from "@/lib/mock-data";
 import { useCurrentUser } from "@/lib/auth";
 import { PageTransition } from "@/components/shared/PageTransition";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const container = {
   hidden: { opacity: 0 },
@@ -49,6 +47,8 @@ export default function MentorReviewsPage() {
 
   const reviews = getReviewsByMentor(currentUser.id);
   const avgRating = getAvgRating(currentUser.id);
+  const reviewsPerDay = getReviewsPerDay(currentUser.id, 14);
+  const maxReviewDay = Math.max(...reviewsPerDay.map((d) => d.count), 1);
 
   return (
     <PageTransition>
@@ -70,103 +70,66 @@ export default function MentorReviewsPage() {
       {/* Summary */}
       <motion.div variants={item}>
         <Card className="gold-border-glow">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p className="text-4xl font-bold text-gold">{avgRating}</p>
-                <StarRating rating={Math.round(avgRating)} />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {reviews.length} đánh giá
-                </p>
-              </div>
-              <div className="flex-1 space-y-1">
-                {[5, 4, 3, 2, 1].map((star) => {
-                  const count = reviews.filter(
-                    (r) => r.rating === star
-                  ).length;
-                  const pct =
-                    reviews.length > 0
-                      ? (count / reviews.length) * 100
-                      : 0;
-
-                  return (
-                    <div key={star} className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-3">
-                        {star}
-                      </span>
-                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full bg-yellow-400 rounded-full transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground w-6 text-right">
-                        {count}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+          <CardContent className="py-10">
+            <div className="flex flex-col items-center text-center gap-3">
+              <p className="text-6xl font-bold text-gold">{avgRating}</p>
+              <StarRating rating={Math.round(avgRating)} />
+              <p className="text-muted-foreground">
+                {reviews.length} đánh giá từ học viên
+              </p>
             </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Reviews list */}
-      {reviews.length === 0 ? (
-        <motion.div variants={item}>
-          <Card>
-            <CardContent className="py-12 text-center">
-              <MessageSquare className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-muted-foreground">Chưa có đánh giá nào</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      ) : (
-        <div className="space-y-4">
-          {reviews.map((review) => {
-            const student = users.find((u) => u.id === review.student_id);
-            const initials = student
-              ? student.full_name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(-2)
-              : "??";
+      {/* Reviews per day bar chart */}
+      <motion.div variants={item}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Đánh giá mỗi ngày</CardTitle>
+            <p className="text-sm text-muted-foreground">14 ngày gần nhất</p>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-2" style={{ height: 200 }}>
+              {reviewsPerDay.map((day) => {
+                const hasReview = day.count > 0;
+                const barHeight = hasReview
+                  ? Math.max((day.count / maxReviewDay) * 160, 24)
+                  : 6;
+                const dayLabel = new Date(day.date + "T00:00:00").toLocaleDateString("vi-VN", {
+                  day: "2-digit",
+                  month: "2-digit",
+                });
 
-            return (
-              <motion.div key={review.id} variants={item}>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="flex items-start gap-4">
-                      <Avatar className="h-10 w-10 flex-shrink-0">
-                        <AvatarFallback className="bg-gold/20 text-gold text-sm">
-                          {initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-2">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                          <p className="font-medium text-foreground">
-                            {student?.full_name || "Học viên"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(review.created_at)}
-                          </p>
-                        </div>
-                        <StarRating rating={review.rating} />
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {review.feedback}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
+                return (
+                  <div
+                    key={day.date}
+                    className="flex-1 flex flex-col items-center justify-end h-full"
+                  >
+                    {hasReview && (
+                      <span className="text-xs font-semibold text-foreground mb-1">
+                        {day.count}
+                      </span>
+                    )}
+                    <div
+                      className="w-full max-w-10 rounded-t-md"
+                      style={{
+                        height: barHeight,
+                        backgroundColor: hasReview
+                          ? "var(--primary)"
+                          : "var(--border)",
+                      }}
+                    />
+                    <span className="text-[10px] text-muted-foreground mt-2 leading-none">
+                      {dayLabel}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </motion.div>
     </PageTransition>
   );

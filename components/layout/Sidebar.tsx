@@ -15,10 +15,12 @@ import {
   X,
   ChevronLeft,
   LogOut,
+  Sprout,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser, signOut } from "@/lib/auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import type { Role } from "@/lib/types";
 
 interface NavItem {
@@ -31,6 +33,8 @@ const studentNav: NavItem[] = [
   { href: "/student", label: "Dashboard", icon: LayoutDashboard },
   { href: "/student/courses", label: "Khoá học của tôi", icon: BookOpen },
   { href: "/student/submissions", label: "Bài nộp", icon: FileText },
+  { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
+  { href: "/student/review", label: "Đánh giá Mentor", icon: Star },
   { href: "/student/profile", label: "Hồ sơ", icon: User },
 ];
 
@@ -43,8 +47,10 @@ const mentorNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Quản lý Users", icon: Users },
+  { href: "/admin/students", label: "Quản lý Học viên", icon: Users },
+  { href: "/admin/mentors", label: "Quản lý Mentor", icon: Star },
   { href: "/admin/courses", label: "Quản lý Khoá học", icon: BookOpen },
+  { href: "/admin/blog", label: "Vườn ươm tâm thức", icon: Sprout },
 ];
 
 function getNavItems(pathname: string): { items: NavItem[]; role: string; fallbackRole: Role } {
@@ -76,27 +82,30 @@ export function Sidebar() {
   const NavContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center justify-between px-4 h-16 border-b border-gold-shadow/30">
+      <div className="flex items-center justify-between px-4 h-16 border-b border-sidebar-border">
         {!collapsed && (
           <Link href="/" className="text-xl font-bold gold-gradient-text">
             ROVA
           </Link>
         )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden lg:flex p-1.5 rounded-lg text-muted-foreground hover:text-gold hover:bg-gold/5"
-        >
-          <ChevronLeft
-            size={18}
-            className={cn("transition-transform", collapsed && "rotate-180")}
-          />
-        </button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle className="text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent" />
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden lg:flex p-1.5 rounded-lg text-sidebar-foreground/60 hover:text-gold hover:bg-sidebar-accent"
+          >
+            <ChevronLeft
+              size={18}
+              className={cn("transition-transform", collapsed && "rotate-180")}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Role badge */}
       {!collapsed && (
         <div className="px-4 py-3">
-          <span className="text-xs font-medium text-gold bg-gold/10 px-2.5 py-1 rounded-full">
+          <span className="text-xs font-medium text-gold bg-gold/15 px-2.5 py-1 rounded-full">
             {role}
           </span>
         </div>
@@ -118,8 +127,8 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                 isActive
-                  ? "bg-gold/10 text-gold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-gold/5"
+                  ? "bg-sidebar-accent text-gold"
+                  : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
               )}
             >
               <item.icon size={18} className={isActive ? "text-gold" : ""} />
@@ -130,19 +139,19 @@ export function Sidebar() {
       </nav>
 
       {/* Bottom: user info + logout */}
-      <div className="px-3 py-4 border-t border-gold-shadow/30 space-y-2">
+      <div className="px-3 py-4 border-t border-sidebar-border space-y-2">
         {currentUser && !collapsed && (
-          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gold/5">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-sidebar-accent">
             <Avatar className="w-8 h-8 border border-gold/30 shrink-0">
-              <AvatarFallback className="bg-gold/10 text-gold text-xs font-semibold">
+              <AvatarFallback className="bg-gold/15 text-gold text-xs font-semibold">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-foreground truncate">
+              <div className="text-sm font-medium text-sidebar-foreground truncate">
                 {currentUser.full_name}
               </div>
-              <div className="text-xs text-muted-foreground truncate">
+              <div className="text-xs text-sidebar-foreground/50 truncate">
                 {currentUser.email}
               </div>
             </div>
@@ -150,14 +159,14 @@ export function Sidebar() {
         )}
         {currentUser && collapsed && (
           <Avatar className="w-8 h-8 mx-auto border border-gold/30">
-            <AvatarFallback className="bg-gold/10 text-gold text-xs font-semibold">
+            <AvatarFallback className="bg-gold/15 text-gold text-xs font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>
         )}
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-gold/5 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all"
         >
           <LogOut size={18} />
           {!collapsed && <span>Đăng xuất</span>}
@@ -171,7 +180,7 @@ export function Sidebar() {
       {/* Mobile toggle */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-gold-shadow/30 text-foreground"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-border text-foreground"
       >
         <Menu size={20} />
       </button>
@@ -192,11 +201,11 @@ export function Sidebar() {
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="lg:hidden fixed top-0 left-0 bottom-0 z-50 w-[260px] bg-card border-r border-gold-shadow/30"
+              className="lg:hidden fixed top-0 left-0 bottom-0 z-50 w-[260px] bg-sidebar border-r border-sidebar-border"
             >
               <button
                 onClick={() => setMobileOpen(false)}
-                className="absolute top-4 right-4 p-1 text-muted-foreground hover:text-foreground"
+                className="absolute top-4 right-4 p-1 text-sidebar-foreground/60 hover:text-sidebar-foreground"
               >
                 <X size={18} />
               </button>
@@ -209,7 +218,7 @@ export function Sidebar() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col fixed top-0 left-0 bottom-0 bg-card border-r border-gold-shadow/30 transition-all duration-300 z-30",
+          "hidden lg:flex flex-col fixed top-0 left-0 bottom-0 bg-sidebar border-r border-sidebar-border transition-all duration-300 z-30",
           collapsed ? "w-[68px]" : "w-[260px]"
         )}
       >

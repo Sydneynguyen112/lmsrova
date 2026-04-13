@@ -154,22 +154,22 @@ function classifyScore(totalScore: number, hasAnyOne: boolean): string {
 const classificationInfo: Record<string, { label: string; color: string; description: string }> = {
   newbie: {
     label: "Newbie",
-    color: "text-gray-300",
+    color: "text-gray-700 dark:text-gray-300",
     description: "Bạn mới bắt đầu hành trình Trading. ROVA sẽ hướng dẫn bạn từng bước từ cơ bản nhất!",
   },
   beginner: {
     label: "Beginner",
-    color: "text-blue-300",
+    color: "text-blue-700 dark:text-blue-300",
     description: "Bạn đã có nền tảng ban đầu. Hãy cùng ROVA xây dựng phương pháp giao dịch vững chắc!",
   },
   intermediate: {
     label: "Intermediate",
-    color: "text-amber-300",
+    color: "text-amber-700 dark:text-amber-300",
     description: "Bạn có kiến thức khá tốt. ROVA sẽ giúp bạn tối ưu chiến lược và quản lý rủi ro!",
   },
   advanced: {
     label: "Advanced",
-    color: "text-green-300",
+    color: "text-green-700 dark:text-green-300",
     description: "Bạn là trader có kinh nghiệm. ROVA sẽ đồng hành nâng cấp hệ thống giao dịch của bạn!",
   },
 };

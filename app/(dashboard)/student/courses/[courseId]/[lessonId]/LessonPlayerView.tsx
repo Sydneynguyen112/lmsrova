@@ -30,6 +30,7 @@ import { useCurrentUser } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { VideoPlayer, VideoPlaceholder } from "@/components/shared/VideoPlayer";
 
 type TabKey = "materials" | "quiz" | "assignment";
 
@@ -110,22 +111,15 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          {/* Video Placeholder */}
-          <div className="relative aspect-video w-full rounded-xl bg-gradient-to-br from-gold-dark/20 to-card border border-gold-shadow/30 flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gold/20 gold-border-glow">
-                <Play className="h-8 w-8 text-gold ml-1" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  {lesson.title}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {formatDuration(lesson.duration_sec)}
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* Video Player */}
+          {lesson.video_url ? (
+            <VideoPlayer
+              playbackId={lesson.video_url}
+              title={lesson.title}
+            />
+          ) : (
+            <VideoPlaceholder title={lesson.title} />
+          )}
 
           {/* Tabs */}
           <div className="flex gap-1 border-b border-gold-shadow/30">
@@ -261,8 +255,8 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                       className={cn(
                         "rounded-lg p-4 text-sm font-medium",
                         getQuizScore() >= quiz.pass_score
-                          ? "bg-green-500/10 text-green-400"
-                          : "bg-red-500/10 text-red-400"
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          : "bg-red-500/10 text-red-700 dark:text-red-400"
                       )}
                     >
                       Kết quả: {getQuizScore()}% —{" "}
@@ -327,7 +321,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                       </Button>
                     </>
                   ) : (
-                    <div className="rounded-lg bg-green-500/10 p-4 text-sm text-green-400 flex items-center gap-2">
+                    <div className="rounded-lg bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
                       <CheckCircle2 className="h-4 w-4" />
                       Bài tập đã được nộp. Mentor sẽ chấm sớm!
                     </div>

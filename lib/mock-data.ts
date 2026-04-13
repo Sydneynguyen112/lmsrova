@@ -305,6 +305,78 @@ export const users = [
       feedback: "Mentoring chiến lược rất hay, giúp mình tối ưu hệ thống trading đang có.",
       created_at: "2026-03-30T19:00:00Z",
     },
+    {
+      id: "mr-005",
+      mentor_id: "u-mentor-001",
+      student_id: "u-student-003",
+      rating: 5,
+      feedback: "Giải thích Price Action rõ ràng, dễ áp dụng ngay.",
+      created_at: "2026-04-05T10:00:00Z",
+    },
+    {
+      id: "mr-011",
+      mentor_id: "u-mentor-001",
+      student_id: "u-student-007",
+      rating: 5,
+      feedback: "Buổi chiều hôm nay rất bổ ích, cảm ơn anh!",
+      created_at: "2026-04-05T17:00:00Z",
+    },
+    {
+      id: "mr-006",
+      mentor_id: "u-mentor-001",
+      student_id: "u-student-007",
+      rating: 4,
+      feedback: "Nội dung bài review rất chi tiết, mình học được nhiều.",
+      created_at: "2026-04-07T14:00:00Z",
+    },
+    {
+      id: "mr-007",
+      mentor_id: "u-mentor-001",
+      student_id: "u-student-001",
+      rating: 5,
+      feedback: "Mentor giải đáp thắc mắc rất nhanh, support tận tâm.",
+      created_at: "2026-04-10T09:00:00Z",
+    },
+    {
+      id: "mr-008",
+      mentor_id: "u-mentor-001",
+      student_id: "u-student-002",
+      rating: 5,
+      feedback: "Buổi 1-on-1 rất bổ ích, cảm ơn anh Thành!",
+      created_at: "2026-04-12T16:00:00Z",
+    },
+    {
+      id: "mr-012",
+      mentor_id: "u-mentor-001",
+      student_id: "u-student-003",
+      rating: 4,
+      feedback: "Review bài chi tiết, giúp mình hiểu rõ lỗi sai.",
+      created_at: "2026-04-12T10:00:00Z",
+    },
+    {
+      id: "mr-013",
+      mentor_id: "u-mentor-001",
+      student_id: "u-student-001",
+      rating: 5,
+      feedback: "Anh Thành support cả ngày, quá tuyệt vời!",
+      created_at: "2026-04-12T21:00:00Z",
+    },
+    {
+      id: "mr-009",
+      mentor_id: "u-mentor-002",
+      student_id: "u-student-006",
+      rating: 4,
+      feedback: "Chị Linh hướng dẫn tỉ mỉ, thích cách phân tích chart.",
+      created_at: "2026-04-08T11:00:00Z",
+    },
+    {
+      id: "mr-010",
+      mentor_id: "u-mentor-002",
+      student_id: "u-student-004",
+      rating: 5,
+      feedback: "Support nhanh, bài chấm kỹ, rất hài lòng!",
+      created_at: "2026-04-11T20:00:00Z",
+    },
   ];
   
   // ─── COURSES (6 cột) ───
@@ -797,44 +869,61 @@ export const users = [
   // ─── ASSIGNMENTS (5 cột) ───
   export const assignments = [
     {
-      id: "a-pro-03",
-      lesson_id: "l-pro-03",
-      title: "Bài tập: Vẽ Trendline trên chart thực tế",
-      description:
-        "Mở TradingView, chọn cặp EUR/USD khung H4. Vẽ ít nhất 2 trendline (1 tăng, 1 giảm). Chụp ảnh chart đã vẽ và nộp lên. Ghi chú lý do tại sao bạn chọn các điểm đó.",
+      id: "a-pro-nen",
+      course_id: "c-pro",
+      order_index: 1,
+      title: "Bài tập: Nến chủ",
+      description: "Phân tích nến chủ (Master Candle) trên chart thực tế. Tìm ít nhất 3 nến chủ trên cặp EUR/USD hoặc XAU/USD khung H4 hoặc D1. Chụp chart, khoanh vùng nến chủ và ghi chú giải thích tại sao đó là nến chủ.",
+      instructions: "**Yêu cầu:**\n1. Mở TradingView, chọn cặp EUR/USD hoặc XAU/USD khung H4/D1\n2. Tìm ít nhất 3 nến chủ (nến có thân lớn, ít bấc)\n3. Chụp screenshot chart, khoanh vùng nến chủ\n4. Ghi chú: vì sao bạn chọn nến đó? Nến đó thể hiện điều gì?\n\n**Tiêu chí chấm:**\n- Xác định đúng nến chủ (50%)\n- Giải thích logic rõ ràng (30%)\n- Trình bày sạch sẽ (20%)",
       materials: [
-        { name: "Hướng dẫn: Cách vẽ trendline chuẩn", url: "/files/a-pro-03-guide.pdf", type: "pdf" },
-        { name: "Ảnh mẫu tham khảo", url: "/files/a-pro-03-sample.jpg", type: "image" },
+        { name: "Cheatsheet: Nhận diện nến chủ", url: "/files/a-nen-chu-guide.pdf", type: "pdf" },
+        { name: "Ảnh mẫu tham khảo", url: "/files/a-nen-chu-sample.jpg", type: "image" },
       ],
     },
     {
-      id: "a-pro-04",
-      lesson_id: "l-pro-04",
-      title: "Bài tập: Xác định vùng S/R",
-      description:
-        "Chọn cặp GBP/USD khung D1. Đánh dấu ít nhất 3 vùng Support và 3 vùng Resistance quan trọng. Chụp chart và giải thích ngắn tại sao đó là vùng S/R.",
+      id: "a-pro-cautruc",
+      course_id: "c-pro",
+      order_index: 2,
+      title: "Bài tập: Cấu trúc",
+      description: "Xác định cấu trúc thị trường (Market Structure) — tìm Higher High, Higher Low, Lower High, Lower Low trên chart thực tế.",
+      instructions: "**Yêu cầu:**\n1. Chọn cặp GBP/USD hoặc USD/JPY khung H1/H4\n2. Đánh dấu ít nhất 5 điểm HH, HL (uptrend) hoặc LH, LL (downtrend)\n3. Vẽ đường nối các swing points\n4. Xác định: thị trường đang uptrend, downtrend hay sideway?\n5. Chụp chart và ghi chú giải thích\n\n**Tiêu chí chấm:**\n- Xác định đúng swing points (40%)\n- Phân loại đúng trend (30%)\n- Ghi chú chi tiết (30%)",
       materials: [
-        { name: "Hướng dẫn xác định S/R", url: "/files/a-pro-04-guide.pdf", type: "pdf" },
+        { name: "Hướng dẫn: Market Structure", url: "/files/a-cautruc-guide.pdf", type: "pdf" },
       ],
     },
     {
-      id: "a-pro-07",
-      lesson_id: "l-pro-07",
-      title: "Bài tập: Áp dụng Công thức 1",
-      description:
-        "Tìm 1 setup giao dịch theo Công thức 1 trên bất kỳ cặp tiền nào, khung H1 hoặc H4. Chụp chart với đầy đủ: entry, stoploss, take profit. Ghi lý do vào lệnh.",
+      id: "a-pro-ct1",
+      course_id: "c-pro",
+      order_index: 3,
+      title: "Bài tập: Công thức 1 (CT1)",
+      description: "Áp dụng Công thức 1 — tìm setup giao dịch theo CT1 trên chart thực tế với entry, stoploss và take profit.",
+      instructions: "**Yêu cầu:**\n1. Tìm 1 setup giao dịch theo Công thức 1 trên bất kỳ cặp tiền, khung H1 hoặc H4\n2. Đánh dấu rõ ràng: Entry, Stop Loss, Take Profit\n3. Tính R:R (Risk/Reward ratio)\n4. Ghi chú: lý do vào lệnh, điều kiện nào được thoả mãn\n\n**Tiêu chí chấm:**\n- Setup đúng theo CT1 (40%)\n- Entry/SL/TP hợp lý (30%)\n- R:R >= 1:2 (15%)\n- Ghi chú rõ ràng (15%)",
       materials: [
-        { name: "Template: Trading Setup", url: "/files/a-pro-07-template.jpg", type: "image" },
+        { name: "Template: Trading Setup CT1", url: "/files/a-ct1-template.jpg", type: "image" },
+        { name: "Checklist CT1", url: "/files/a-ct1-checklist.pdf", type: "pdf" },
       ],
     },
     {
-      id: "a-pro-11",
-      lesson_id: "l-pro-11",
-      title: "Bài tập: Viết Trading Plan",
-      description:
-        "Sử dụng template được cung cấp, viết Trading Plan cá nhân của bạn. Bao gồm: cặp tiền giao dịch, khung thời gian, điều kiện entry/exit, quản lý vốn, và quy tắc tâm lý.",
+      id: "a-pro-ct2",
+      course_id: "c-pro",
+      order_index: 4,
+      title: "Bài tập: Công thức 2 (CT2)",
+      description: "Áp dụng Công thức 2 — tìm setup giao dịch theo CT2, phân tích đa khung thời gian (multi-timeframe).",
+      instructions: "**Yêu cầu:**\n1. Phân tích trend trên khung D1 trước\n2. Tìm setup CT2 trên khung H4 hoặc H1 theo hướng trend D1\n3. Chụp ít nhất 2 chart: khung lớn (D1) và khung nhỏ (H4/H1)\n4. Đánh dấu Entry, SL, TP trên khung nhỏ\n5. Ghi chú phân tích đa khung\n\n**Tiêu chí chấm:**\n- Phân tích đúng trend khung lớn (25%)\n- Setup CT2 đúng trên khung nhỏ (35%)\n- Multi-timeframe confluence (25%)\n- Ghi chú (15%)",
       materials: [
-        { name: "Template: Trading Plan", url: "/files/pro-11-template.pdf", type: "pdf" },
+        { name: "Template: Multi-TF Analysis", url: "/files/a-ct2-template.pdf", type: "pdf" },
+      ],
+    },
+    {
+      id: "a-pro-ct3",
+      course_id: "c-pro",
+      order_index: 5,
+      title: "Bài tập: Công thức 3 (CT3)",
+      description: "Áp dụng Công thức 3 — setup nâng cao kết hợp Supply/Demand và cấu trúc thị trường.",
+      instructions: "**Yêu cầu:**\n1. Xác định vùng Supply hoặc Demand trên khung H4/D1\n2. Chờ giá quay về vùng S/D + xác nhận bằng cấu trúc (BOS/ChoCh)\n3. Xác định Entry tại vùng S/D, SL sau vùng, TP tại đỉnh/đáy trước đó\n4. Chụp chart đầy đủ và ghi chú chi tiết\n\n**Tiêu chí chấm:**\n- Xác định đúng vùng S/D (25%)\n- Nhận diện BOS/ChoCh (25%)\n- Entry/SL/TP logic (30%)\n- Trình bày và ghi chú (20%)",
+      materials: [
+        { name: "Hướng dẫn CT3", url: "/files/a-ct3-guide.pdf", type: "pdf" },
+        { name: "Ảnh mẫu CT3", url: "/files/a-ct3-sample.jpg", type: "image" },
       ],
     },
   ];
@@ -995,10 +1084,10 @@ export const users = [
   
   // ─── SUBMISSIONS (8 cột) ───
   export const submissions = [
-    // Student 1 — nộp bài trendline
+    // Student 1 — nộp bài Nến chủ (đã chấm)
     {
       id: "s-001",
-      assignment_id: "a-pro-03",
+      assignment_id: "a-pro-nen",
       user_id: "u-student-001",
       image_urls: ["/uploads/s-001-chart1.jpg", "/uploads/s-001-chart2.jpg"],
       metadata: {
@@ -1007,62 +1096,62 @@ export const users = [
         date: "2026-03-19",
         formula: null,
         direction: null,
-        note: "Em vẽ 2 trendline tăng và 1 trendline giảm. Trendline tăng nối 2 đáy ngày 10 và 15/3.",
+        note: "Em tìm được 3 nến chủ trên EUR/USD H4. Nến 1 là bullish engulfing, nến 2 và 3 là bearish marubozu.",
       },
       annotated_image_urls: ["/uploads/s-001-annotated1.jpg"],
-      mentor_feedback: "Trendline tăng vẽ đúng. Trendline giảm cần điều chỉnh — nối sai đỉnh, xem lại phút 8:30 trong video.",
+      mentor_feedback: "Nến 1 và 2 xác định đúng. Nến 3 bấc hơi dài, chưa phải marubozu — xem lại tiêu chí nến chủ trong video.",
       graded_at: "2026-03-19T14:00:00Z",
       submitted_at: "2026-03-19T09:00:00Z",
     },
-    // Student 1 — nộp bài trendline lần 2 (sau khi sửa)
+    // Student 1 — nộp bài Cấu trúc (chờ chấm)
     {
       id: "s-002",
-      assignment_id: "a-pro-03",
+      assignment_id: "a-pro-cautruc",
       user_id: "u-student-001",
       image_urls: ["/uploads/s-002-chart1.jpg"],
       metadata: {
-        pair: "EUR/USD",
-        timeframe: "H4",
-        date: "2026-03-20",
-        formula: null,
-        direction: null,
-        note: "Em đã sửa lại trendline giảm theo feedback của mentor.",
-      },
-      annotated_image_urls: null,
-      mentor_feedback: "Chuẩn rồi! Trendline giảm đã đúng. Tiếp tục bài S/R nhé.",
-      graded_at: "2026-03-20T15:30:00Z",
-      submitted_at: "2026-03-20T08:00:00Z",
-    },
-    // Student 2 — nộp bài S/R, chưa được chấm
-    {
-      id: "s-003",
-      assignment_id: "a-pro-04",
-      user_id: "u-student-002",
-      image_urls: ["/uploads/s-003-chart1.jpg", "/uploads/s-003-chart2.jpg", "/uploads/s-003-chart3.jpg"],
-      metadata: {
         pair: "GBP/USD",
-        timeframe: "D1",
-        date: "2026-04-02",
+        timeframe: "H4",
+        date: "2026-04-08",
         formula: null,
         direction: null,
-        note: "Em đánh dấu 3 vùng Support và 3 vùng Resistance trên khung D1.",
+        note: "Em đánh dấu HH, HL trên uptrend GBP/USD H4. Xác định BOS tại điểm giá break qua HH trước đó.",
       },
       annotated_image_urls: null,
       mentor_feedback: null,
       graded_at: null,
+      submitted_at: "2026-04-08T08:00:00Z",
+    },
+    // Student 2 — nộp bài Cấu trúc (đã chấm)
+    {
+      id: "s-003",
+      assignment_id: "a-pro-cautruc",
+      user_id: "u-student-002",
+      image_urls: ["/uploads/s-003-chart1.jpg", "/uploads/s-003-chart2.jpg"],
+      metadata: {
+        pair: "USD/JPY",
+        timeframe: "H1",
+        date: "2026-04-02",
+        formula: null,
+        direction: null,
+        note: "Em xác định downtrend với LH, LL liên tục trên USD/JPY H1.",
+      },
+      annotated_image_urls: ["/uploads/s-003-annotated1.jpg"],
+      mentor_feedback: "Phân tích cấu trúc rất tốt! Đánh dấu swing points chính xác. Tiếp tục qua bài CT1 nhé.",
+      graded_at: "2026-04-03T10:00:00Z",
       submitted_at: "2026-04-02T21:00:00Z",
     },
-    // Student 4 — nộp bài Công thức 1
+    // Student 4 — nộp bài CT1 (đã chấm)
     {
       id: "s-004",
-      assignment_id: "a-pro-07",
+      assignment_id: "a-pro-ct1",
       user_id: "u-student-004",
       image_urls: ["/uploads/s-004-chart1.jpg"],
       metadata: {
         pair: "XAU/USD",
         timeframe: "H1",
         date: "2026-03-22",
-        formula: "Công thức 1",
+        formula: "CT1",
         direction: "long",
         note: "Entry tại vùng demand H1, SL dưới swing low, TP tại resistance gần nhất. R:R = 1:2.5",
       },
@@ -1149,6 +1238,94 @@ export const users = [
     },
   ];
   
+  // ─── BLOG POSTS (Vườn ươm tâm thức) ───
+  export const blogPosts = [
+    {
+      id: "bp-001",
+      title: "Tâm lý giao dịch: Làm sao để không FOMO?",
+      type: "article" as const,
+      summary: "FOMO là kẻ thù lớn nhất của trader. Bài viết chia sẻ 5 cách kiểm soát cảm xúc khi thị trường biến động mạnh.",
+      content: "FOMO (Fear Of Missing Out) là tâm lý phổ biến mà hầu hết trader đều trải qua...\n\n**1. Luôn có Trading Plan trước khi vào lệnh**\nKhông bao giờ vào lệnh khi chưa xác định Entry, Stop Loss và Take Profit.\n\n**2. Chấp nhận bỏ lỡ cơ hội**\nThị trường luôn có cơ hội mới.\n\n**3. Ghi nhật ký giao dịch**\nViết lại cảm xúc khi giao dịch giúp bạn nhận ra pattern hành vi.\n\n**4. Giới hạn số lệnh mỗi ngày**\nTối đa 2-3 lệnh/ngày để tránh overtrade.\n\n**5. Tập thiền và quản lý stress**\n10 phút thiền mỗi sáng giúp tâm trí tĩnh lặng hơn.",
+      cover_url: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=600&h=400&fit=crop",
+      author_id: "u-admin-001",
+      published: true,
+      likes: 24,
+      created_at: "2026-04-10T08:00:00Z",
+    },
+    {
+      id: "bp-002",
+      title: "Podcast: Hành trình từ thua lỗ đến lợi nhuận ổn định",
+      type: "podcast" as const,
+      summary: "Anh Thành chia sẻ câu chuyện 2 năm đầu thua lỗ và cách xây dựng hệ thống giao dịch có lợi nhuận.",
+      content: "Mentor Trương Văn Tiến chia sẻ hành trình trading — từ cháy tài khoản đến tìm ra phương pháp phù hợp.\n\n- Đừng cố tìm 'Holy Grail'\n- Risk management quan trọng hơn win rate\n- Kiên nhẫn là kỹ năng khó nhất\n- Cộng đồng trading giúp bạn đi xa hơn",
+      cover_url: "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=600&h=400&fit=crop",
+      author_id: "u-admin-001",
+      published: true,
+      likes: 18,
+      created_at: "2026-04-07T10:00:00Z",
+    },
+    {
+      id: "bp-003",
+      title: "5 Cuốn sách mọi Trader nên đọc",
+      type: "article" as const,
+      summary: "Tổng hợp 5 cuốn sách kinh điển về trading và tâm lý thị trường.",
+      content: "**1. Trading in the Zone — Mark Douglas**\nMindset quan trọng hơn strategy.\n\n**2. Market Wizards — Jack D. Schwager**\nPhỏng vấn trader huyền thoại.\n\n**3. The Disciplined Trader — Mark Douglas**\nCách xây dựng kỷ luật trading.\n\n**4. Reminiscences of a Stock Operator — Edwin Lefèvre**\nBài học về tham lam và sợ hãi.\n\n**5. Japanese Candlestick Charting Techniques — Steve Nison**\nNền tảng nến Nhật.",
+      cover_url: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600&h=400&fit=crop",
+      author_id: "u-admin-001",
+      published: true,
+      likes: 31,
+      created_at: "2026-04-03T14:00:00Z",
+    },
+    {
+      id: "bp-004",
+      title: "Kỷ luật là tự do: Xây dựng routine cho Trader",
+      type: "article" as const,
+      summary: "Routine buổi sáng và buổi tối giúp trader duy trì kỷ luật và cải thiện hiệu suất.",
+      content: "Kỷ luật chính là con đường dẫn đến tự do tài chính...\n\n**Routine buổi sáng:**\n- 6:00 — Thiền 10 phút\n- 6:15 — Review Trading Journal\n- 6:30 — Phân tích chart\n- 7:00 — Viết Trading Plan\n\n**Routine buổi tối:**\n- 20:00 — Đóng positions\n- 20:15 — Ghi nhật ký\n- 20:30 — Đọc sách 30 phút\n- 21:00 — Nghỉ ngơi",
+      cover_url: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600&h=400&fit=crop",
+      author_id: "u-admin-001",
+      published: true,
+      likes: 15,
+      created_at: "2026-03-28T09:00:00Z",
+    },
+    {
+      id: "bp-005",
+      title: "Podcast: Q&A — Học viên hỏi, Mentor trả lời",
+      type: "podcast" as const,
+      summary: "Tổng hợp câu hỏi hay nhất từ học viên ROVA tháng 3.",
+      content: "**Q: Nên bắt đầu với bao nhiêu vốn?**\nA: Số tiền bạn sẵn sàng mất 100%.\n\n**Q: Timeframe nào phù hợp?**\nA: H4 và D1.\n\n**Q: Bao lâu thì có lợi nhuận ổn định?**\nA: 1-2 năm nếu học nghiêm túc.",
+      cover_url: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=600&h=400&fit=crop",
+      author_id: "u-admin-001",
+      published: true,
+      likes: 12,
+      created_at: "2026-03-20T16:00:00Z",
+    },
+    {
+      id: "bp-006",
+      title: "Quản lý vốn: Quy tắc 1% mà mọi Trader cần biết",
+      type: "article" as const,
+      summary: "Nguyên tắc quản lý rủi ro đơn giản nhưng cực kỳ hiệu quả.",
+      content: "",
+      cover_url: "https://images.unsplash.com/photo-1553729459-uj8ax39p2pg?w=600&h=400&fit=crop",
+      author_id: "u-admin-001",
+      published: false,
+      likes: 0,
+      created_at: "2026-04-13T11:00:00Z",
+    },
+  ];
+
+  export const blogComments = [
+    { id: "bc-001", post_id: "bp-001", user_id: "u-student-001", content: "Bài viết rất hữu ích! Mình bị FOMO hoài, giờ sẽ áp dụng.", created_at: "2026-04-10T12:00:00Z" },
+    { id: "bc-002", post_id: "bp-001", user_id: "u-student-002", content: "Cảm ơn ROVA, phần nhật ký giao dịch mình thấy hiệu quả nhất.", created_at: "2026-04-10T15:00:00Z" },
+    { id: "bc-003", post_id: "bp-001", user_id: "u-student-004", content: "Mình đã thiền 1 tuần rồi, thấy bình tĩnh hơn nhiều khi vào lệnh.", created_at: "2026-04-11T09:00:00Z" },
+    { id: "bc-004", post_id: "bp-002", user_id: "u-student-003", content: "Câu chuyện anh Thành truyền cảm hứng quá! Mình cũng đang trong giai đoạn thua lỗ.", created_at: "2026-04-07T16:00:00Z" },
+    { id: "bc-005", post_id: "bp-002", user_id: "u-student-001", content: "Nghe podcast xong thấy có động lực hơn rất nhiều.", created_at: "2026-04-08T08:00:00Z" },
+    { id: "bc-006", post_id: "bp-003", user_id: "u-student-005", content: "Trading in the Zone thay đổi cách mình nhìn thị trường luôn.", created_at: "2026-04-04T10:00:00Z" },
+    { id: "bc-007", post_id: "bp-003", user_id: "u-student-002", content: "Mình đang đọc Market Wizards, hay cực!", created_at: "2026-04-05T14:00:00Z" },
+    { id: "bc-008", post_id: "bp-004", user_id: "u-student-006", content: "Routine buổi sáng quá hay, mình sẽ thử áp dụng từ tuần sau.", created_at: "2026-03-29T11:00:00Z" },
+    { id: "bc-009", post_id: "bp-005", user_id: "u-student-007", content: "Phần timeframe rất hữu ích cho newbie như mình.", created_at: "2026-03-21T09:00:00Z" },
+  ];
+
   // ============================================
   // HELPER: Lấy dữ liệu nhanh
   // ============================================
@@ -1176,7 +1353,10 @@ export const users = [
     quizzes.find((q) => q.lesson_id === lessonId);
   
   export const getAssignmentByLesson = (lessonId: string) =>
-    assignments.find((a) => a.lesson_id === lessonId);
+    assignments.find((a) => (a as any).lesson_id === lessonId);
+
+  export const getAssignmentsByCourse = (courseId: string) =>
+    assignments.filter((a) => a.course_id === courseId).sort((a, b) => a.order_index - b.order_index);
   
   export const getEnrollmentsByUser = (userId: string) =>
     enrollments.filter((e) => e.user_id === userId);
@@ -1202,5 +1382,38 @@ export const users = [
     return Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) * 10) / 10;
   };
 
+  export const getReviewsPerDay = (mentorId: string, days: number = 14) => {
+    const reviews = getReviewsByMentor(mentorId);
+    const result: { date: string; count: number }[] = [];
+    const now = new Date("2026-04-13T00:00:00Z");
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      const count = reviews.filter((r) => r.created_at.slice(0, 10) === dateStr).length;
+      result.push({ date: dateStr, count });
+    }
+    return result;
+  };
+
+  export const getTodayReviewCount = (mentorId: string) => {
+    const reviews = getReviewsByMentor(mentorId);
+    const today = "2026-04-13";
+    return reviews.filter((r) => r.created_at.slice(0, 10) === today).length;
+  };
+
   export const getOnboardingSurveyByUser = (userId: string) =>
     onboardingSurveys.find((s) => s.user_id === userId);
+
+  export const getPublishedPosts = () =>
+    blogPosts
+      .filter((p) => p.published)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  export const getAllPosts = () =>
+    [...blogPosts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  export const getCommentsByPost = (postId: string) =>
+    blogComments
+      .filter((c) => c.post_id === postId)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());

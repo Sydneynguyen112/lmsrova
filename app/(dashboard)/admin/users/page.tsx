@@ -2,7 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { users } from "@/lib/mock-data";
+import {
+  users,
+  getEnrollmentsByUser,
+} from "@/lib/mock-data";
 import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
 import {
   Card,
@@ -23,6 +26,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/shared/EmptyState";
 
 type RoleFilter = "all" | "student" | "mentor" | "admin";
@@ -150,6 +154,7 @@ export default function AdminUsersPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Classification</TableHead>
+                    <TableHead>Tiến độ</TableHead>
                     <TableHead>Risk</TableHead>
                     <TableHead>Hoạt động gần nhất</TableHead>
                     <TableHead className="text-right">Ngày tạo</TableHead>
@@ -159,7 +164,7 @@ export default function AdminUsersPage() {
                   {filteredUsers.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center py-8"
                       >
                         <EmptyState variant="search" description="Thử tìm kiếm với từ khoá khác" />
@@ -203,6 +208,21 @@ export default function AdminUsersPage() {
                             {user.classification ?? "—"}
                           </TableCell>
                           <TableCell>
+                            {user.role === "student" ? (() => {
+                              const enrollments = getEnrollmentsByUser(user.id);
+                              const active = enrollments.find((e) => e.status === "active");
+                              const pct = active ? active.progress_pct : 0;
+                              return (
+                                <div className="flex items-center gap-2 min-w-[100px]">
+                                  <Progress value={pct} className="flex-1" />
+                                  <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                                </div>
+                              );
+                            })() : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
                             {riskInfo ? (
                               <Badge variant={riskInfo.variant}>
                                 {riskInfo.label}
@@ -229,6 +249,7 @@ export default function AdminUsersPage() {
           </CardContent>
         </Card>
       </motion.div>
+
     </div>
   );
 }

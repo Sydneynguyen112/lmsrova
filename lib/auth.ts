@@ -1,16 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { users } from "@/lib/mock-data";
-import type { User, Role } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
 
 const STORAGE_KEY = "rova_current_user_id";
 
-// Default fallback user IDs per role — used when nothing in localStorage (dev convenience)
-const DEFAULT_USER_BY_ROLE: Record<Role, string> = {
-  admin: "u-admin-001",
-  mentor: "u-mentor-001",
-  student: "u-student-001",
+export interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  role: "admin" | "mentor" | "student";
+  mentor_id: string | null;
+  avatar_url: string | null;
+  classification: string | null;
+  risk_tag: string | null;
+  discord_handle: string | null;
+  last_active_date: string;
+  created_at: string;
+}
+
+// Default emails per role for dev fallback
+const DEFAULT_EMAIL_BY_ROLE: Record<string, string> = {
+  admin: "admin@rova.vn",
+  mentor: "tien@rova.vn",
+  student: "huy@gmail.com",
 };
 
 export function signIn(userId: string) {
@@ -29,32 +43,54 @@ export function getStoredUserId(): string | null {
 }
 
 /**
- * Hook to get the currently logged-in user.
- *
- * @param fallbackRole - If no user is in localStorage, returns the default user for this role.
- *                      Pass the role of the dashboard the page belongs to.
- *                      Set to null to require explicit login (returns null if not logged in).
+ * Hook to get the currently logged-in user from Supabase.
+ * Falls back to default user per role for dev convenience.
  */
-export function useCurrentUser(fallbackRole: Role | null = null): User | null {
-  const [user, setUser] = useState<User | null>(() => {
-    // SSR-safe: initial state is null, real value loaded in effect
-    return null;
-  });
+export function useCurrentUser(fallbackRole: string | null = null): Profile | null {
+  const [user, setUser] = useState<Profile | null>(null);
 
   useEffect(() => {
-    const storedId = getStoredUserId();
-    let resolved: User | undefined;
+    let cancelled = false;
 
-    if (storedId) {
-      resolved = users.find((u) => u.id === storedId) as User | undefined;
+    async function load() {
+      const storedId = getStoredUserId();
+
+      // Try stored ID first
+      if (storedId) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", storedId)
+          .single();
+        if (!cancelled && data) {
+          setUser(data as Profile);
+          return;
+        }
+      }
+
+      // Fallback: load by default email for role
+      if (fallbackRole) {
+        const email = DEFAULT_EMAIL_BY_ROLE[fallbackRole];
+        if (email) {
+          const { data } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("email", email)
+            .single();
+          if (!cancelled && data) {
+            // Also store in localStorage for consistency
+            localStorage.setItem(STORAGE_KEY, data.id);
+            setUser(data as Profile);
+            return;
+          }
+        }
+      }
+
+      if (!cancelled) setUser(null);
     }
 
-    if (!resolved && fallbackRole) {
-      const fallbackId = DEFAULT_USER_BY_ROLE[fallbackRole];
-      resolved = users.find((u) => u.id === fallbackId) as User | undefined;
-    }
-
-    setUser(resolved || null);
+    load();
+    return () => { cancelled = true; };
   }, [fallbackRole]);
 
   return user;

@@ -26,9 +26,9 @@ const statusLabels: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
   active: "bg-gold/20 text-gold",
-  completed: "bg-green-600 text-white",
-  paused: "bg-yellow-600/20 text-yellow-500",
-  dropped: "bg-red-600/20 text-red-400",
+  completed: "bg-emerald-600/15 text-emerald-700 dark:text-emerald-300",
+  paused: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  dropped: "bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
 export default function StudentCoursesPage() {

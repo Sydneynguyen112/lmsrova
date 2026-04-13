@@ -20,10 +20,10 @@ const classificationLabels: Record<string, string> = {
 };
 
 const classificationColors: Record<string, string> = {
-  newbie: "bg-blue-600/20 text-blue-400",
-  beginner: "bg-green-600/20 text-green-400",
-  intermediate: "bg-gold/20 text-gold",
-  advanced: "bg-purple-600/20 text-purple-400",
+  newbie: "bg-gray-500/15 text-gray-700 dark:text-gray-300",
+  beginner: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  intermediate: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  advanced: "bg-green-500/15 text-green-700 dark:text-green-300",
 };
 
 export default function StudentProfilePage() {
@@ -140,7 +140,7 @@ export default function StudentProfilePage() {
             </div>
 
             {/* Discord */}
-            {currentUser.discord_id && (
+            {currentUser.discord_handle && (
               <>
                 <Separator />
                 <div className="flex items-center gap-4">
@@ -156,7 +156,7 @@ export default function StudentProfilePage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">Discord</p>
                     <p className="text-sm text-foreground mt-0.5">
-                      {currentUser.discord_id}
+                      {currentUser.discord_handle}
                     </p>
                   </div>
                 </div>
