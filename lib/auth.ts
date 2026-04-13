@@ -96,10 +96,18 @@ export async function ensureProfile(): Promise<Profile | null> {
   }
 
   // Create new profile for Google user
+  // Google returns given_name (tên) and family_name (họ)
+  // Vietnamese format: Họ + Tên → family_name + given_name
+  const givenName = user.user_metadata?.given_name || "";
+  const familyName = user.user_metadata?.family_name || "";
+  const fullName = familyName && givenName
+    ? `${familyName} ${givenName}`
+    : user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Học viên";
+
   const { data: newProfile } = await supabase
     .from("profiles")
     .insert({
-      full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Học viên",
+      full_name: fullName,
       email: user.email!,
       avatar_url: user.user_metadata?.avatar_url || null,
       role: "student",
