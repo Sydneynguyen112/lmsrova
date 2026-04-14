@@ -1083,7 +1083,76 @@ export const users = [
   ];
   
   // ─── SUBMISSIONS (8 cột) ───
+  // Helper: dynamic dates cho mock data
+  const _today = new Date();
+  const _yesterday = new Date(_today);
+  _yesterday.setDate(_yesterday.getDate() - 1);
+  const _todayStr = _today.toISOString();
+  const _yesterdayMorning = new Date(_yesterday);
+  _yesterdayMorning.setHours(8, 30, 0, 0);
+  const _yesterdayAfternoon = new Date(_yesterday);
+  _yesterdayAfternoon.setHours(14, 15, 0, 0);
+  const _yesterdayEvening = new Date(_yesterday);
+  _yesterdayEvening.setHours(20, 0, 0, 0);
+
   export const submissions = [
+    // ── Recent: hoạt động hôm qua + hôm nay ──
+    {
+      id: "s-recent-01",
+      assignment_id: "a-pro-nen",
+      user_id: "u-student-001",
+      image_urls: ["/uploads/recent-01.jpg"],
+      metadata: { pair: "EUR/USD", timeframe: "H4", date: _yesterday.toISOString().split("T")[0], formula: null, direction: null, note: "Phân tích nến chủ EUR/USD H4 — tìm được 2 bullish engulfing." },
+      annotated_image_urls: null,
+      mentor_feedback: null,
+      graded_at: null,
+      submitted_at: _yesterdayMorning.toISOString(),
+    },
+    {
+      id: "s-recent-02",
+      assignment_id: "a-pro-cautruc",
+      user_id: "u-student-002",
+      image_urls: ["/uploads/recent-02.jpg"],
+      metadata: { pair: "GBP/USD", timeframe: "H1", date: _yesterday.toISOString().split("T")[0], formula: null, direction: null, note: "Xác định cấu trúc uptrend GBP/USD H1 với HH, HL rõ ràng." },
+      annotated_image_urls: ["/uploads/recent-02-annotated.jpg"],
+      mentor_feedback: "Phân tích tốt! Đánh dấu swing points chính xác.",
+      graded_at: _yesterdayAfternoon.toISOString(),
+      submitted_at: _yesterdayMorning.toISOString(),
+    },
+    {
+      id: "s-recent-03",
+      assignment_id: "a-pro-ct1",
+      user_id: "u-student-005",
+      image_urls: ["/uploads/recent-03.jpg"],
+      metadata: { pair: "XAU/USD", timeframe: "M15", date: _yesterday.toISOString().split("T")[0], formula: "CT1", direction: "long", note: "Entry CT1 tại demand zone M15. R:R = 1:3." },
+      annotated_image_urls: null,
+      mentor_feedback: null,
+      graded_at: null,
+      submitted_at: _yesterdayEvening.toISOString(),
+    },
+    {
+      id: "s-recent-04",
+      assignment_id: "a-pro-nen",
+      user_id: "u-student-004",
+      image_urls: ["/uploads/recent-04.jpg"],
+      metadata: { pair: "USD/JPY", timeframe: "H4", date: _yesterday.toISOString().split("T")[0], formula: null, direction: null, note: "Bearish marubozu trên USD/JPY H4 — tín hiệu đảo chiều mạnh." },
+      annotated_image_urls: ["/uploads/recent-04-annotated.jpg"],
+      mentor_feedback: "Chính xác! Nến marubozu rất rõ ràng.",
+      graded_at: _yesterdayEvening.toISOString(),
+      submitted_at: _yesterdayAfternoon.toISOString(),
+    },
+    {
+      id: "s-recent-05",
+      assignment_id: "a-pro-cautruc",
+      user_id: "u-student-001",
+      image_urls: ["/uploads/recent-05.jpg"],
+      metadata: { pair: "AUD/USD", timeframe: "H1", date: new Date().toISOString().split("T")[0], formula: null, direction: null, note: "Phân tích cấu trúc AUD/USD H1 sáng nay." },
+      annotated_image_urls: null,
+      mentor_feedback: null,
+      graded_at: null,
+      submitted_at: _todayStr,
+    },
+    // ── Historical submissions ──
     // Student 1 — nộp bài Nến chủ (đã chấm)
     {
       id: "s-001",
