@@ -247,86 +247,90 @@ export default function StudentDashboardPage() {
               </Card>
             </motion.div>
 
-            {/* Active courses */}
+            {/* Active courses — full width */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
+              className="space-y-3"
             >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-gold">Khoá học đang học</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {activeEnrollments.map((enrollment) => {
-                    const course = courses.find((c) => c.id === enrollment.course_id);
-                    if (!course) return null;
-                    return (
-                      <Link
-                        key={enrollment.id}
-                        href={`/student/courses/${course.id}`}
-                        className="block rounded-lg border border-border p-4 hover:bg-gold/5 transition-colors"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="font-medium text-foreground">{course.title}</p>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-lg font-semibold text-gold flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Khoá học đang học
+              </h2>
+              {activeEnrollments.map((enrollment) => {
+                const course = courses.find((c) => c.id === enrollment.course_id);
+                if (!course) return null;
+                return (
+                  <Link
+                    key={enrollment.id}
+                    href={`/student/courses/${course.id}`}
+                    className="block"
+                  >
+                    <Card className="hover:border-gold/40 transition-all">
+                      <CardContent className="flex items-center gap-4 py-5">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gold/10">
+                          <BookOpen className="h-6 w-6 text-gold" />
                         </div>
-                        <div className="flex items-center gap-3">
-                          <Progress value={enrollment.progress_pct} className="flex-1" />
-                          <span className="text-xs text-muted-foreground w-10 text-right">
-                            {Math.round(enrollment.progress_pct)}%
-                          </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground">{course.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{course.description}</p>
+                          <div className="flex items-center gap-3 mt-2">
+                            <Progress value={enrollment.progress_pct} className="flex-1" />
+                            <span className="text-xs text-gold font-medium w-10 text-right">
+                              {Math.round(enrollment.progress_pct)}%
+                            </span>
+                          </div>
                         </div>
-                      </Link>
-                    );
-                  })}
-                </CardContent>
-              </Card>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
             </motion.div>
 
-            {/* Unenrolled courses — teaser */}
+            {/* Unenrolled courses — 2 columns */}
             {unenrolledCourses.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
+                className="space-y-3"
               >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-gold flex items-center gap-2">
-                      <Sparkles className="h-5 w-5" /> Khoá học khác
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {unenrolledCourses.map((course) => (
-                      <div
-                        key={course.id}
-                        className="flex items-center justify-between rounded-lg border border-border p-4"
-                      >
+                <h2 className="text-lg font-semibold text-gold flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" /> Khoá học khác
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {unenrolledCourses.map((course) => (
+                    <Card key={course.id} className="hover:border-gold/40 transition-all">
+                      <CardContent className="space-y-3">
                         <div>
-                          <p className="font-medium text-foreground">{course.title}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{course.description}</p>
+                          <p className="font-semibold text-foreground">{course.title}</p>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{course.description}</p>
                         </div>
-                        <div className="text-right shrink-0 ml-4">
+                        <div className="flex items-center justify-between pt-2 border-t border-border">
                           <p className="text-lg font-bold text-gold">
                             {course.price ? formatPrice(course.price) : course.price_label}
                           </p>
                           {course.price ? (
                             <Link href={`/student/checkout/${course.id}`}>
-                              <Button size="sm" className="mt-1 bg-gold hover:bg-gold/90 text-black text-xs">
-                                Đăng ký
+                              <Button size="sm" className="bg-gold hover:bg-gold/90 text-black font-semibold">
+                                Đăng ký ngay
                               </Button>
                             </Link>
                           ) : (
-                            <Button size="sm" variant="outline" className="mt-1 border-gold/50 text-gold text-xs">
-                              Tư vấn
-                            </Button>
+                            <Link href="https://m.me/rova" target="_blank">
+                              <Button size="sm" variant="outline" className="border-gold/50 text-gold">
+                                <MessageCircle className="h-3.5 w-3.5 mr-1" /> Tư vấn
+                              </Button>
+                            </Link>
                           )}
                         </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </motion.div>
             )}
           </>
