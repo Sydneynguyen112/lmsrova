@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   LogOut,
   Sprout,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser, signOut } from "@/lib/auth";
@@ -47,6 +48,7 @@ const mentorNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/users", label: "Quản lý Users", icon: Shield },
   { href: "/admin/students", label: "Quản lý Học viên", icon: Users },
   { href: "/admin/mentors", label: "Quản lý Mentor", icon: Star },
   { href: "/admin/courses", label: "Quản lý Khoá học", icon: BookOpen },
