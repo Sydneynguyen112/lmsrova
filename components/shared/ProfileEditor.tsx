@@ -71,29 +71,47 @@ export function ProfileEditor({ user, mentorName }: ProfileEditorProps) {
     .join("")
     .toUpperCase();
 
+  function resizeImage(file: File, maxSize: number): Promise<string> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let w = img.width;
+          let h = img.height;
+          if (w > maxSize || h > maxSize) {
+            if (w > h) { h = (h / w) * maxSize; w = maxSize; }
+            else { w = (w / h) * maxSize; h = maxSize; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        };
+        img.src = e.target!.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingAvatar(true);
-    const ext = file.name.split(".").pop();
-    const path = `avatars/${user.id}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(path, file, { upsert: true });
-
-    if (!uploadError) {
-      const { data: urlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(path);
-
-      const newUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-      await supabase
+    try {
+      const dataUrl = await resizeImage(file, 200);
+      const { error } = await supabase
         .from("profiles")
-        .update({ avatar_url: newUrl })
+        .update({ avatar_url: dataUrl })
         .eq("id", user.id);
-      setAvatarUrl(newUrl);
+
+      if (!error) {
+        setAvatarUrl(dataUrl);
+      }
+    } catch (err) {
+      console.error("Failed to upload avatar:", err);
     }
     setUploadingAvatar(false);
   }
