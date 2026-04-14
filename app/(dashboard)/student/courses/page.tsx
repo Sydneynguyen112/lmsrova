@@ -251,7 +251,7 @@ export default function StudentCoursesPage() {
             <Sparkles className="h-5 w-5 text-gold" />
             {enrollments.length > 0 ? "Khoá học khác" : "Khoá học"}
           </h2>
-          <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {unenrolledCourses.map((course, i) => (
               <motion.div
                 key={course.id}
@@ -259,9 +259,9 @@ export default function StudentCoursesPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 + i * 0.1 }}
               >
-                <Card className="hover:border-gold/40 transition-all overflow-hidden">
+                <Card className="h-full hover:border-gold/40 transition-all overflow-hidden flex flex-col">
                   {/* Header */}
-                  <div className="relative aspect-[3/1] bg-gradient-to-br from-gold/20 to-card flex items-center justify-center">
+                  <div className="relative aspect-[2/1] bg-gradient-to-br from-gold/20 to-card flex items-center justify-center">
                     {course.thumbnail_url ? (
                       <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -275,10 +275,10 @@ export default function StudentCoursesPage() {
                     </div>
                   </div>
 
-                  <CardContent className="pt-4 space-y-3">
+                  <CardContent className="pt-4 space-y-3 flex-1 flex flex-col">
                     <div>
                       <h3 className="text-lg font-bold text-foreground">{course.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">{course.description}</p>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{course.description}</p>
                     </div>
 
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -295,10 +295,12 @@ export default function StudentCoursesPage() {
                     </div>
 
                     {/* Module + Lesson preview */}
-                    <CourseModulePreview courseId={course.id} />
+                    <div className="flex-1">
+                      <CourseModulePreview courseId={course.id} />
+                    </div>
 
                     {/* Price + CTA */}
-                    <div className="flex items-center justify-between pt-3 border-t border-border">
+                    <div className="flex items-center justify-between pt-3 border-t border-border mt-auto">
                       {course.price ? (
                         <p className="text-xl font-bold text-gold">{formatPrice(course.price)}</p>
                       ) : (
