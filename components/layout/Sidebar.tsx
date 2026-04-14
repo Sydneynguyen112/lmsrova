@@ -135,10 +135,10 @@ export function Sidebar() {
       {/* Nav items */}
       <nav className="flex-1 px-3 py-2 space-y-1">
         {items.map((navItem) => {
-          const isActive =
-            pathname === navItem.href ||
-            (navItem.href !== `/${role.toLowerCase()}` &&
-              pathname.startsWith(navItem.href + "/"));
+          const isDashboard = navItem.href === "/student" || navItem.href === "/mentor" || navItem.href === "/admin";
+          const isActive = isDashboard
+            ? pathname === navItem.href
+            : pathname === navItem.href || pathname.startsWith(navItem.href + "/");
           const isLocked = isStudent && !hasEnrollment && navItem.requiresEnrollment;
 
           return (
