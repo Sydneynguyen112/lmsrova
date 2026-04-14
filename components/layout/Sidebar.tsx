@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,8 +17,10 @@ import {
   LogOut,
   Sprout,
   Shield,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { useCurrentUser, signOut } from "@/lib/auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -28,14 +30,15 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
+  requiresEnrollment?: boolean;
 }
 
 const studentNav: NavItem[] = [
-  { href: "/student", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/student/courses", label: "Khoá học của tôi", icon: BookOpen },
-  { href: "/student/submissions", label: "Bài nộp", icon: FileText },
+  { href: "/student", label: "Dashboard", icon: LayoutDashboard, requiresEnrollment: true },
+  { href: "/student/courses", label: "Khoá học", icon: BookOpen },
+  { href: "/student/submissions", label: "Bài nộp", icon: FileText, requiresEnrollment: true },
   { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
-  { href: "/student/review", label: "Đánh giá Mentor", icon: Star },
+  { href: "/student/review", label: "Đánh giá Mentor", icon: Star, requiresEnrollment: true },
   { href: "/student/profile", label: "Hồ sơ", icon: User },
 ];
 
@@ -68,6 +71,22 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { items, role, fallbackRole } = getNavItems(pathname);
   const currentUser = useCurrentUser(fallbackRole);
+  const [hasEnrollment, setHasEnrollment] = useState(true); // default true to avoid flash
+
+  useEffect(() => {
+    if (!currentUser || fallbackRole !== "student") return;
+    async function checkEnrollment() {
+      const { data } = await supabase
+        .from("enrollments")
+        .select("id")
+        .eq("user_id", currentUser!.id)
+        .limit(1);
+      setHasEnrollment((data ?? []).length > 0);
+    }
+    checkEnrollment();
+  }, [currentUser, fallbackRole]);
+
+  const isStudent = fallbackRole === "student";
 
   const handleSignOut = () => {
     signOut();
@@ -115,26 +134,34 @@ export function Sidebar() {
 
       {/* Nav items */}
       <nav className="flex-1 px-3 py-2 space-y-1">
-        {items.map((item) => {
+        {items.map((navItem) => {
           const isActive =
-            pathname === item.href ||
-            (item.href !== `/${role.toLowerCase()}` &&
-              pathname.startsWith(item.href + "/"));
+            pathname === navItem.href ||
+            (navItem.href !== `/${role.toLowerCase()}` &&
+              pathname.startsWith(navItem.href + "/"));
+          const isLocked = isStudent && !hasEnrollment && navItem.requiresEnrollment;
 
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={navItem.href}
+              href={navItem.href}
               onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
-                isActive
-                  ? "bg-sidebar-accent text-gold"
-                  : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                isLocked
+                  ? "text-sidebar-foreground/30 cursor-default"
+                  : isActive
+                    ? "bg-sidebar-accent text-gold"
+                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
               )}
             >
-              <item.icon size={18} className={isActive ? "text-gold" : ""} />
-              {!collapsed && <span>{item.label}</span>}
+              <navItem.icon size={18} className={isActive && !isLocked ? "text-gold" : ""} />
+              {!collapsed && (
+                <span className="flex-1">{navItem.label}</span>
+              )}
+              {!collapsed && isLocked && (
+                <Lock size={14} className="text-sidebar-foreground/30" />
+              )}
             </Link>
           );
         })}

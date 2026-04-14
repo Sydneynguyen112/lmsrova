@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Star, Send, CheckCircle2 } from "lucide-react";
 import { users, getReviewsByMentor } from "@/lib/mock-data";
 import { formatDate } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import { PageTransition } from "@/components/shared/PageTransition";
+import { LockedFeature } from "@/components/shared/LockedFeature";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,12 +29,35 @@ export default function StudentReviewPage() {
   const [hoveredStar, setHoveredStar] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [hasEnrollment, setHasEnrollment] = useState<boolean | null>(null);
 
-  if (!currentUser) {
+  useEffect(() => {
+    if (!currentUser) return;
+    async function check() {
+      const { data } = await supabase
+        .from("enrollments")
+        .select("id")
+        .eq("user_id", currentUser!.id)
+        .limit(1);
+      setHasEnrollment((data ?? []).length > 0);
+    }
+    check();
+  }, [currentUser]);
+
+  if (!currentUser || hasEnrollment === null) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
       </div>
+    );
+  }
+
+  if (!hasEnrollment) {
+    return (
+      <LockedFeature
+        title="Đánh giá Mentor"
+        description="Tính năng đánh giá mentor sẽ được mở khi bạn đăng ký khoá học."
+      />
     );
   }
 

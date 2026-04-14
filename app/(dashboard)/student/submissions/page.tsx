@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
@@ -17,8 +17,10 @@ import {
 } from "lucide-react";
 import { getAssignmentsByCourse, getSubmissionsByUser } from "@/lib/mock-data";
 import { cn, formatDate } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import { PageTransition } from "@/components/shared/PageTransition";
+import { LockedFeature } from "@/components/shared/LockedFeature";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,12 +44,35 @@ export default function StudentSubmissionsPage() {
   const [models, setModels] = useState<ModelSlot[]>(emptySlots());
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [hasEnrollment, setHasEnrollment] = useState<boolean | null>(null);
 
-  if (!currentUser) {
+  useEffect(() => {
+    if (!currentUser) return;
+    async function check() {
+      const { data } = await supabase
+        .from("enrollments")
+        .select("id")
+        .eq("user_id", currentUser!.id)
+        .limit(1);
+      setHasEnrollment((data ?? []).length > 0);
+    }
+    check();
+  }, [currentUser]);
+
+  if (!currentUser || hasEnrollment === null) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
       </div>
+    );
+  }
+
+  if (!hasEnrollment) {
+    return (
+      <LockedFeature
+        title="Bài nộp"
+        description="Tính năng nộp bài tập sẽ được mở khi bạn đăng ký khoá học."
+      />
     );
   }
 

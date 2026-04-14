@@ -19,6 +19,7 @@ import { supabase } from "@/lib/supabase";
 import { cn, formatPrice, formatDuration } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
 import { PageTransition } from "@/components/shared/PageTransition";
+import { LockedFeature } from "@/components/shared/LockedFeature";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,15 @@ export default function StudentDashboardPage() {
   const unenrolledCourses = courses.filter((c) => !enrolledCourseIds.has(c.id));
   const hasEnrollments = activeEnrollments.length > 0;
 
+  if (!hasEnrollments) {
+    return (
+      <LockedFeature
+        title="Dashboard"
+        description="Dashboard học tập sẽ được mở khi bạn đăng ký khoá học."
+      />
+    );
+  }
+
   return (
     <PageTransition>
       <div className="space-y-6 p-6">
@@ -90,14 +100,12 @@ export default function StudentDashboardPage() {
             <span className="gold-gradient-text">{currentUser.full_name}</span>!
           </h1>
           <p className="text-muted-foreground mt-1">
-            {hasEnrollments
-              ? "Tiếp tục hành trình trading của bạn."
-              : "Chọn khoá học để bắt đầu hành trình trading."}
+            Tiếp tục hành trình trading của bạn.
           </p>
         </motion.div>
 
         {/* ═══ NOT ENROLLED: Show available courses ═══ */}
-        {!hasEnrollments && (
+        {false && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
