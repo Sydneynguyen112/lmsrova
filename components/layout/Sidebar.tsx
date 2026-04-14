@@ -18,6 +18,7 @@ import {
   Sprout,
   Shield,
   Lock,
+  NotebookPen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -37,6 +38,7 @@ const studentNav: NavItem[] = [
   { href: "/student", label: "Dashboard", icon: LayoutDashboard, requiresEnrollment: true },
   { href: "/student/courses", label: "Khoá học", icon: BookOpen },
   { href: "/student/submissions", label: "Bài nộp", icon: FileText, requiresEnrollment: true },
+  { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
   { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
   { href: "/student/review", label: "Đánh giá Mentor", icon: Star, requiresEnrollment: true },
   { href: "/student/profile", label: "Hồ sơ", icon: User },

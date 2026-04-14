@@ -14,6 +14,9 @@ import {
   XCircle,
   Clock,
   Quote,
+  Flame,
+  Radar,
+  Construction,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -152,6 +155,54 @@ export default function StudentDashboardPage() {
   const ratingLabels = ["", "Rất không hài lòng", "Không hài lòng", "Bình thường", "Hài lòng", "Rất hài lòng"];
   const dailyQuote = getDailyQuote();
 
+  // ── Streaks: tính chuỗi ngày hoạt động ──
+  // Logic: mỗi ngày có ít nhất 1 hoạt động (xem video, nộp bài, bình luận blog, nhật ký)
+  // Hiện tại dùng mock: tính từ submitted_at trong submissions
+  function calculateStreak(): number {
+    const activityDates = new Set<string>();
+
+    // Từ submissions
+    mySubmissions.forEach((s) => {
+      if (s.submitted_at) {
+        activityDates.add(new Date(s.submitted_at).toISOString().split("T")[0]);
+      }
+    });
+
+    // Từ created_at user (ngày đăng ký = ngày đầu)
+    activityDates.add(new Date(currentUser.created_at).toISOString().split("T")[0]);
+
+    // Thêm hôm nay nếu user đang online
+    activityDates.add(new Date().toISOString().split("T")[0]);
+
+    // Tính streak ngược từ hôm nay
+    let streak = 0;
+    const today = new Date();
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split("T")[0];
+      if (activityDates.has(key)) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  const currentStreak = calculateStreak();
+  // 7 ngày gần nhất cho hiển thị visual
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const key = d.toISOString().split("T")[0];
+    const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+    const hasActivity = mySubmissions.some(
+      (s) => s.submitted_at && new Date(s.submitted_at).toISOString().split("T")[0] === key
+    ) || key === new Date().toISOString().split("T")[0] || key === new Date(currentUser.created_at).toISOString().split("T")[0];
+    return { day: dayNames[d.getDay()], date: d.getDate(), active: hasActivity };
+  });
+
   return (
     <PageTransition>
       <div className="space-y-6 p-6">
@@ -187,6 +238,69 @@ export default function StudentDashboardPage() {
                 <p className="text-xs text-gold font-medium mt-1.5">
                   — {dailyQuote.author}
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* ── Streaks + Radar ── */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+        >
+          {/* Streaks */}
+          <Card className="border-gold/20">
+            <CardContent className="py-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Flame className="h-5 w-5 text-orange-500" />
+                  <h3 className="font-semibold text-foreground">Chuỗi hoạt động</h3>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-2xl font-extrabold text-orange-500">{currentStreak}</span>
+                  <span className="text-xs text-muted-foreground">ngày</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-1">
+                {last7Days.map((d, i) => (
+                  <div key={i} className="flex flex-col items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">{d.day}</span>
+                    <div
+                      className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors",
+                        d.active
+                          ? "bg-orange-500/20 text-orange-500 border border-orange-500/30"
+                          : "bg-muted/30 text-muted-foreground/40"
+                      )}
+                    >
+                      {d.active ? <Flame className="h-3.5 w-3.5" /> : d.date}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Hoạt động mỗi ngày: xem video, nộp bài, bình luận, viết nhật ký
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Radar năng lực — Coming Soon */}
+          <Card className="border-dashed border-border">
+            <CardContent className="py-5 flex flex-col items-center justify-center text-center space-y-3 min-h-[170px]">
+              <div className="w-12 h-12 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center">
+                <Radar className="h-5 w-5 text-gold" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Radar năng lực</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Biểu đồ đánh giá năng lực trading theo nhiều tiêu chí
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1">
+                <Construction className="h-3 w-3 text-gold" />
+                <span className="text-[11px] font-medium text-gold">Coming Soon</span>
               </div>
             </CardContent>
           </Card>
