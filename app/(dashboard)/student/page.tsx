@@ -169,7 +169,7 @@ export default function StudentDashboardPage() {
     });
 
     // Từ created_at user (ngày đăng ký = ngày đầu)
-    activityDates.add(new Date(currentUser.created_at).toISOString().split("T")[0]);
+    activityDates.add(new Date(currentUser!.created_at).toISOString().split("T")[0]);
 
     // Thêm hôm nay nếu user đang online
     activityDates.add(new Date().toISOString().split("T")[0]);
