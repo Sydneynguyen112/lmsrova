@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, BookOpen, CheckCircle2, PlayCircle, Circle } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle2, PlayCircle, Circle, Lock } from "lucide-react";
 import Link from "next/link";
 
 import {
@@ -9,9 +10,9 @@ import {
   getModulesByCourse,
   getLessonsByModule,
   getLessonProgressByUser,
-  getEnrollmentsByUser,
 } from "@/lib/mock-data";
 import { cn, formatDuration } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,8 +29,23 @@ interface Props {
 
 export function CourseDetailView({ courseId }: Props) {
   const currentUser = useCurrentUser("student");
+  const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
 
-  if (!currentUser) {
+  useEffect(() => {
+    if (!currentUser) return;
+    async function check() {
+      const { data } = await supabase
+        .from("enrollments")
+        .select("id")
+        .eq("user_id", currentUser!.id)
+        .eq("course_id", courseId)
+        .limit(1);
+      setIsEnrolled((data ?? []).length > 0);
+    }
+    check();
+  }, [currentUser, courseId]);
+
+  if (!currentUser || isEnrolled === null) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
@@ -40,9 +56,6 @@ export function CourseDetailView({ courseId }: Props) {
   const course = getCourseById(courseId);
   const courseModules = getModulesByCourse(courseId);
   const progressList = getLessonProgressByUser(currentUser.id);
-  const enrollment = getEnrollmentsByUser(currentUser.id).find(
-    (e) => e.course_id === courseId
-  );
 
   if (!course) {
     return (
@@ -116,23 +129,31 @@ export function CourseDetailView({ courseId }: Props) {
               <BookOpen className="h-4 w-4" />
               {completedCount}/{totalCount} bài học
             </span>
-            {enrollment && (
-              <Badge
-                className={cn(
-                  enrollment.status === "active" && "bg-gold/20 text-gold",
-                  enrollment.status === "completed" && "bg-green-600 text-white"
-                )}
-              >
-                {enrollment.status === "active"
-                  ? "Đang học"
-                  : enrollment.status === "completed"
-                  ? "Hoàn thành"
-                  : enrollment.status}
+            {isEnrolled ? (
+              <Badge className="bg-gold/20 text-gold">Đang học</Badge>
+            ) : (
+              <Badge className="bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/30">
+                <Lock className="h-3 w-3 mr-1" />
+                Chưa mở khoá
               </Badge>
             )}
           </div>
         </div>
       </motion.div>
+
+      {/* Locked banner */}
+      {!isEnrolled && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-gold/30 bg-gold/5 p-4 flex items-center gap-3"
+        >
+          <Lock className="h-5 w-5 text-gold shrink-0" />
+          <p className="text-sm text-foreground">
+            Khoá học chưa được mở. Bạn có thể xem danh sách bài học bên dưới nhưng chưa truy cập được nội dung.
+          </p>
+        </motion.div>
+      )}
 
       {/* Modules Accordion */}
       <motion.div
@@ -171,14 +192,30 @@ export function CourseDetailView({ courseId }: Props) {
                             (p) => p.lesson_id === lesson.id
                           );
                           const status = lp?.status || "not_started";
-                          const statusIcon =
-                            status === "completed" ? (
-                              <CheckCircle2 size={18} className="text-green-500" />
-                            ) : status === "in_progress" ? (
-                              <PlayCircle size={18} className="text-gold" />
-                            ) : (
-                              <Circle size={18} className="text-muted-foreground/40" />
+                          const statusIcon = !isEnrolled ? (
+                            <Lock size={16} className="text-muted-foreground/40" />
+                          ) : status === "completed" ? (
+                            <CheckCircle2 size={18} className="text-green-500" />
+                          ) : status === "in_progress" ? (
+                            <PlayCircle size={18} className="text-gold" />
+                          ) : (
+                            <Circle size={18} className="text-muted-foreground/40" />
+                          );
+
+                          if (!isEnrolled) {
+                            return (
+                              <div
+                                key={lesson.id}
+                                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/60 cursor-not-allowed"
+                              >
+                                <span className="shrink-0">{statusIcon}</span>
+                                <span className="flex-1 truncate">{lesson.title}</span>
+                                <span className="text-xs whitespace-nowrap">
+                                  {formatDuration(lesson.duration_sec)}
+                                </span>
+                              </div>
                             );
+                          }
 
                           return (
                             <Link

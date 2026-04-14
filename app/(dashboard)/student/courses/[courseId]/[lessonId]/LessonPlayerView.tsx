@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import {
   PlayCircle,
   Circle,
   Send,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -26,6 +27,7 @@ import {
   getAssignmentByLesson,
 } from "@/lib/mock-data";
 import { cn, formatDuration } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,11 +48,49 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [assignmentNote, setAssignmentNote] = useState("");
   const [assignmentSubmitted, setAssignmentSubmitted] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
 
-  if (!currentUser) {
+  useEffect(() => {
+    if (!currentUser) return;
+    async function check() {
+      const { data } = await supabase
+        .from("enrollments")
+        .select("id")
+        .eq("user_id", currentUser!.id)
+        .eq("course_id", courseId)
+        .limit(1);
+      setIsEnrolled((data ?? []).length > 0);
+    }
+    check();
+  }, [currentUser, courseId]);
+
+  if (!currentUser || isEnrolled === null) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
+      </div>
+    );
+  }
+
+  if (!isEnrolled) {
+    return (
+      <div className="p-6 space-y-4">
+        <Link
+          href={`/student/courses/${courseId}`}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-gold transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Quay lại khoá học
+        </Link>
+        <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+          <div className="w-20 h-20 rounded-full bg-gold/10 border-2 border-gold/30 flex items-center justify-center">
+            <Lock className="h-8 w-8 text-gold" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">Bài học chưa được mở khoá</h2>
+          <p className="text-muted-foreground text-center max-w-md">
+            Bạn cần được mở khoá khoá học này để xem nội dung bài học.
+          </p>
+        </div>
       </div>
     );
   }
