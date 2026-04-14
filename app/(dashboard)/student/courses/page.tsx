@@ -2,10 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, ChevronRight, Clock, CheckCircle2, Crown, Play, Sparkles, MessageCircle } from "lucide-react";
+import {
+  BookOpen,
+  ChevronRight,
+  Clock,
+  CheckCircle2,
+  Crown,
+  Play,
+  Sparkles,
+  MessageCircle,
+  Lock,
+  ChevronDown,
+} from "lucide-react";
 import Link from "next/link";
 
 import { supabase } from "@/lib/supabase";
+import { getModulesByCourse, getLessonsByModule } from "@/lib/mock-data";
 import { cn, formatPrice, formatDate, formatDuration } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,6 +59,72 @@ const statusColors: Record<string, string> = {
   dropped: "bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
+/** Component hiển thị modules + lessons cho 1 khoá học (locked) */
+function CourseModulePreview({ courseId }: { courseId: string }) {
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
+  const courseModules = getModulesByCourse(courseId);
+
+  if (courseModules.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5 mt-3 pt-3 border-t border-border">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
+        Nội dung khoá học
+      </p>
+      {courseModules.map((mod) => {
+        const moduleLessons = getLessonsByModule(mod.id);
+        const isExpanded = expandedModule === mod.id;
+
+        return (
+          <div key={mod.id}>
+            <button
+              onClick={() => setExpandedModule(isExpanded ? null : mod.id)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-gold/5 transition-colors"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-gold shrink-0" />
+              <span className="flex-1 text-left font-medium text-foreground truncate">
+                {mod.title}
+              </span>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {moduleLessons.length} bài
+              </span>
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 text-muted-foreground transition-transform",
+                  isExpanded && "rotate-180"
+                )}
+              />
+            </button>
+
+            {isExpanded && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="pl-4 space-y-0.5 overflow-hidden"
+              >
+                {moduleLessons.map((lesson, i) => (
+                  <div
+                    key={lesson.id}
+                    className="flex items-center gap-2.5 px-3 py-1.5 text-sm text-muted-foreground/60"
+                  >
+                    <Lock className="h-3 w-3 shrink-0" />
+                    <span className="flex-1 truncate">
+                      {i + 1}. {lesson.title}
+                    </span>
+                    <span className="text-[11px] shrink-0">
+                      {formatDuration(lesson.duration_sec)}
+                    </span>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function StudentCoursesPage() {
   const currentUser = useCurrentUser("student");
   const [courses, setCourses] = useState<Course[]>([]);
@@ -76,6 +154,7 @@ export default function StudentCoursesPage() {
   }
 
   const enrolledCourseIds = new Set(enrollments.map((e) => e.course_id));
+  const enrolledCourses = courses.filter((c) => enrolledCourseIds.has(c.id));
   const unenrolledCourses = courses.filter((c) => !enrolledCourseIds.has(c.id));
 
   return (
@@ -85,15 +164,13 @@ export default function StudentCoursesPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <h1 className="text-2xl font-bold gold-gradient-text">
-          Khoá học
-        </h1>
+        <h1 className="text-2xl font-bold gold-gradient-text">Khoá học</h1>
         <p className="text-muted-foreground mt-1">
           Quản lý và theo dõi tiến độ học tập của bạn.
         </p>
       </motion.div>
 
-      {/* Khoá học đang học */}
+      {/* ── Khoá học đang học ── */}
       {enrollments.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -162,7 +239,7 @@ export default function StudentCoursesPage() {
         </div>
       )}
 
-      {/* Khoá học chưa đăng ký */}
+      {/* ── Khoá học chưa đăng ký — với module preview ── */}
       {unenrolledCourses.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -172,9 +249,9 @@ export default function StudentCoursesPage() {
         >
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-gold" />
-            Khoá học khác
+            {enrollments.length > 0 ? "Khoá học khác" : "Khoá học"}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-5">
             {unenrolledCourses.map((course, i) => (
               <motion.div
                 key={course.id}
@@ -182,8 +259,9 @@ export default function StudentCoursesPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 + i * 0.1 }}
               >
-                <Card className="h-full hover:border-gold/40 transition-all overflow-hidden">
-                  <div className="relative aspect-[2/1] bg-gradient-to-br from-gold/20 to-card flex items-center justify-center">
+                <Card className="hover:border-gold/40 transition-all overflow-hidden">
+                  {/* Header */}
+                  <div className="relative aspect-[3/1] bg-gradient-to-br from-gold/20 to-card flex items-center justify-center">
                     {course.thumbnail_url ? (
                       <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -197,10 +275,10 @@ export default function StudentCoursesPage() {
                     </div>
                   </div>
 
-                  <CardContent className="pt-4 space-y-4">
+                  <CardContent className="pt-4 space-y-3">
                     <div>
                       <h3 className="text-lg font-bold text-foreground">{course.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{course.description}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{course.description}</p>
                     </div>
 
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -216,7 +294,11 @@ export default function StudentCoursesPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-border">
+                    {/* Module + Lesson preview */}
+                    <CourseModulePreview courseId={course.id} />
+
+                    {/* Price + CTA */}
+                    <div className="flex items-center justify-between pt-3 border-t border-border">
                       {course.price ? (
                         <p className="text-xl font-bold text-gold">{formatPrice(course.price)}</p>
                       ) : (
@@ -244,7 +326,6 @@ export default function StudentCoursesPage() {
         </motion.div>
       )}
 
-      {/* Chưa có khoá học nào */}
       {enrollments.length === 0 && unenrolledCourses.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           Chưa có khoá học nào trong hệ thống.
