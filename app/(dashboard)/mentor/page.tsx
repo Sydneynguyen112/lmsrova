@@ -143,8 +143,11 @@ export default function MentorDashboardPage() {
 
   const ungradedSubmissions = getUngradedSubmissions();
   const avgRating = getAvgRating(mockMentorId);
-  // Include cả mock IDs và DB UUIDs
-  const mentorStudentIds = new Set(allStudents.map((s) => s.id));
+  // Include cả mock IDs và DB UUIDs để match getRecentSubmissions
+  const mentorStudentIds = new Set([
+    ...allStudents.map((s) => s.id),
+    ...mockStudents.map((s) => s.id),
+  ]);
   const mentorUngraded = ungradedSubmissions.filter((s) => mentorStudentIds.has(s.user_id));
 
   // Risk stats
