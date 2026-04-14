@@ -65,30 +65,48 @@ const riskLabels: Record<string, string> = {
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
 
+interface YesterdayStudentActivity {
+  userId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  classification: string | null;
+  riskTag: string | null;
+  progressPct: number;
+  actions: { action: string; time: string }[];
+}
+
 function getYesterdayActivity(studentIds: Set<string>) {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yKey = yesterday.toISOString().split("T")[0];
 
-  const activities: { studentName: string; action: string; time: string }[] = [];
-  const activeStudentIds = new Set<string>();
+  const studentMap = new Map<string, YesterdayStudentActivity>();
 
   const recentSubs = getRecentSubmissions();
   recentSubs.forEach((s) => {
     if (!studentIds.has(s.user_id)) return;
     const sKey = new Date(s.submitted_at).toISOString().split("T")[0];
-    if (sKey === yKey) {
+    if (sKey !== yKey) return;
+
+    if (!studentMap.has(s.user_id)) {
       const student = users.find((u) => u.id === s.user_id);
-      activities.push({
-        studentName: student?.full_name || "Học viên",
-        action: s.action,
-        time: s.submitted_at,
+      const enrollment = getEnrollmentsByUser(s.user_id).find((e) => e.status === "active");
+      studentMap.set(s.user_id, {
+        userId: s.user_id,
+        name: student?.full_name || "Học viên",
+        email: student?.email || "",
+        phone: student?.phone || null,
+        classification: student?.classification || null,
+        riskTag: student?.risk_tag || null,
+        progressPct: enrollment?.progress_pct || 0,
+        actions: [],
       });
-      activeStudentIds.add(s.user_id);
     }
+    studentMap.get(s.user_id)!.actions.push({ action: s.action, time: s.submitted_at });
   });
 
-  return { activities, activeCount: activeStudentIds.size };
+  return { students: Array.from(studentMap.values()), activeCount: studentMap.size };
 }
 
 export default function MentorDashboardPage() {
@@ -131,7 +149,7 @@ export default function MentorDashboardPage() {
   const watchCount = allStudents.filter((s) => s.risk_tag === "watch").length;
 
   // Yesterday activity
-  const { activities: yesterdayActivities, activeCount: yesterdayActiveCount } = getYesterdayActivity(mentorStudentIds);
+  const { students: yesterdayStudents, activeCount: yesterdayActiveCount } = getYesterdayActivity(mentorStudentIds);
 
   return (
     <PageTransition>
@@ -189,7 +207,7 @@ export default function MentorDashboardPage() {
           </Card>
         </motion.div>
 
-        {/* Yesterday Activity */}
+        {/* Yesterday Activity — Table */}
         <motion.div variants={item}>
           <Card className="border-gold/20">
             <CardHeader>
@@ -200,22 +218,75 @@ export default function MentorDashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {yesterdayActivities.length === 0 ? (
+              {yesterdayStudents.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">
                   Không có hoạt động nào từ học viên hôm qua
                 </p>
               ) : (
-                <div className="space-y-2">
-                  {yesterdayActivities.map((act, i) => (
-                    <div key={i} className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
-                      <FileText className="h-4 w-4 text-gold shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground">{act.studentName}</p>
-                        <p className="text-xs text-muted-foreground">{act.action}</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground shrink-0">{formatRelativeTime(act.time)}</span>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto rounded-2xl border border-border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Học viên</TableHead>
+                        <TableHead>SĐT</TableHead>
+                        <TableHead>Phân loại</TableHead>
+                        <TableHead>Tiến độ</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead>Hoạt động</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {yesterdayStudents.map((s) => (
+                        <TableRow key={s.userId}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-7 w-7">
+                                <AvatarFallback className="bg-gold/20 text-gold text-[10px]">
+                                  {s.name.split(" ").map((n) => n[0]).join("").slice(-2)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">{s.name}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{s.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                            {s.phone || <span className="italic">—</span>}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={classificationStyles[s.classification || "newbie"]}>
+                              {classificationLabels[s.classification || "newbie"]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 min-w-[100px]">
+                              <Progress value={s.progressPct} className="flex-1" />
+                              <span className="text-xs text-muted-foreground w-8 text-right">{s.progressPct}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={riskStyles[s.riskTag || "normal"]}>
+                              {riskLabels[s.riskTag || "normal"]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1 min-w-[200px]">
+                              {s.actions.map((act, i) => (
+                                <div key={i} className="flex items-center gap-1.5">
+                                  <FileText className="h-3 w-3 text-gold shrink-0" />
+                                  <span className="text-xs text-foreground">{act.action}</span>
+                                  <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                                    {formatRelativeTime(act.time)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </CardContent>
