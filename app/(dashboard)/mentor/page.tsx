@@ -19,11 +19,11 @@ import Link from "next/link";
 import {
   users,
   assignments,
-  submissions,
   getStudentsByMentor,
   getUngradedSubmissions,
   getAvgRating,
   getEnrollmentsByUser,
+  getRecentSubmissions,
 } from "@/lib/mock-data";
 import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -65,7 +65,6 @@ const riskLabels: Record<string, string> = {
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
 
-// Tính hoạt động hôm qua từ mock submissions
 function getYesterdayActivity(studentIds: Set<string>) {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -74,16 +73,15 @@ function getYesterdayActivity(studentIds: Set<string>) {
   const activities: { studentName: string; action: string; time: string }[] = [];
   const activeStudentIds = new Set<string>();
 
-  submissions.forEach((s) => {
+  const recentSubs = getRecentSubmissions();
+  recentSubs.forEach((s) => {
     if (!studentIds.has(s.user_id)) return;
-    if (!s.submitted_at) return;
     const sKey = new Date(s.submitted_at).toISOString().split("T")[0];
     if (sKey === yKey) {
       const student = users.find((u) => u.id === s.user_id);
-      const assignment = assignments.find((a) => a.id === s.assignment_id);
       activities.push({
         studentName: student?.full_name || "Học viên",
-        action: `Nộp bài: ${assignment?.title || "Bài tập"}`,
+        action: s.action,
         time: s.submitted_at,
       });
       activeStudentIds.add(s.user_id);

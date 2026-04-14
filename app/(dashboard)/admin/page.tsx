@@ -18,10 +18,9 @@ import {
   users as mockUsers,
   courses as mockCourses,
   enrollments as mockEnrollments,
-  submissions,
-  assignments,
   getAtRiskStudents,
   getUngradedSubmissions,
+  getRecentSubmissions,
 } from "@/lib/mock-data";
 import { cn, formatPrice, formatDate, formatRelativeTime } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -57,7 +56,6 @@ function getInitials(name: string) {
   return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 }
 
-// Yesterday activity from mock submissions
 function getYesterdayActivity() {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -66,15 +64,14 @@ function getYesterdayActivity() {
   const activities: { studentName: string; action: string; time: string }[] = [];
   const activeStudentIds = new Set<string>();
 
-  submissions.forEach((s) => {
-    if (!s.submitted_at) return;
+  const recentSubs = getRecentSubmissions();
+  recentSubs.forEach((s) => {
     const sKey = new Date(s.submitted_at).toISOString().split("T")[0];
     if (sKey === yKey) {
       const student = mockUsers.find((u) => u.id === s.user_id);
-      const assignment = assignments.find((a) => a.id === s.assignment_id);
       activities.push({
         studentName: student?.full_name || "Học viên",
-        action: `Nộp bài: ${assignment?.title || "Bài tập"}`,
+        action: s.action,
         time: s.submitted_at,
       });
       activeStudentIds.add(s.user_id);
