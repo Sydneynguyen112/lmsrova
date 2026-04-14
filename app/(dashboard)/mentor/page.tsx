@@ -134,12 +134,16 @@ export default function MentorDashboardPage() {
     );
   }
 
-  const mockStudents = getStudentsByMentor(currentUser.id);
+  // Mock mentor ID mapping: Supabase UUID → mock ID
+  const mockMentorId = currentUser.email === "tien@rova.vn" ? "u-mentor-001"
+    : currentUser.email === "bao@rova.vn" ? "u-mentor-002" : currentUser.id;
+  const mockStudents = getStudentsByMentor(mockMentorId);
   const dbEmails = new Set(dbStudents.map((s) => s.email));
   const allStudents = [...dbStudents, ...mockStudents.filter((s) => !dbEmails.has(s.email))];
 
   const ungradedSubmissions = getUngradedSubmissions();
-  const avgRating = getAvgRating(currentUser.id);
+  const avgRating = getAvgRating(mockMentorId);
+  // Include cả mock IDs và DB UUIDs
   const mentorStudentIds = new Set(allStudents.map((s) => s.id));
   const mentorUngraded = ungradedSubmissions.filter((s) => mentorStudentIds.has(s.user_id));
 
