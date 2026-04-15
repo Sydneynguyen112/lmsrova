@@ -40,6 +40,13 @@ interface Course {
   total_duration_sec: number;
 }
 
+interface Module {
+  id: string;
+  course_id: string;
+  title: string;
+  order_index: number;
+}
+
 interface Lesson {
   id: string;
   module_id: string;
@@ -52,6 +59,7 @@ interface Lesson {
 
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [enrollCounts, setEnrollCounts] = useState<Record<string, number>>({});
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
@@ -64,12 +72,14 @@ export default function AdminCoursesPage() {
   }, []);
 
   async function loadData() {
-    const [{ data: c }, { data: l }, { data: e }] = await Promise.all([
+    const [{ data: c }, { data: m }, { data: l }, { data: e }] = await Promise.all([
       supabase.from("courses").select("*").order("created_at"),
+      supabase.from("modules").select("*").order("order_index"),
       supabase.from("lessons").select("*").order("order_index"),
       supabase.from("enrollments").select("course_id"),
     ]);
     setCourses((c || []) as Course[]);
+    setModules((m || []) as Module[]);
     setLessons((l || []) as Lesson[]);
     const counts: Record<string, number> = {};
     (e || []).forEach((en: { course_id: string }) => {
@@ -134,10 +144,10 @@ export default function AdminCoursesPage() {
     }));
   }
 
-  // Get lessons for a course (via module)
+  // Get lessons for a course via modules
   function getCourseLessons(courseId: string) {
-    // For now assume module ID pattern m-{courseId suffix}-all
-    return lessons.filter((l) => l.module_id.includes(courseId.replace("c-", "")));
+    const courseModuleIds = new Set(modules.filter((m) => m.course_id === courseId).map((m) => m.id));
+    return lessons.filter((l) => courseModuleIds.has(l.module_id));
   }
 
   return (
