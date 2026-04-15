@@ -439,7 +439,7 @@ export const users = [
       module_id: "m-pro-all",
       title: "Giới thiệu khoá học & Tư duy đúng về Trading",
       thumbnail_url: "/thumbnails/lessons/pro-01.jpg",
-      video_url: "",
+      video_url: "d37c0083-6cc9-4ffd-b69e-b13b53b062cc",
       materials: [
         { name: "Cheatsheet: Tư duy Trader", url: "/files/pro-01-cheatsheet.pdf", type: "pdf" },
       ],
