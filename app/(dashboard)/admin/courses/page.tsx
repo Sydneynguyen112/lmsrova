@@ -47,6 +47,7 @@ interface Course {
   price: number | null;
   price_label: string | null;
   thumbnail_url: string | null;
+  badge_label: string | null;
   total_lessons: number;
   total_duration_sec: number;
 }
@@ -95,7 +96,7 @@ export default function AdminCoursesPage() {
   const [moduleDialog, setModuleDialog] = useState(false);
   const [lessonDialog, setLessonDialog] = useState(false);
   const [editCourseDialog, setEditCourseDialog] = useState(false);
-  const [courseForm, setCourseForm] = useState({ title: "", description: "", price: "", price_label: "", thumbnail_url: "" });
+  const [courseForm, setCourseForm] = useState({ title: "", description: "", price: "", price_label: "", thumbnail_url: "", badge_label: "" });
   const [moduleForm, setModuleForm] = useState({ title: "", course_id: "" });
   const [lessonForm, setLessonForm] = useState({ title: "", module_id: "", video_url: "", thumbnail_url: "", description: "", duration_sec: "" });
   const [editCourseForm, setEditCourseForm] = useState<Course | null>(null);
@@ -137,13 +138,14 @@ export default function AdminCoursesPage() {
       price: courseForm.price ? parseInt(courseForm.price) : null,
       price_label: courseForm.price_label || null,
       thumbnail_url: courseForm.thumbnail_url || null,
+      badge_label: courseForm.badge_label || null,
       total_lessons: 0,
       total_duration_sec: 0,
     });
     setSaving(false);
     if (!error) {
       setCourseDialog(false);
-      setCourseForm({ title: "", description: "", price: "", price_label: "", thumbnail_url: "" });
+      setCourseForm({ title: "", description: "", price: "", price_label: "", thumbnail_url: "", badge_label: "" });
       setToast("Tạo khoá học thành công!");
       loadData();
     }
@@ -158,6 +160,7 @@ export default function AdminCoursesPage() {
       price: editCourseForm.price,
       price_label: editCourseForm.price_label,
       thumbnail_url: editCourseForm.thumbnail_url,
+      badge_label: editCourseForm.badge_label,
     }).eq("id", editCourseForm.id);
     setSaving(false);
     if (!error) {
@@ -660,6 +663,10 @@ export default function AdminCoursesPage() {
               <label className="text-xs font-medium text-muted-foreground">Thumbnail URL</label>
               <Input value={courseForm.thumbnail_url} onChange={(e) => setCourseForm({ ...courseForm, thumbnail_url: e.target.value })} placeholder="https://..." className="mt-1" />
             </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Badge label (hiển thị trên thumbnail)</label>
+              <Input value={courseForm.badge_label} onChange={(e) => setCourseForm({ ...courseForm, badge_label: e.target.value })} placeholder="Ví dụ: Best Seller, 1-on-1, Hot..." className="mt-1" />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCourseDialog(false)}>Huỷ</Button>
@@ -704,6 +711,10 @@ export default function AdminCoursesPage() {
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Thumbnail URL</label>
                 <Input value={editCourseForm.thumbnail_url || ""} onChange={(e) => setEditCourseForm({ ...editCourseForm, thumbnail_url: e.target.value })} className="mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Badge label (hiển thị trên thumbnail)</label>
+                <Input value={editCourseForm.badge_label || ""} onChange={(e) => setEditCourseForm({ ...editCourseForm, badge_label: e.target.value })} placeholder="Ví dụ: Best Seller, 1-on-1, Hot..." className="mt-1" />
               </div>
             </div>
           )}

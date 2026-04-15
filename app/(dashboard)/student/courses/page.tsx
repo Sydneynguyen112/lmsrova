@@ -31,6 +31,7 @@ interface Course {
   price: number | null;
   price_label: string | null;
   thumbnail_url: string | null;
+  badge_label: string | null;
   total_lessons: number;
   total_duration_sec: number;
 }
@@ -299,9 +300,11 @@ export default function StudentCoursesPage() {
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                     <div className="absolute bottom-3 left-4">
-                      <Badge className="bg-gold/90 text-black font-semibold">
-                        {course.id === "c-pro" ? "Best Seller" : "1-on-1"}
-                      </Badge>
+                      {course.badge_label && (
+                        <Badge className="bg-gold/90 text-black font-semibold">
+                          {course.badge_label}
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
