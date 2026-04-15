@@ -5,12 +5,6 @@ import { motion } from "framer-motion";
 import { ArrowLeft, BookOpen, CheckCircle2, PlayCircle, Circle, Lock } from "lucide-react";
 import Link from "next/link";
 
-import {
-  getCourseById,
-  getModulesByCourse,
-  getLessonsByModule,
-  getLessonProgressByUser,
-} from "@/lib/mock-data";
 import { cn, formatDuration } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -23,6 +17,32 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 
+interface DbCourse {
+  id: string;
+  title: string;
+  description: string;
+}
+
+interface DbModule {
+  id: string;
+  course_id: string;
+  title: string;
+  order_index: number;
+}
+
+interface DbLesson {
+  id: string;
+  module_id: string;
+  title: string;
+  duration_sec: number;
+  order_index: number;
+}
+
+interface DbProgress {
+  lesson_id: string;
+  status: string;
+}
+
 interface Props {
   courseId: string;
 }
@@ -30,32 +50,63 @@ interface Props {
 export function CourseDetailView({ courseId }: Props) {
   const currentUser = useCurrentUser("student");
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
+  const [course, setCourse] = useState<DbCourse | null>(null);
+  const [courseModules, setCourseModules] = useState<DbModule[]>([]);
+  const [lessonsMap, setLessonsMap] = useState<Record<string, DbLesson[]>>({});
+  const [progressList, setProgressList] = useState<DbProgress[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
-    async function check() {
-      const { data } = await supabase
-        .from("enrollments")
-        .select("id")
-        .eq("user_id", currentUser!.id)
-        .eq("course_id", courseId)
-        .limit(1);
-      setIsEnrolled((data ?? []).length > 0);
+    async function fetchAll() {
+      // First batch: enrollment, course, modules, progress
+      const [
+        { data: enrollData },
+        { data: courseData },
+        { data: modulesData },
+        { data: progressData },
+      ] = await Promise.all([
+        supabase.from("enrollments").select("id").eq("user_id", currentUser!.id).eq("course_id", courseId).limit(1),
+        supabase.from("courses").select("*").eq("id", courseId).single(),
+        supabase.from("modules").select("*").eq("course_id", courseId).order("order_index"),
+        supabase.from("lesson_progress").select("*").eq("user_id", currentUser!.id),
+      ]);
+
+      setIsEnrolled((enrollData ?? []).length > 0);
+      if (courseData) setCourse(courseData);
+      const mods = modulesData || [];
+      setCourseModules(mods);
+      setProgressList(progressData || []);
+
+      // Second: fetch lessons using module IDs
+      const moduleIds = mods.map((m: DbModule) => m.id);
+      if (moduleIds.length > 0) {
+        const { data: lessonsData } = await supabase
+          .from("lessons")
+          .select("*")
+          .in("module_id", moduleIds)
+          .order("order_index");
+
+        const allLessons = lessonsData || [];
+        const map: Record<string, DbLesson[]> = {};
+        for (const mod of mods) {
+          map[mod.id] = allLessons.filter((l: DbLesson) => l.module_id === mod.id);
+        }
+        setLessonsMap(map);
+      }
+
+      setLoading(false);
     }
-    check();
+    fetchAll();
   }, [currentUser, courseId]);
 
-  if (!currentUser || isEnrolled === null) {
+  if (!currentUser || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
       </div>
     );
   }
-
-  const course = getCourseById(courseId);
-  const courseModules = getModulesByCourse(courseId);
-  const progressList = getLessonProgressByUser(currentUser.id);
 
   if (!course) {
     return (
@@ -65,7 +116,7 @@ export function CourseDetailView({ courseId }: Props) {
     );
   }
 
-  const allLessons = courseModules.flatMap((mod) => getLessonsByModule(mod.id));
+  const allLessons = courseModules.flatMap((mod) => lessonsMap[mod.id] || []);
   const completedCount = allLessons.filter((l) =>
     progressList.some((lp) => lp.lesson_id === l.id && lp.status === "completed")
   ).length;
@@ -168,7 +219,7 @@ export function CourseDetailView({ courseId }: Props) {
           <CardContent>
             <Accordion className="space-y-2">
               {courseModules.map((mod) => {
-                const moduleLessons = getLessonsByModule(mod.id);
+                const moduleLessons = lessonsMap[mod.id] || [];
                 const modCompleted = moduleLessons.filter((l) =>
                   progressList.some(
                     (lp) => lp.lesson_id === l.id && lp.status === "completed"

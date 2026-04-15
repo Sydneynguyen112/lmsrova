@@ -18,10 +18,7 @@ import {
 import Link from "next/link";
 
 import {
-  lessons,
-  modules,
   getCourseById,
-  getLessonsByModule,
   getLessonProgressByUser,
   getQuizByLesson,
   getAssignmentByLesson,
@@ -49,17 +46,28 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const [assignmentNote, setAssignmentNote] = useState("");
   const [assignmentSubmitted, setAssignmentSubmitted] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
-  const [dbLesson, setDbLesson] = useState<{ id: string; video_url: string | null; title: string; duration_sec: number } | null>(null);
+  const [dbLesson, setDbLesson] = useState<Record<string, unknown> | null>(null);
+  const [dbModuleTitle, setDbModuleTitle] = useState<string>("");
+  const [dbModuleLessons, setDbModuleLessons] = useState<Record<string, unknown>[]>([]);
 
   useEffect(() => {
     if (!currentUser) return;
     async function check() {
       const [{ data: enrollData }, { data: lessonData }] = await Promise.all([
         supabase.from("enrollments").select("id").eq("user_id", currentUser!.id).eq("course_id", courseId).limit(1),
-        supabase.from("lessons").select("id, video_url, title, duration_sec").eq("id", lessonId).single(),
+        supabase.from("lessons").select("*").eq("id", lessonId).single(),
       ]);
       setIsEnrolled((enrollData ?? []).length > 0);
-      if (lessonData) setDbLesson(lessonData);
+      if (lessonData) {
+        setDbLesson(lessonData);
+        // Fetch module title and sibling lessons
+        const [{ data: modData }, { data: siblingsData }] = await Promise.all([
+          supabase.from("modules").select("title").eq("id", lessonData.module_id).single(),
+          supabase.from("lessons").select("*").eq("module_id", lessonData.module_id).order("order_index"),
+        ]);
+        if (modData) setDbModuleTitle(modData.title);
+        setDbModuleLessons(siblingsData || []);
+      }
     }
     check();
   }, [currentUser, courseId, lessonId]);
@@ -96,12 +104,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   }
 
   const course = getCourseById(courseId);
-  const mockLesson = lessons.find((l) => l.id === lessonId);
-  // Prefer Supabase video_url (admin có thể cập nhật), fallback mock
-  const lesson = mockLesson ? {
-    ...mockLesson,
-    video_url: dbLesson?.video_url || mockLesson.video_url,
-  } : null;
+  const lesson = dbLesson as { id: string; module_id: string; title: string; video_url: string; duration_sec: number; materials?: { name: string; url: string; type: string }[] } | null;
   const progressList = getLessonProgressByUser(currentUser.id);
 
   if (!course || !lesson) {
@@ -112,10 +115,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
     );
   }
 
-  const currentModule = modules.find((m) => m.id === lesson.module_id);
-  const moduleLessons = currentModule
-    ? getLessonsByModule(currentModule.id)
-    : [];
+  const moduleLessons = dbModuleLessons as { id: string; title: string; duration_sec: number }[];
   const quiz = getQuizByLesson(lessonId);
   const assignment = getAssignmentByLesson(lessonId);
 
@@ -387,7 +387,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
           <Card className="sticky top-6">
             <CardContent>
               <h3 className="text-sm font-semibold text-gold mb-3">
-                {currentModule?.title || "Danh sách bài học"}
+                {dbModuleTitle || "Danh sách bài học"}
               </h3>
               <div className="space-y-0.5 max-h-[60vh] overflow-y-auto">
                 {moduleLessons.map((l) => {
