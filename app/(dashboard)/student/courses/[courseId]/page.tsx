@@ -1,9 +1,6 @@
-import { courses } from "@/lib/mock-data";
 import { CourseDetailView } from "./CourseDetailView";
 
-export function generateStaticParams() {
-  return courses.map((c) => ({ courseId: c.id }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function CourseDetailPage({
   params,

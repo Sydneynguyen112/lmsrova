@@ -18,7 +18,6 @@ import {
 import Link from "next/link";
 
 import {
-  getCourseById,
   getQuizByLesson,
   getAssignmentByLesson,
 } from "@/lib/mock-data";
@@ -52,6 +51,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const [assignmentNote, setAssignmentNote] = useState("");
   const [assignmentSubmitted, setAssignmentSubmitted] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
+  const [dbCourse, setDbCourse] = useState<{ id: string; title: string } | null>(null);
   const [dbLesson, setDbLesson] = useState<Record<string, unknown> | null>(null);
   const [dbModuleTitle, setDbModuleTitle] = useState<string>("");
   const [dbModuleLessons, setDbModuleLessons] = useState<Record<string, unknown>[]>([]);
@@ -61,12 +61,14 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   useEffect(() => {
     if (!currentUser) return;
     async function check() {
-      const [{ data: enrollData }, { data: lessonData }, { data: progressData }] = await Promise.all([
+      const [{ data: enrollData }, { data: courseData }, { data: lessonData }, { data: progressData }] = await Promise.all([
         supabase.from("enrollments").select("id").eq("user_id", currentUser!.id).eq("course_id", courseId).limit(1),
+        supabase.from("courses").select("id, title").eq("id", courseId).single(),
         supabase.from("lessons").select("*").eq("id", lessonId).single(),
         supabase.from("lesson_progress").select("*").eq("user_id", currentUser!.id),
       ]);
       setIsEnrolled((enrollData ?? []).length > 0);
+      if (courseData) setDbCourse(courseData);
       setProgressList(progressData || []);
       if (lessonData) {
         setDbLesson(lessonData);
@@ -153,10 +155,9 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
     );
   }
 
-  const course = getCourseById(courseId);
   const lesson = dbLesson as { id: string; module_id: string; title: string; video_url: string; duration_sec: number; materials?: { name: string; url: string; type: string }[] } | null;
 
-  if (!course || !lesson) {
+  if (!dbCourse || !lesson) {
     return (
       <div className="p-6 text-center">
         <p className="text-muted-foreground">Bài học không tồn tại.</p>

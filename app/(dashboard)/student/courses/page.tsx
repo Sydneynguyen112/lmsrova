@@ -17,7 +17,6 @@ import {
 import Link from "next/link";
 
 import { supabase } from "@/lib/supabase";
-import { getModulesByCourse, getLessonsByModule } from "@/lib/mock-data";
 import { cn, formatPrice, formatDate, formatDuration } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,20 +58,51 @@ const statusColors: Record<string, string> = {
   dropped: "bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
+interface ModuleWithLessons {
+  id: string;
+  title: string;
+  lessons: { id: string; title: string; duration_sec: number }[];
+}
+
 /** Component hiển thị modules + lessons cho 1 khoá học (locked) */
 function CourseModulePreview({ courseId }: { courseId: string }) {
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
-  const courseModules = getModulesByCourse(courseId);
+  const [modules, setModules] = useState<ModuleWithLessons[]>([]);
 
-  if (courseModules.length === 0) return null;
+  useEffect(() => {
+    async function load() {
+      const { data: mods } = await supabase
+        .from("modules")
+        .select("*")
+        .eq("course_id", courseId)
+        .order("order_index");
+      if (!mods || mods.length === 0) return;
+
+      const moduleIds = mods.map((m: { id: string }) => m.id);
+      const { data: lessons } = await supabase
+        .from("lessons")
+        .select("id, title, duration_sec, module_id")
+        .in("module_id", moduleIds)
+        .order("order_index");
+
+      const result: ModuleWithLessons[] = mods.map((m: { id: string; title: string }) => ({
+        id: m.id,
+        title: m.title,
+        lessons: (lessons || []).filter((l: { module_id: string }) => l.module_id === m.id),
+      }));
+      setModules(result);
+    }
+    load();
+  }, [courseId]);
+
+  if (modules.length === 0) return null;
 
   return (
     <div className="space-y-1.5 mt-3 pt-3 border-t border-border">
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
         Nội dung khoá học
       </p>
-      {courseModules.map((mod) => {
-        const moduleLessons = getLessonsByModule(mod.id);
+      {modules.map((mod) => {
         const isExpanded = expandedModule === mod.id;
 
         return (
@@ -86,7 +116,7 @@ function CourseModulePreview({ courseId }: { courseId: string }) {
                 {mod.title}
               </span>
               <span className="text-xs text-muted-foreground shrink-0">
-                {moduleLessons.length} bài
+                {mod.lessons.length} bài
               </span>
               <ChevronDown
                 className={cn(
@@ -102,7 +132,7 @@ function CourseModulePreview({ courseId }: { courseId: string }) {
                 animate={{ opacity: 1, height: "auto" }}
                 className="pl-4 space-y-0.5 overflow-hidden"
               >
-                {moduleLessons.map((lesson, i) => (
+                {mod.lessons.map((lesson, i) => (
                   <div
                     key={lesson.id}
                     className="flex items-center gap-2.5 px-3 py-1.5 text-sm text-muted-foreground/60"
