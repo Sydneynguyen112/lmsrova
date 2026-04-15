@@ -246,17 +246,20 @@ export default function MentorDashboardPage() {
                       {yesterdayStudents.map((s) => (
                         <TableRow key={s.userId}>
                           <TableCell>
-                            <div className="flex items-center gap-2">
+                            <Link
+                              href={`/mentor/students/${s.userId}`}
+                              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                            >
                               <Avatar className="h-7 w-7">
                                 <AvatarFallback className="bg-gold/20 text-gold text-[10px]">
                                   {s.name.split(" ").map((n) => n[0]).join("").slice(-2)}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">{s.name}</p>
+                                <p className="text-sm font-medium text-foreground hover:text-gold transition-colors truncate">{s.name}</p>
                                 <p className="text-[11px] text-muted-foreground truncate">{s.email}</p>
                               </div>
-                            </div>
+                            </Link>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                             {s.phone || <span className="italic">—</span>}
@@ -327,12 +330,15 @@ export default function MentorDashboardPage() {
                       return (
                         <TableRow key={student.id}>
                           <TableCell>
-                            <div className="flex items-center gap-3">
+                            <Link
+                              href={`/mentor/students/${student.id}`}
+                              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                            >
                               <Avatar className="h-8 w-8">
                                 <AvatarFallback className="bg-gold/20 text-gold text-xs">{initials}</AvatarFallback>
                               </Avatar>
-                              <span className="font-medium text-foreground">{student.full_name}</span>
-                            </div>
+                              <span className="font-medium text-foreground hover:text-gold transition-colors">{student.full_name}</span>
+                            </Link>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={classificationStyles[student.classification || "newbie"]}>
