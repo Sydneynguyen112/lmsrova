@@ -275,19 +275,19 @@ export default function AdminCoursesPage() {
                                         />
                                       </div>
 
-                                      {/* Video URL (Mux Playback ID) */}
+                                      {/* Video URL (Bunny Stream Video ID) */}
                                       <div>
                                         <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                                          <Film className="h-3.5 w-3.5" /> Mux Playback ID
+                                          <Film className="h-3.5 w-3.5" /> Bunny Stream Video ID
                                         </label>
                                         <Input
                                           value={editForm.video_url || ""}
                                           onChange={(e) => setEditForm({ ...editForm, video_url: e.target.value })}
-                                          placeholder="Dán Playback ID từ Mux Dashboard..."
+                                          placeholder="Dán Video ID từ Bunny Stream..."
                                           className="mt-1 font-mono text-xs"
                                         />
                                         <p className="text-[10px] text-muted-foreground mt-1">
-                                          Upload video trên mux.com → copy Playback ID → dán vào đây
+                                          Upload video trên Bunny Stream → copy Video ID → dán vào đây
                                         </p>
                                       </div>
 

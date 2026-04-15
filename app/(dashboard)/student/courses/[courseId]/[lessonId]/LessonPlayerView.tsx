@@ -49,20 +49,20 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const [assignmentNote, setAssignmentNote] = useState("");
   const [assignmentSubmitted, setAssignmentSubmitted] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
+  const [dbLesson, setDbLesson] = useState<{ id: string; video_url: string | null; title: string; duration_sec: number } | null>(null);
 
   useEffect(() => {
     if (!currentUser) return;
     async function check() {
-      const { data } = await supabase
-        .from("enrollments")
-        .select("id")
-        .eq("user_id", currentUser!.id)
-        .eq("course_id", courseId)
-        .limit(1);
-      setIsEnrolled((data ?? []).length > 0);
+      const [{ data: enrollData }, { data: lessonData }] = await Promise.all([
+        supabase.from("enrollments").select("id").eq("user_id", currentUser!.id).eq("course_id", courseId).limit(1),
+        supabase.from("lessons").select("id, video_url, title, duration_sec").eq("id", lessonId).single(),
+      ]);
+      setIsEnrolled((enrollData ?? []).length > 0);
+      if (lessonData) setDbLesson(lessonData);
     }
     check();
-  }, [currentUser, courseId]);
+  }, [currentUser, courseId, lessonId]);
 
   if (!currentUser || isEnrolled === null) {
     return (
@@ -96,7 +96,12 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   }
 
   const course = getCourseById(courseId);
-  const lesson = lessons.find((l) => l.id === lessonId);
+  const mockLesson = lessons.find((l) => l.id === lessonId);
+  // Prefer Supabase video_url (admin có thể cập nhật), fallback mock
+  const lesson = mockLesson ? {
+    ...mockLesson,
+    video_url: dbLesson?.video_url || mockLesson.video_url,
+  } : null;
   const progressList = getLessonProgressByUser(currentUser.id);
 
   if (!course || !lesson) {
