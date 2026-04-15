@@ -111,12 +111,20 @@ export default function AdminCoursesPage() {
   }, [toast]);
 
   async function loadData() {
-    const [{ data: c }, { data: m }, { data: l }, { data: e }] = await Promise.all([
+    const [
+      { data: c, error: cErr },
+      { data: m, error: mErr },
+      { data: l, error: lErr },
+      { data: e },
+    ] = await Promise.all([
       supabase.from("courses").select("*").order("created_at"),
       supabase.from("modules").select("*").order("order_index"),
       supabase.from("lessons").select("*").order("order_index"),
       supabase.from("enrollments").select("course_id"),
     ]);
+    if (cErr) console.error("Load courses error:", cErr);
+    if (mErr) console.error("Load modules error:", mErr);
+    if (lErr) console.error("Load lessons error:", lErr);
     setCourses((c || []) as Course[]);
     setModules((m || []) as Module[]);
     setLessons((l || []) as Lesson[]);
@@ -143,12 +151,15 @@ export default function AdminCoursesPage() {
       total_duration_sec: 0,
     });
     setSaving(false);
-    if (!error) {
-      setCourseDialog(false);
-      setCourseForm({ title: "", description: "", price: "", price_label: "", thumbnail_url: "", badge_label: "" });
-      setToast("Tạo khoá học thành công!");
-      loadData();
+    if (error) {
+      console.error("Create course error:", error);
+      setToast("Lỗi: " + error.message);
+      return;
     }
+    setCourseDialog(false);
+    setCourseForm({ title: "", description: "", price: "", price_label: "", thumbnail_url: "", badge_label: "" });
+    setToast("Tạo khoá học thành công!");
+    loadData();
   }
 
   async function updateCourse() {
@@ -194,12 +205,15 @@ export default function AdminCoursesPage() {
       order_index: existing.length + 1,
     });
     setSaving(false);
-    if (!error) {
-      setModuleDialog(false);
-      setModuleForm({ title: "", course_id: "" });
-      setToast("Tạo module thành công!");
-      loadData();
+    if (error) {
+      console.error("Create module error:", error);
+      setToast("Lỗi: " + error.message);
+      return;
     }
+    setModuleDialog(false);
+    setModuleForm({ title: "", course_id: "" });
+    setToast("Tạo module thành công!");
+    loadData();
   }
 
   async function deleteModule(moduleId: string) {
@@ -225,19 +239,23 @@ export default function AdminCoursesPage() {
       materials: [],
     });
     setSaving(false);
-    if (!error) {
-      setLessonDialog(false);
-      setLessonForm({ title: "", module_id: "", video_url: "", thumbnail_url: "", description: "", duration_sec: "" });
-      setToast("Tạo bài học thành công!");
-      // Update course total_lessons
-      const mod = modules.find((m) => m.id === lessonForm.module_id);
-      if (mod) {
-        const allModIds = modules.filter((m) => m.course_id === mod.course_id).map((m) => m.id);
-        const total = lessons.filter((l) => allModIds.includes(l.module_id)).length + 1;
-        await supabase.from("courses").update({ total_lessons: total }).eq("id", mod.course_id);
-      }
-      loadData();
+    if (error) {
+      console.error("Create lesson error:", error);
+      setToast("Lỗi: " + error.message);
+      setSaving(false);
+      return;
     }
+    setLessonDialog(false);
+    setLessonForm({ title: "", module_id: "", video_url: "", thumbnail_url: "", description: "", duration_sec: "" });
+    setToast("Tạo bài học thành công!");
+    // Update course total_lessons
+    const mod = modules.find((m) => m.id === lessonForm.module_id);
+    if (mod) {
+      const allModIds = modules.filter((m) => m.course_id === mod.course_id).map((m) => m.id);
+      const total = lessons.filter((l) => allModIds.includes(l.module_id)).length + 1;
+      await supabase.from("courses").update({ total_lessons: total }).eq("id", mod.course_id);
+    }
+    loadData();
   }
 
   async function deleteLesson(lessonId: string) {
