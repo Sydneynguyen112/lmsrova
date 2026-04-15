@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -19,7 +19,6 @@ import Link from "next/link";
 
 import {
   getCourseById,
-  getLessonProgressByUser,
   getQuizByLesson,
   getAssignmentByLesson,
 } from "@/lib/mock-data";
@@ -32,6 +31,13 @@ import { Badge } from "@/components/ui/badge";
 import { VideoPlayer, VideoPlaceholder } from "@/components/shared/VideoPlayer";
 
 type TabKey = "materials" | "quiz" | "assignment";
+
+interface ProgressRecord {
+  lesson_id: string;
+  status?: string;
+  completed?: boolean;
+  watch_count?: number;
+}
 
 interface Props {
   courseId: string;
@@ -49,18 +55,21 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const [dbLesson, setDbLesson] = useState<Record<string, unknown> | null>(null);
   const [dbModuleTitle, setDbModuleTitle] = useState<string>("");
   const [dbModuleLessons, setDbModuleLessons] = useState<Record<string, unknown>[]>([]);
+  const [progressList, setProgressList] = useState<ProgressRecord[]>([]);
+  const [videoCompleted, setVideoCompleted] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
     async function check() {
-      const [{ data: enrollData }, { data: lessonData }] = await Promise.all([
+      const [{ data: enrollData }, { data: lessonData }, { data: progressData }] = await Promise.all([
         supabase.from("enrollments").select("id").eq("user_id", currentUser!.id).eq("course_id", courseId).limit(1),
         supabase.from("lessons").select("*").eq("id", lessonId).single(),
+        supabase.from("lesson_progress").select("*").eq("user_id", currentUser!.id),
       ]);
       setIsEnrolled((enrollData ?? []).length > 0);
+      setProgressList(progressData || []);
       if (lessonData) {
         setDbLesson(lessonData);
-        // Fetch module title and sibling lessons
         const [{ data: modData }, { data: siblingsData }] = await Promise.all([
           supabase.from("modules").select("title").eq("id", lessonData.module_id).single(),
           supabase.from("lessons").select("*").eq("module_id", lessonData.module_id).order("order_index"),
@@ -71,6 +80,47 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
     }
     check();
   }, [currentUser, courseId, lessonId]);
+
+  const handleVideoEnded = useCallback(async () => {
+    if (!currentUser || videoCompleted) return;
+    setVideoCompleted(true);
+
+    // Find current progress for this lesson
+    const existing = progressList.find((p) => p.lesson_id === lessonId);
+    const newWatchCount = (existing?.watch_count || 0) + 1;
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("lesson_progress")
+      .upsert(
+        {
+          user_id: currentUser.id,
+          lesson_id: lessonId,
+          completed: true,
+          completed_at: now,
+          status: "completed",
+          watch_count: newWatchCount,
+          last_watched_at: now,
+        },
+        { onConflict: "user_id,lesson_id" }
+      )
+      .select()
+      .single();
+
+    if (!error && data) {
+      // Update local progress list
+      setProgressList((prev) => {
+        const idx = prev.findIndex((p) => p.lesson_id === lessonId);
+        const updated: ProgressRecord = { lesson_id: lessonId, status: "completed", completed: true, watch_count: newWatchCount };
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = updated;
+          return next;
+        }
+        return [...prev, updated];
+      });
+    }
+  }, [currentUser, lessonId, videoCompleted, progressList]);
 
   if (!currentUser || isEnrolled === null) {
     return (
@@ -105,7 +155,6 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
 
   const course = getCourseById(courseId);
   const lesson = dbLesson as { id: string; module_id: string; title: string; video_url: string; duration_sec: number; materials?: { name: string; url: string; type: string }[] } | null;
-  const progressList = getLessonProgressByUser(currentUser.id);
 
   if (!course || !lesson) {
     return (
@@ -161,9 +210,22 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
             <VideoPlayer
               playbackId={lesson.video_url}
               title={lesson.title}
+              onEnded={handleVideoEnded}
             />
           ) : (
             <VideoPlaceholder title={lesson.title} />
+          )}
+
+          {/* Video completed toast */}
+          {videoCompleted && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-sm text-emerald-700 dark:text-emerald-400"
+            >
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              Đã hoàn thành bài học! Tiến độ đã được cập nhật.
+            </motion.div>
           )}
 
           {/* Tabs */}
@@ -392,15 +454,24 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
               <div className="space-y-0.5 max-h-[60vh] overflow-y-auto">
                 {moduleLessons.map((l) => {
                   const lp = progressList.find((p) => p.lesson_id === l.id);
-                  const status = lp?.status || "not_started";
+                  const status = lp?.status || (lp?.completed ? "completed" : "not_started");
+                  const watchCount = lp?.watch_count || 0;
                   const isCurrent = l.id === lessonId;
+
                   const statusIcon =
                     status === "completed" ? (
-                      <CheckCircle2 size={18} className="text-green-500" />
+                      <span className="relative shrink-0">
+                        <CheckCircle2 size={18} className="text-emerald-500" />
+                        {watchCount >= 2 && (
+                          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none">
+                            {watchCount}
+                          </span>
+                        )}
+                      </span>
                     ) : status === "in_progress" ? (
-                      <PlayCircle size={18} className="text-gold" />
+                      <PlayCircle size={18} className="text-gold shrink-0" />
                     ) : (
-                      <Circle size={18} className="text-muted-foreground/40" />
+                      <Circle size={18} className="text-muted-foreground/40 shrink-0" />
                     );
 
                   return (
@@ -414,7 +485,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                           : "text-muted-foreground hover:bg-gold/5 hover:text-foreground"
                       )}
                     >
-                      <span className="shrink-0">{statusIcon}</span>
+                      {statusIcon}
                       <span className="flex-1 truncate">{l.title}</span>
                       <span className="text-[10px] whitespace-nowrap opacity-70">
                         {formatDuration(l.duration_sec)}

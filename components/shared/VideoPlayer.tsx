@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useCallback } from "react";
+
 const LIBRARY_ID = process.env.NEXT_PUBLIC_BUNNY_LIBRARY_ID || "637951";
 
 interface VideoPlayerProps {
@@ -9,6 +11,27 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ playbackId, title, onEnded }: VideoPlayerProps) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const onEndedRef = useRef(onEnded);
+  onEndedRef.current = onEnded;
+
+  useEffect(() => {
+    function handleMessage(e: MessageEvent) {
+      // Bunny Stream sends postMessage events from the iframe
+      if (typeof e.data !== "string") return;
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.event === "videoEnded" || msg.event === "ended") {
+          onEndedRef.current?.();
+        }
+      } catch {
+        // Not JSON — ignore
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
   const embedUrl = `https://iframe.mediadelivery.net/embed/${LIBRARY_ID}/${playbackId}?autoplay=false&loop=false&muted=false&preload=true&responsive=true`;
 
   return (
@@ -16,6 +39,7 @@ export function VideoPlayer({ playbackId, title, onEnded }: VideoPlayerProps) {
       style={{ position: "relative", paddingTop: "56.25%", borderRadius: "0.75rem", overflow: "hidden" }}
     >
       <iframe
+        ref={iframeRef}
         src={embedUrl}
         loading="lazy"
         style={{

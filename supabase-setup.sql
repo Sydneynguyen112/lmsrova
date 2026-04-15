@@ -104,8 +104,16 @@ CREATE TABLE lesson_progress (
   lesson_id TEXT REFERENCES lessons(id),
   completed BOOLEAN DEFAULT false,
   completed_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'not_started' CHECK (status IN ('not_started','in_progress','completed')),
+  watch_count INT DEFAULT 0,
+  last_watched_at TIMESTAMPTZ,
   UNIQUE(user_id, lesson_id)
 );
+
+-- Migration: nếu table đã tồn tại, chạy lệnh ALTER này:
+-- ALTER TABLE lesson_progress ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'not_started';
+-- ALTER TABLE lesson_progress ADD COLUMN IF NOT EXISTS watch_count INT DEFAULT 0;
+-- ALTER TABLE lesson_progress ADD COLUMN IF NOT EXISTS last_watched_at TIMESTAMPTZ;
 
 CREATE TABLE mentor_reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

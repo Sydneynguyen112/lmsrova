@@ -40,7 +40,9 @@ interface DbLesson {
 
 interface DbProgress {
   lesson_id: string;
-  status: string;
+  status?: string;
+  completed?: boolean;
+  watch_count?: number;
 }
 
 interface Props {
@@ -118,7 +120,7 @@ export function CourseDetailView({ courseId }: Props) {
 
   const allLessons = courseModules.flatMap((mod) => lessonsMap[mod.id] || []);
   const completedCount = allLessons.filter((l) =>
-    progressList.some((lp) => lp.lesson_id === l.id && lp.status === "completed")
+    progressList.some((lp) => lp.lesson_id === l.id && (lp.status === "completed" || lp.completed === true))
   ).length;
   const totalCount = allLessons.length;
   const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -222,7 +224,7 @@ export function CourseDetailView({ courseId }: Props) {
                 const moduleLessons = lessonsMap[mod.id] || [];
                 const modCompleted = moduleLessons.filter((l) =>
                   progressList.some(
-                    (lp) => lp.lesson_id === l.id && lp.status === "completed"
+                    (lp) => lp.lesson_id === l.id && (lp.status === "completed" || lp.completed === true)
                   )
                 ).length;
 
@@ -242,11 +244,20 @@ export function CourseDetailView({ courseId }: Props) {
                           const lp = progressList.find(
                             (p) => p.lesson_id === lesson.id
                           );
-                          const status = lp?.status || "not_started";
+                          const status = lp?.status || (lp?.completed ? "completed" : "not_started");
+                          const watchCount = lp?.watch_count || 0;
+
                           const statusIcon = !isEnrolled ? (
                             <Lock size={16} className="text-muted-foreground/40" />
                           ) : status === "completed" ? (
-                            <CheckCircle2 size={18} className="text-green-500" />
+                            <span className="relative">
+                              <CheckCircle2 size={18} className="text-emerald-500" />
+                              {watchCount >= 2 && (
+                                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none">
+                                  {watchCount}
+                                </span>
+                              )}
+                            </span>
                           ) : status === "in_progress" ? (
                             <PlayCircle size={18} className="text-gold" />
                           ) : (
