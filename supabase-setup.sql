@@ -152,6 +152,47 @@ CREATE TABLE blog_likes (
 );
 
 -- ============================================
+-- FORMS / SURVEY
+-- ============================================
+
+CREATE TABLE forms (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  form_type TEXT DEFAULT 'survey' CHECK (form_type IN ('survey','onboarding')),
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft','published')),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE form_questions (
+  id TEXT PRIMARY KEY,
+  form_id TEXT REFERENCES forms(id) ON DELETE CASCADE,
+  question_text TEXT NOT NULL,
+  question_type TEXT NOT NULL CHECK (question_type IN ('text','textarea','radio','checkbox','select','rating')),
+  options JSONB DEFAULT '[]',
+  required BOOLEAN DEFAULT false,
+  order_index INT NOT NULL
+);
+
+CREATE TABLE form_responses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  form_id TEXT REFERENCES forms(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id),
+  respondent_name TEXT,
+  respondent_email TEXT,
+  respondent_phone TEXT,
+  submitted_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE form_answers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  response_id UUID REFERENCES form_responses(id) ON DELETE CASCADE,
+  question_id TEXT REFERENCES form_questions(id) ON DELETE CASCADE,
+  answer_value TEXT
+);
+
+-- ============================================
 -- ROW LEVEL SECURITY + POLICIES
 -- ============================================
 
@@ -180,3 +221,12 @@ CREATE POLICY "allow_all_mentor_reviews" ON mentor_reviews FOR ALL USING (true) 
 CREATE POLICY "allow_all_blog_posts" ON blog_posts FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_blog_comments" ON blog_comments FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_blog_likes" ON blog_likes FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE forms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE form_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE form_responses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE form_answers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_forms" ON forms FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_form_questions" ON form_questions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_form_responses" ON form_responses FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_form_answers" ON form_answers FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);

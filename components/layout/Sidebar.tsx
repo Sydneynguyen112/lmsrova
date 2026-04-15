@@ -58,6 +58,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/students", label: "Quản lý Học viên", icon: Users },
   { href: "/admin/mentors", label: "Quản lý Mentor", icon: Star },
   { href: "/admin/courses", label: "Quản lý Khoá học", icon: BookOpen },
+  { href: "/admin/forms", label: "Biểu mẫu", icon: FileText },
   { href: "/admin/blog", label: "Vườn ươm tâm thức", icon: Sprout },
   { href: "/admin/profile", label: "Hồ sơ", icon: User },
 ];
