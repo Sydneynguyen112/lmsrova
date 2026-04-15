@@ -22,9 +22,9 @@ export interface Profile {
 
 // Default emails per role for dev fallback
 const DEFAULT_EMAIL_BY_ROLE: Record<string, string> = {
-  admin: "admin@rova.vn",
-  mentor: "tien@rova.vn",
-  student: "huy@gmail.com",
+  admin: "nguyennhunguyen112@gmail.com",
+  mentor: "nguyennhunguyen112@gmail.com",
+  student: "khangvyvy@gmail.com",
 };
 
 export function signIn(userId: string) {
@@ -104,7 +104,7 @@ export async function ensureProfile(): Promise<{ profile: Profile; isNewUser: bo
     ? `${familyName} ${givenName}`
     : user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Học viên";
 
-  const { data: newProfile } = await supabase
+  const { data: newProfile, error: insertError } = await supabase
     .from("profiles")
     .insert({
       full_name: fullName,
@@ -116,6 +116,21 @@ export async function ensureProfile(): Promise<{ profile: Profile; isNewUser: bo
     })
     .select()
     .single();
+
+  if (insertError) {
+    console.error("ensureProfile insert error:", insertError);
+    // Profile may already exist with different casing — retry lookup
+    const { data: retryProfile } = await supabase
+      .from("profiles")
+      .select("*")
+      .ilike("email", user.email!)
+      .single();
+    if (retryProfile) {
+      signIn(retryProfile.id);
+      return { profile: retryProfile as Profile, isNewUser: false };
+    }
+    return null;
+  }
 
   if (newProfile) {
     signIn(newProfile.id);
