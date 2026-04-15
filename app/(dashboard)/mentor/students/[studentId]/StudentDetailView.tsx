@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -25,7 +25,9 @@ import {
   getOnboardingSurveyByUser,
 } from "@/lib/mock-data";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import type { Profile } from "@/lib/auth";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -80,8 +82,26 @@ interface Props {
 export function StudentDetailView({ studentId }: Props) {
   const currentUser = useCurrentUser("mentor");
   const [noteText, setNoteText] = useState("");
+  const [dbStudent, setDbStudent] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!currentUser) {
+  useEffect(() => {
+    // Try to load from Supabase if not a mock ID
+    async function loadStudent() {
+      if (!studentId.startsWith("u-")) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", studentId)
+          .single();
+        if (data) setDbStudent(data as Profile);
+      }
+      setLoading(false);
+    }
+    loadStudent();
+  }, [studentId]);
+
+  if (!currentUser || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
@@ -89,7 +109,8 @@ export function StudentDetailView({ studentId }: Props) {
     );
   }
 
-  const student = users.find((u) => u.id === studentId);
+  const mockStudent = users.find((u) => u.id === studentId);
+  const student = mockStudent || dbStudent;
 
   if (!student) {
     return (

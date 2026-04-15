@@ -1,5 +1,5 @@
 import { users } from "@/lib/mock-data";
-import { StudentDetailView } from "./StudentDetailView";
+import { AdminStudentDetailView } from "./AdminStudentDetailView";
 
 export function generateStaticParams() {
   return users
@@ -9,11 +9,11 @@ export function generateStaticParams() {
 
 export const dynamicParams = true;
 
-export default async function StudentDetailPage({
+export default async function AdminStudentDetailPage({
   params,
 }: {
   params: Promise<{ studentId: string }>;
 }) {
   const { studentId } = await params;
-  return <StudentDetailView studentId={studentId} />;
+  return <AdminStudentDetailView studentId={studentId} />;
 }
