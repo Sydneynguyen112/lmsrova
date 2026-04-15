@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@mux/mux-player-react"],
   images: {
     unoptimized: true,
     remotePatterns: [

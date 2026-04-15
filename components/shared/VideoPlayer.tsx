@@ -1,38 +1,39 @@
 "use client";
 
-import MuxPlayer from "@mux/mux-player-react";
+const LIBRARY_ID = process.env.NEXT_PUBLIC_BUNNY_LIBRARY_ID || "637951";
 
 interface VideoPlayerProps {
-  playbackId: string;
+  playbackId: string; // Bunny Stream Video GUID
   title?: string;
-  accentColor?: string;
   onEnded?: () => void;
 }
 
-export function VideoPlayer({
-  playbackId,
-  title,
-  accentColor = "#CD9C20",
-  onEnded,
-}: VideoPlayerProps) {
+export function VideoPlayer({ playbackId, title, onEnded }: VideoPlayerProps) {
+  const embedUrl = `https://iframe.mediadelivery.net/embed/${LIBRARY_ID}/${playbackId}?autoplay=false&loop=false&muted=false&preload=true&responsive=true`;
+
   return (
-    <MuxPlayer
-      playbackId={playbackId}
-      streamType="on-demand"
-      metadata={{
-        video_title: title,
-        player_name: "ROVA LMS Player",
-      }}
-      accentColor={accentColor}
-      onEnded={onEnded}
-      style={{ width: "100%", aspectRatio: "16/9", borderRadius: "0.75rem" }}
-    />
+    <div
+      style={{ position: "relative", paddingTop: "56.25%", borderRadius: "0.75rem", overflow: "hidden" }}
+    >
+      <iframe
+        src={embedUrl}
+        loading="lazy"
+        style={{
+          border: "none",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          height: "100%",
+          width: "100%",
+        }}
+        allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+        title={title || "Video Player"}
+      />
+    </div>
   );
 }
 
-/**
- * Placeholder khi chưa có video (playbackId rỗng)
- */
 export function VideoPlaceholder({ title }: { title?: string }) {
   return (
     <div
