@@ -1,72 +1,36 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard,
-  BookOpen,
-  FileText,
-  User,
-  Users,
-  Star,
   Menu,
   X,
   ChevronLeft,
+  ChevronDown,
   LogOut,
-  Sprout,
-  Shield,
   Lock,
-  NotebookPen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser, signOut } from "@/lib/auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import type { Role } from "@/lib/types";
+import { hasMoneyMachineAccess } from "@/lib/co-may/mock-data";
+import { getNavConfig, type NavItem } from "./sidebar-nav-config";
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ElementType;
-  requiresEnrollment?: boolean;
+function isItemActive(item: NavItem, pathname: string): boolean {
+  // Dashboard root pages match exact only
+  const isRootDashboard =
+    item.href === "/student" || item.href === "/mentor" || item.href === "/admin";
+  if (isRootDashboard) return pathname === item.href;
+  return pathname === item.href || pathname.startsWith(item.href + "/");
 }
 
-const studentNav: NavItem[] = [
-  { href: "/student", label: "Dashboard", icon: LayoutDashboard, requiresEnrollment: true },
-  { href: "/student/courses", label: "Khoá học", icon: BookOpen },
-  { href: "/student/submissions", label: "Bài nộp", icon: FileText, requiresEnrollment: true },
-  { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
-  { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
-  { href: "/student/review", label: "Đánh giá Mentor", icon: Star, requiresEnrollment: true },
-  { href: "/student/profile", label: "Hồ sơ", icon: User },
-];
-
-const mentorNav: NavItem[] = [
-  { href: "/mentor", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/mentor/students", label: "Học viên", icon: Users },
-  { href: "/mentor/submissions", label: "Bài cần chấm", icon: FileText },
-  { href: "/mentor/reviews", label: "Đánh giá", icon: Star },
-  { href: "/mentor/profile", label: "Hồ sơ", icon: User },
-];
-
-const adminNav: NavItem[] = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Quản lý Users", icon: Shield },
-  { href: "/admin/students", label: "Quản lý Học viên", icon: Users },
-  { href: "/admin/mentors", label: "Quản lý Mentor", icon: Star },
-  { href: "/admin/courses", label: "Quản lý Khoá học", icon: BookOpen },
-  { href: "/admin/forms", label: "Biểu mẫu", icon: FileText },
-  { href: "/admin/blog", label: "Vườn ươm tâm thức", icon: Sprout },
-  { href: "/admin/profile", label: "Hồ sơ", icon: User },
-];
-
-function getNavItems(pathname: string): { items: NavItem[]; role: string; fallbackRole: Role } {
-  if (pathname.startsWith("/admin")) return { items: adminNav, role: "Admin", fallbackRole: "admin" };
-  if (pathname.startsWith("/mentor")) return { items: mentorNav, role: "Mentor", fallbackRole: "mentor" };
-  return { items: studentNav, role: "Học viên", fallbackRole: "student" };
+function isBranchActive(item: NavItem, pathname: string): boolean {
+  if (isItemActive(item, pathname)) return true;
+  return item.children?.some((c) => isBranchActive(c, pathname)) ?? false;
 }
 
 export function Sidebar() {
@@ -74,9 +38,27 @@ export function Sidebar() {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { items, role, fallbackRole } = getNavItems(pathname);
+  const { items, role, fallbackRole } = getNavConfig(pathname);
   const currentUser = useCurrentUser(fallbackRole);
-  const [hasEnrollment, setHasEnrollment] = useState(true); // default true to avoid flash
+  const [hasEnrollment, setHasEnrollment] = useState(true);
+  const [hasMmAccess, setHasMmAccess] = useState(false);
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+
+  // Auto-expand any branch whose descendant is active
+  useEffect(() => {
+    const next = new Set<string>();
+    for (const item of items) {
+      if (item.children && isBranchActive(item, pathname)) {
+        next.add(item.href);
+      }
+    }
+    setExpandedKeys((prev) => {
+      // merge — don't collapse manually-opened branches
+      const merged = new Set(prev);
+      next.forEach((k) => merged.add(k));
+      return merged;
+    });
+  }, [pathname, items]);
 
   useEffect(() => {
     if (!currentUser || fallbackRole !== "student") return;
@@ -91,6 +73,14 @@ export function Sidebar() {
     checkEnrollment();
   }, [currentUser, fallbackRole]);
 
+  useEffect(() => {
+    if (!currentUser) {
+      setHasMmAccess(false);
+      return;
+    }
+    setHasMmAccess(hasMoneyMachineAccess(currentUser.id, currentUser.role));
+  }, [currentUser]);
+
   const isStudent = fallbackRole === "student";
 
   const handleSignOut = () => {
@@ -99,11 +89,104 @@ export function Sidebar() {
     router.push("/sign-in");
   };
 
-  const initials = currentUser?.full_name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(-2) || "?";
+  const initials = useMemo(
+    () =>
+      currentUser?.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(-2) || "?",
+    [currentUser],
+  );
+
+  const toggleExpand = (key: string) => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  function renderNavItem(item: NavItem, depth = 0): React.ReactNode {
+    const isLockedByEnrollment = isStudent && !hasEnrollment && item.requiresEnrollment;
+    const isLockedByMm = item.requiresMoneyMachineAccess && !hasMmAccess;
+    const isLocked = isLockedByEnrollment;
+    const showLockBadge = isLockedByEnrollment || isLockedByMm;
+    const active = isItemActive(item, pathname);
+    const branchActive = isBranchActive(item, pathname);
+    const hasChildren = !!item.children?.length;
+    const expanded = expandedKeys.has(item.href);
+    const Icon = item.icon;
+
+    const baseClass = cn(
+      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full",
+      depth > 0 && "ml-6 pl-3",
+      isLocked
+        ? "text-sidebar-foreground/30 cursor-default"
+        : active || (hasChildren && branchActive && !expanded)
+          ? "bg-sidebar-accent text-gold"
+          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent",
+    );
+
+    const labelEl = !collapsed && <span className="flex-1 text-left">{item.label}</span>;
+    const lockEl =
+      !collapsed && showLockBadge ? <Lock size={14} className="text-sidebar-foreground/30" /> : null;
+
+    if (hasChildren && !collapsed) {
+      // Parent with children — toggle button + animated children list
+      return (
+        <div key={item.href}>
+          <button
+            type="button"
+            onClick={() => toggleExpand(item.href)}
+            className={baseClass}
+          >
+            <Icon
+              size={18}
+              className={branchActive && !isLocked ? "text-gold" : ""}
+            />
+            {labelEl}
+            {lockEl}
+            <ChevronDown
+              size={14}
+              className={cn(
+                "transition-transform text-sidebar-foreground/40",
+                expanded && "rotate-180",
+              )}
+            />
+          </button>
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="overflow-hidden mt-1 space-y-1"
+              >
+                {item.children!.map((c) => renderNavItem(c, depth + 1))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      );
+    }
+
+    // Leaf or collapsed parent → render as Link
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={() => setMobileOpen(false)}
+        className={baseClass}
+      >
+        <Icon size={18} className={active && !isLocked ? "text-gold" : ""} />
+        {labelEl}
+        {lockEl}
+      </Link>
+    );
+  }
 
   const NavContent = () => (
     <div className="flex flex-col h-full">
@@ -138,38 +221,8 @@ export function Sidebar() {
       )}
 
       {/* Nav items */}
-      <nav className="flex-1 px-3 py-2 space-y-1">
-        {items.map((navItem) => {
-          const isDashboard = navItem.href === "/student" || navItem.href === "/mentor" || navItem.href === "/admin";
-          const isActive = isDashboard
-            ? pathname === navItem.href
-            : pathname === navItem.href || pathname.startsWith(navItem.href + "/");
-          const isLocked = isStudent && !hasEnrollment && navItem.requiresEnrollment;
-
-          return (
-            <Link
-              key={navItem.href}
-              href={navItem.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
-                isLocked
-                  ? "text-sidebar-foreground/30 cursor-default"
-                  : isActive
-                    ? "bg-sidebar-accent text-gold"
-                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-              )}
-            >
-              <navItem.icon size={18} className={isActive && !isLocked ? "text-gold" : ""} />
-              {!collapsed && (
-                <span className="flex-1">{navItem.label}</span>
-              )}
-              {!collapsed && isLocked && (
-                <Lock size={14} className="text-sidebar-foreground/30" />
-              )}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+        {items.map((item) => renderNavItem(item, 0))}
       </nav>
 
       {/* Bottom: user info + logout */}
@@ -253,7 +306,7 @@ export function Sidebar() {
       <aside
         className={cn(
           "hidden lg:flex flex-col fixed top-0 left-0 bottom-0 bg-sidebar border-r border-sidebar-border transition-all duration-300 z-30",
-          collapsed ? "w-[68px]" : "w-[260px]"
+          collapsed ? "w-[68px]" : "w-[260px]",
         )}
       >
         <NavContent />

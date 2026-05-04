@@ -1,0 +1,128 @@
+"use client";
+
+import { Download, RotateCcw, TrendingUp } from "lucide-react";
+import { cn, formatDate } from "@/lib/utils";
+import type { CycleReport, Machine, MachineTransaction } from "@/lib/co-may/types";
+import { downloadCsv } from "./csv-export";
+
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+export function ReportTable({
+  reports,
+  machines,
+  tx,
+}: {
+  reports: CycleReport[];
+  machines: Machine[];
+  tx: MachineTransaction[];
+}) {
+  const machineNameById = new Map(machines.map((m) => [m.id, m.name]));
+
+  function exportCycle(r: CycleReport) {
+    const start = new Date(r.start_date).getTime();
+    const end = new Date(r.end_date).getTime();
+    const cycleTx = tx
+      .filter(
+        (t) =>
+          t.machine_id === r.machine_id &&
+          new Date(t.created_at).getTime() >= start &&
+          new Date(t.created_at).getTime() <= end,
+      )
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+    const machineName = machineNameById.get(r.machine_id) ?? r.machine_id;
+    const slug = machineName.replace(/\s+/g, "-").toLowerCase();
+    downloadCsv(
+      `bao-cao-${slug}-${formatDate(r.start_date).replace(/\//g, "")}`,
+      cycleTx.map((t) => ({
+        Ngày: formatDate(t.created_at),
+        Loại: t.type,
+        Số_tiền: t.amount,
+        Ghi_chú: t.note ?? "",
+      })),
+    );
+  }
+
+  if (reports.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+        Chưa có chu kỳ nào được đóng. Từ trang &quot;Cỗ Máy Chi Tiết&quot;, chọn một cỗ máy và bấm &quot;Đóng chu kỳ&quot;.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40">
+            <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <th className="px-4 py-2 font-medium">Chu kỳ</th>
+              <th className="px-4 py-2 font-medium">Cỗ máy</th>
+              <th className="px-4 py-2 font-medium">Quyết định</th>
+              <th className="px-4 py-2 font-medium text-right">P&L</th>
+              <th className="px-4 py-2 font-medium text-right">Đã rút</th>
+              <th className="px-4 py-2 font-medium text-right">CSV</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reports.map((r) => (
+              <tr key={r.id} className="border-t border-border hover:bg-muted/20 transition-colors">
+                <td className="px-4 py-2 text-muted-foreground whitespace-nowrap">
+                  <div>{formatDate(r.start_date)}</div>
+                  <div className="text-[11px] text-muted-foreground/70">→ {formatDate(r.end_date)}</div>
+                </td>
+                <td className="px-4 py-2 text-foreground max-w-[200px] truncate">
+                  {machineNameById.get(r.machine_id) ?? "—"}
+                </td>
+                <td className="px-4 py-2">
+                  {r.decision === "scale" ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 text-primary px-2 py-0.5 text-xs font-semibold">
+                      <TrendingUp className="h-3 w-3" />
+                      Scale
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-xs font-medium">
+                      <RotateCcw className="h-3 w-3" />
+                      Reset
+                    </span>
+                  )}
+                </td>
+                <td
+                  className={cn(
+                    "px-4 py-2 text-right tabular-nums font-semibold whitespace-nowrap",
+                    r.pnl > 0
+                      ? "text-[#3B6C4F] dark:text-[#5C9C75]"
+                      : r.pnl < 0
+                        ? "text-[#C03B3B] dark:text-[#E06464]"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  {r.pnl > 0 ? "+" : ""}
+                  {usd.format(r.pnl)}
+                </td>
+                <td className="px-4 py-2 text-right tabular-nums text-foreground whitespace-nowrap">
+                  {usd.format(r.withdrawn)}
+                </td>
+                <td className="px-4 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => exportCycle(r)}
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <Download className="h-3 w-3" />
+                    Tải
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
