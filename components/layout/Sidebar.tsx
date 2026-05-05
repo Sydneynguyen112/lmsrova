@@ -118,10 +118,11 @@ export function Sidebar() {
     const hasChildren = !!item.children?.length;
     const expanded = expandedKeys.has(item.href);
     const Icon = item.icon;
+    const iconSize = depth > 0 ? 16 : 18;
 
     const baseClass = cn(
       "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full",
-      depth > 0 && "ml-6 pl-3",
+      depth > 0 && "ml-3 pl-2 gap-2 py-2 text-[13px]",
       isLocked
         ? "text-sidebar-foreground/30 cursor-default"
         : active || (hasChildren && branchActive && !expanded)
@@ -129,7 +130,11 @@ export function Sidebar() {
           : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent",
     );
 
-    const labelEl = !collapsed && <span className="flex-1 text-left">{item.label}</span>;
+    const labelEl = !collapsed && (
+      <span className="flex-1 text-left whitespace-normal leading-tight break-words min-w-0">
+        {item.label}
+      </span>
+    );
     const lockEl =
       !collapsed && showLockBadge ? <Lock size={14} className="text-sidebar-foreground/30" /> : null;
 
@@ -143,8 +148,8 @@ export function Sidebar() {
             className={baseClass}
           >
             <Icon
-              size={18}
-              className={branchActive && !isLocked ? "text-gold" : ""}
+              size={iconSize}
+              className={cn("shrink-0", branchActive && !isLocked && "text-gold")}
             />
             {labelEl}
             {lockEl}
@@ -181,7 +186,7 @@ export function Sidebar() {
         onClick={() => setMobileOpen(false)}
         className={baseClass}
       >
-        <Icon size={18} className={active && !isLocked ? "text-gold" : ""} />
+        <Icon size={iconSize} className={cn("shrink-0", active && !isLocked && "text-gold")} />
         {labelEl}
         {lockEl}
       </Link>
