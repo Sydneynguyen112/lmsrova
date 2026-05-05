@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Pencil, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Pencil, Sparkles, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const usd = new Intl.NumberFormat("en-US", {
@@ -20,7 +20,8 @@ interface Props {
 }
 
 export function MachineAnchorStrip({ milestones, balance, onEdit, onWithdraw, readOnly }: Props) {
-  const [dismissed, setDismissed] = useState(false);
+  // Dismissed panel cho current overflow level. Khi overflow tăng (lệnh thắng mới) → re-ask.
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
 
   if (!milestones || milestones.length === 0) {
     return (
@@ -31,12 +32,25 @@ export function MachineAnchorStrip({ milestones, balance, onEdit, onWithdraw, re
   }
   const sorted = [...milestones].sort((a, b) => b - a);
 
-  // Mốc neo hiện tại = mốc cao nhất ≤ balance. Nếu balance < tất cả → currentIdx = sorted.length-1.
+  // M-current = mốc cao nhất ≤ balance. Nếu balance < tất cả → M cuối cùng.
   let currentIdx = sorted.findIndex((m) => m <= balance);
   if (currentIdx === -1) currentIdx = sorted.length - 1;
   const currentMilestone = sorted[currentIdx];
   const overflow = balance - currentMilestone;
-  const showOverflowPanel = !readOnly && !dismissed && overflow > 0;
+
+  // M-prev = mốc cao hơn liền kề trước M-current. Khi user "hạ neo" về M-current,
+  // M-prev là mốc gốc trước đó (mục tiêu để leo lại).
+  const prevMilestone = currentIdx > 0 ? sorted[currentIdx - 1] : null;
+
+  const showOverflowPanel =
+    !readOnly && overflow > 0 && (dismissedAt === null || overflow > dismissedAt);
+
+  // Khi overflow tăng vượt mức dismissed cũ → re-show automatically
+  useEffect(() => {
+    if (dismissedAt !== null && overflow > dismissedAt) {
+      setDismissedAt(null);
+    }
+  }, [overflow, dismissedAt]);
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
@@ -64,21 +78,45 @@ export function MachineAnchorStrip({ milestones, balance, onEdit, onWithdraw, re
               +{usd.format(overflow)}
             </div>
           </div>
+          {/* Option 1: Rút về mốc hiện tại */}
           <button
             type="button"
             onClick={() => onWithdraw?.(overflow, currentMilestone)}
             className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            Rút {usd.format(overflow)} về mốc {usd.format(currentMilestone)}
+            Rút {usd.format(overflow)} về mốc hiện tại {usd.format(currentMilestone)}
           </button>
-          <button
-            type="button"
-            onClick={() => setDismissed(true)}
-            className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
-          >
-            Tôi ổn
-          </button>
+          {/* Option 2: Giữ lãi, target M-prev. Nếu balance ≥ M-prev → có thể rút phần dư về M-prev. */}
+          {prevMilestone !== null ? (
+            balance >= prevMilestone ? (
+              <button
+                type="button"
+                onClick={() => onWithdraw?.(balance - prevMilestone, prevMilestone)}
+                className="w-full rounded-xl border-2 border-primary/40 bg-primary/5 hover:bg-primary/10 py-3 text-sm font-bold uppercase tracking-widest text-primary transition-colors flex items-center justify-center gap-2"
+              >
+                <Target className="h-4 w-4" />
+                Rút {usd.format(balance - prevMilestone)} về mốc cũ {usd.format(prevMilestone)}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDismissedAt(overflow)}
+                className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
+              >
+                <Target className="h-3.5 w-3.5 inline mr-1.5" />
+                Tôi ổn — giữ lãi, đặt mục tiêu lên mốc cũ {usd.format(prevMilestone)}
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              onClick={() => setDismissedAt(overflow)}
+              className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
+            >
+              Tôi ổn
+            </button>
+          )}
         </div>
       )}
 

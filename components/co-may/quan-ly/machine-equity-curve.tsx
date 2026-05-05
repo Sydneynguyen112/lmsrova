@@ -75,7 +75,6 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
 
   const finalY = linePoints[linePoints.length - 1].y;
   const totalGrowth = finalY - capital;
-  const totalWithdrawn = withdrawMarkers.reduce((s, w) => s + (w.amount ?? 0), 0);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
@@ -159,29 +158,35 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
                 />
               ))}
 
-              {/* Withdraw markers — green diamond */}
-              {withdrawMarkers.map((w, i) => {
-                const cx = sx(w.x);
-                const cy = sy(w.y);
-                return (
-                  <rect
-                    key={`wd-${i}`}
-                    x={cx - 1.2}
-                    y={cy - 1.2}
-                    width="2.4"
-                    height="2.4"
-                    transform={`rotate(45 ${cx} ${cy})`}
-                    fill="#3B6C4F"
-                    stroke="#FFFFFF"
-                    strokeWidth="0.3"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                );
-              })}
+              {/* Withdraw markers — green circle, rendered above as HTML for clean $ symbol */}
             </svg>
           </div>
         </div>
 
+        {/* Withdraw $ markers — HTML overlay (rendered cùng tỉ lệ với chart left area) */}
+        <div
+          className="absolute inset-y-0 left-0 right-[84px] pointer-events-none"
+          style={{ paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }}
+        >
+          <div className="relative h-full w-full">
+            {withdrawMarkers.map((w, i) => {
+              const xPct = (w.x / maxX) * 100;
+              const yPct = (1 - (w.y - minY) / rangeY) * 100;
+              return (
+                <div
+                  key={`wd-html-${i}`}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 rounded-full bg-[#3B6C4F] dark:bg-[#5C9C75] text-white text-[10px] font-bold ring-2 ring-card"
+                  style={{ left: `${xPct}%`, top: `${yPct}%` }}
+                  title={`Rút ${usd.format(w.amount ?? 0)}`}
+                >
+                  $
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Y-axis labels — căn phải, đều */}
         <div
           className="absolute right-0 top-0 bottom-0 w-[84px]"
           style={{ paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }}
@@ -193,8 +198,8 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
               return (
                 <div
                   key={m}
-                  className="absolute right-0 -translate-y-1/2 text-sm font-bold text-foreground/80 tabular-nums tracking-tight"
-                  style={{ top: `${yPct}%` }}
+                  className="absolute right-0 -translate-y-1/2 text-sm font-bold text-foreground/80 tabular-nums tracking-tight text-right pl-2"
+                  style={{ top: `${yPct}%`, minWidth: 76 }}
                 >
                   {usd.format(m)}
                 </div>
@@ -204,25 +209,20 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground border-t border-dashed border-border pt-3">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground border-t border-dashed border-border pt-3">
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block w-3 h-0.5 bg-[#CD9C20] rounded" />
           Tăng trưởng tích luỹ
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span
-            className="inline-block w-2.5 h-2.5 bg-[#3B6C4F] dark:bg-[#5C9C75]"
-            style={{ transform: "rotate(45deg)" }}
-          />
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#3B6C4F] dark:bg-[#5C9C75] text-white text-[9px] font-bold">
+            $
+          </span>
           Đã rút phần dư ({withdrawMarkers.length} lần)
         </span>
-        {withdrawMarkers.length > 0 && (
-          <span className="text-foreground/70">
-            · Tổng đã rút:{" "}
-            <strong className="tabular-nums">{usd.format(totalWithdrawn)}</strong>
-          </span>
-        )}
       </div>
     </div>
   );
 }
+
+void totalWithdrawn;

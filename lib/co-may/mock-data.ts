@@ -134,27 +134,70 @@ function genReports(machine: Machine, rand: () => number): CycleReport[] {
   return reports;
 }
 
-// ── Cache: lazy generation, stable per userId ──
-const cache = new Map<
-  string,
-  { machines: Machine[]; tx: MachineTransaction[]; reports: CycleReport[] }
->();
+// ── Cache + localStorage persistence ──
+// Mỗi user data persist localStorage để giữ qua reload / Vercel rebuild.
+// Storage key chứa full Map. Khi wire Supabase, fns này sẽ thay bằng server actions.
 
-function getDataFor(userId: string) {
+interface UserData {
+  machines: Machine[];
+  tx: MachineTransaction[];
+  reports: CycleReport[];
+}
+
+const STORAGE_KEY = "rova_comay_data_v1";
+const cache = new Map<string, UserData>();
+
+function isBrowser() {
+  return typeof window !== "undefined";
+}
+
+function loadAllPersisted(): Record<string, UserData> {
+  if (!isBrowser()) return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, UserData>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistDataFor(userId: string) {
+  if (!isBrowser()) return;
+  const data = cache.get(userId);
+  if (!data) return;
+  try {
+    const all = loadAllPersisted();
+    all[userId] = data;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    // quota / private mode — non-fatal
+  }
+}
+
+function getDataFor(userId: string): UserData {
   const cached = cache.get(userId);
   if (cached) return cached;
 
+  // Try load from localStorage trước khi seed
+  const persisted = loadAllPersisted();
+  if (persisted[userId]) {
+    cache.set(userId, persisted[userId]);
+    return persisted[userId];
+  }
+
+  // Seed deterministic
   const rand = mulberry32(hash(userId));
   const machines = genMachines(userId, rand);
   const tx = machines.flatMap((m) => genTransactions(m, rand));
   const reports = machines.flatMap((m) => genReports(m, rand));
-  const data = { machines, tx, reports };
+  const data: UserData = { machines, tx, reports };
   cache.set(userId, data);
+  persistDataFor(userId); // snapshot seed lần đầu
   return data;
 }
 
-// ── Mutation API (in-memory, dev only) ──
-// Reload page = reset state. Acceptable cho MVP. Khi wire Supabase, các fn này sẽ thay bằng server actions.
+// ── Mutation API (persisted localStorage) ──
+// Khi wire Supabase, các fn này sẽ thay bằng server actions.
 
 let mutationSeq = 0;
 function nextId(prefix: string) {
@@ -198,6 +241,7 @@ export function addMachine(
     anchor_milestones: input.anchor_milestones,
   };
   data.machines.unshift(m);
+  persistDataFor(userId);
   return m;
 }
 
@@ -229,6 +273,7 @@ export function updateMachine(
     ...patch,
     updated_at: new Date().toISOString(),
   };
+  persistDataFor(userId);
   return data.machines[idx];
 }
 
@@ -238,6 +283,7 @@ export function deleteMachine(userId: string, machineId: string): void {
   data.machines = data.machines.filter((m) => m.id !== machineId);
   data.tx = data.tx.filter((t) => t.machine_id !== machineId);
   data.reports = data.reports.filter((r) => r.machine_id !== machineId);
+  persistDataFor(userId);
 }
 
 export function recordTransaction(
@@ -273,6 +319,7 @@ export function recordTransaction(
     emotion: input.emotion,
   };
   data.tx.unshift(tx);
+  persistDataFor(userId);
   return tx;
 }
 
@@ -302,6 +349,7 @@ export function closeMachine(
     status: "closed",
     updated_at: new Date().toISOString(),
   };
+  persistDataFor(userId);
   return { balance, capital: m.capital, delta: balance - m.capital };
 }
 
@@ -358,6 +406,7 @@ export function closeCycleMock(
       updated_at: newCycleStart,
     };
   }
+  persistDataFor(userId);
   return report;
 }
 
