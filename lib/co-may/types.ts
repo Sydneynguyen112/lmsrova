@@ -11,7 +11,7 @@ export type TransactionType =
 
 export type CycleDecision = "reset" | "scale";
 
-export type SignalSource = "self" | "rova" | "other";
+export type SignalSource = "self" | "imported" | "both";
 
 export interface Machine {
   id: string;

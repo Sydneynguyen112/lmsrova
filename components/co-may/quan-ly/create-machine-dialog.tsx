@@ -25,8 +25,8 @@ const usd = new Intl.NumberFormat("en-US", {
 
 const SIGNAL_OPTIONS: { value: SignalSource; label: string }[] = [
   { value: "self", label: "Tự sản xuất" },
-  { value: "rova", label: "Theo tín hiệu ROVA" },
-  { value: "other", label: "Khác" },
+  { value: "imported", label: "Nhập tín hiệu" },
+  { value: "both", label: "Cả hai" },
 ];
 
 interface FormState {
@@ -53,16 +53,15 @@ const INITIAL: FormState = {
   anchors: [],
 };
 
-/** Default anchor milestones — halving from capital/4. Vd capital=200 → [50, 25, 13, 6]. */
+/**
+ * Default anchor milestones — chia capital thành 5 mốc neo cách đều, strict giữa 0 và capital.
+ * Step = capital / 6, levels = [5, 4, 3, 2, 1] * step.
+ * Vd capital=200 → [167, 133, 100, 67, 33].
+ */
 function generateAnchors(capital: number): number[] {
   if (!Number.isFinite(capital) || capital <= 0) return [];
-  const out: number[] = [];
-  for (let i = 2; i <= 5; i++) {
-    const v = capital / Math.pow(2, i);
-    if (v < 1) break;
-    out.push(Math.round(v));
-  }
-  return out;
+  const step = capital / 6;
+  return [5, 4, 3, 2, 1].map((m) => Math.max(1, Math.round(m * step)));
 }
 
 export function CreateMachineDialog({
