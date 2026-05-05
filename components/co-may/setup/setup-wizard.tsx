@@ -638,9 +638,6 @@ function AllocateSessionList({
                     )}
                   </div>
                 </div>
-                <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                  Xem chi tiết →
-                </span>
               </Link>
               <button
                 type="button"
