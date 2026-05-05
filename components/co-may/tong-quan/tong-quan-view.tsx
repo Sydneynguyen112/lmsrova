@@ -10,7 +10,6 @@ import {
 } from "@/lib/co-may/mock-data";
 import { getSetup, subscribe } from "@/lib/co-may/setup-store";
 import { PhongDieuHanh } from "./phong-dieu-hanh";
-import { HieuSuatSection } from "./hieu-suat-section";
 
 type RoleSlug = "student" | "mentor" | "admin";
 
@@ -46,16 +45,13 @@ export function TongQuanView({ role }: { role: RoleSlug }) {
   const { machines, tx, totalCapitalSetup } = data;
 
   return (
-    <div className="space-y-8">
-      <PhongDieuHanh
-        role={role}
-        userId={user.id}
-        totalCapitalSetup={totalCapitalSetup}
-        machines={machines}
-        tx={tx}
-        onReset={() => router.replace(`/${role}/co-may/setup`)}
-      />
-      <HieuSuatSection role={role} machines={machines} tx={tx} />
-    </div>
+    <PhongDieuHanh
+      role={role}
+      userId={user.id}
+      totalCapitalSetup={totalCapitalSetup}
+      machines={machines}
+      tx={tx}
+      onReset={() => router.replace(`/${role}/co-may/setup`)}
+    />
   );
 }

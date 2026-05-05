@@ -210,7 +210,7 @@ function StepCapital({
           value={capital}
           onChange={(e) => onChange(Number(e.target.value) || 0)}
           min={1}
-          className="h-16 text-3xl font-bold text-center tabular-nums"
+          className="h-20 text-5xl md:text-6xl font-bold text-center tabular-nums tracking-tight"
         />
         <div className="flex flex-wrap items-center justify-center gap-2">
           {QUICK_CAPITAL_CHIPS.map((c) => (

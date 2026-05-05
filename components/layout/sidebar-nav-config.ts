@@ -10,6 +10,7 @@ import {
   NotebookPen,
   Coins,
   Settings,
+  LineChart,
   FileBarChart,
   type LucideIcon,
 } from "lucide-react";
@@ -28,13 +29,18 @@ function coMayChildren(roleSlug: "student" | "mentor" | "admin"): NavItem[] {
   return [
     {
       href: `/${roleSlug}/co-may/tong-quan`,
-      label: "Tổng quan & Hiệu suất",
+      label: "Tổng quan",
       icon: LayoutDashboard,
     },
     {
       href: `/${roleSlug}/co-may/quan-ly`,
       label: "Cỗ Máy Chi Tiết",
       icon: Settings,
+    },
+    {
+      href: `/${roleSlug}/co-may/hieu-suat`,
+      label: "Hiệu suất",
+      icon: LineChart,
     },
     {
       href: `/${roleSlug}/co-may/lich-su`,

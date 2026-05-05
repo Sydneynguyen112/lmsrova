@@ -199,4 +199,11 @@
     border-color: rgba(205, 156, 32, 0.3);
     box-shadow: 0 0 15px rgba(205, 156, 32, 0.1);
   }
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

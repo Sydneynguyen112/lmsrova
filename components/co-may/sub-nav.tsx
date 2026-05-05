@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Settings, FileBarChart, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Settings, LineChart, FileBarChart, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isSeniorMode } from "@/lib/co-may/senior-ui";
 
@@ -15,8 +15,9 @@ interface SubNavTab {
 }
 
 const TABS: SubNavTab[] = [
-  { segment: "tong-quan", label: "Tổng quan & Hiệu suất", icon: LayoutDashboard },
+  { segment: "tong-quan", label: "Tổng quan", icon: LayoutDashboard },
   { segment: "quan-ly", label: "Cỗ Máy Chi Tiết", icon: Settings },
+  { segment: "hieu-suat", label: "Hiệu suất", icon: LineChart },
   { segment: "lich-su", label: "Báo cáo & Nhật ký", icon: FileBarChart },
 ];
 
@@ -26,7 +27,7 @@ export function SubNav({ role }: { role: RoleSlug }) {
 
   return (
     <nav className="border-b border-border">
-      <div className="flex gap-1 overflow-x-auto -mb-px">
+      <div className="flex gap-1 overflow-x-auto no-scrollbar -mb-px">
         {TABS.map((tab) => {
           const href = `/${role}/co-may/${tab.segment}`;
           const active = pathname === href || pathname.startsWith(href + "/");

@@ -40,7 +40,7 @@ export function HieuSuatSection({ role, machines, tx }: Props) {
   ).length;
 
   return (
-    <section className="space-y-6 pt-2">
+    <section className="space-y-6">
       <SectionHeader
         eyebrow="§ Phân tích danh mục"
         title="Hiệu suất"
@@ -403,8 +403,8 @@ function SectionHeader({
   senior: boolean;
 }) {
   return (
-    <header className="space-y-1 pt-4 border-t border-border">
-      <div className="text-xs font-semibold uppercase tracking-widest text-primary mt-4">{eyebrow}</div>
+    <header className="space-y-1">
+      <div className="text-xs font-semibold uppercase tracking-widest text-primary">{eyebrow}</div>
       <h2 className={cn("font-bold text-foreground leading-tight", senior ? "text-3xl md:text-4xl" : "text-2xl md:text-3xl")}>
         {title}
       </h2>
