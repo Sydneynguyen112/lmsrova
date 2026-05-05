@@ -16,7 +16,6 @@ interface Props {
 }
 
 export function MachineEquityCurve({ capital, tx, milestones }: Props) {
-  // Build cumulative balance points across time. Start = capital. Apply each non-anchor-change tx.
   const sorted = [...tx]
     .filter((t) => t.type !== "anchor_change")
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
@@ -28,91 +27,135 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
     points.push({ x: i + 1, y: bal });
   });
 
-  const W = 640;
-  const H = 220;
-  const PAD_X = 16;
-  const PAD_Y = 16;
-  const PAD_RIGHT = 56;
-  const innerW = W - PAD_X - PAD_RIGHT;
-  const innerH = H - 2 * PAD_Y;
-
-  const minY = Math.min(...points.map((p) => p.y), capital * 0.3);
-  const maxY = Math.max(...points.map((p) => p.y), capital * 1.1);
+  // Range: include capital, all balance points, all milestones — đảm bảo lines không chồng.
+  const ms = milestones ?? [];
+  const collect = [...points.map((p) => p.y), ...ms, capital];
+  const minRaw = Math.min(...collect);
+  const maxRaw = Math.max(...collect);
+  // Padding 8% để lines không sát biên
+  const padding = Math.max(1, (maxRaw - minRaw) * 0.08);
+  const minY = minRaw - padding;
+  const maxY = maxRaw + padding;
   const rangeY = maxY - minY || 1;
-  const maxX = points[points.length - 1].x || 1;
+  const maxX = Math.max(1, points[points.length - 1].x);
 
-  const sx = (x: number) => PAD_X + (x / maxX) * innerW;
-  const sy = (y: number) => PAD_Y + (1 - (y - minY) / rangeY) * innerH;
+  // Track-style chart: render labels via HTML positioned outside SVG để font không bị stretch.
+  const sortedMilestones = [...ms].sort((a, b) => b - a);
+
+  // Heights:
+  const H_PX = 240;
+  const PAD_TOP = 24;
+  const PAD_BOTTOM = 24;
+  const innerH = H_PX - PAD_TOP - PAD_BOTTOM;
+
+  // SVG width: dùng "auto-stretch" qua viewBox = 100x100 và preserveAspectRatio none.
+  // Labels nằm OUTSIDE svg nên không bị stretch.
+  const svgViewW = 100;
+  const svgViewH = 100;
+
+  const sx = (x: number) => (x / maxX) * svgViewW;
+  const sy = (y: number) => (1 - (y - minY) / rangeY) * svgViewH;
 
   const linePath = points
     .map((p, i) => `${i === 0 ? "M" : "L"} ${sx(p.x).toFixed(2)} ${sy(p.y).toFixed(2)}`)
     .join(" ");
 
   const areaPath =
-    `M ${sx(points[0].x).toFixed(2)} ${sy(minY).toFixed(2)} ` +
+    `M ${sx(points[0].x).toFixed(2)} ${svgViewH} ` +
     points.map((p) => `L ${sx(p.x).toFixed(2)} ${sy(p.y).toFixed(2)}`).join(" ") +
-    ` L ${sx(points[points.length - 1].x).toFixed(2)} ${sy(minY).toFixed(2)} Z`;
-
-  const sortedMilestones = milestones ? [...milestones].sort((a, b) => b - a) : [];
+    ` L ${sx(points[points.length - 1].x).toFixed(2)} ${svgViewH} Z`;
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
-      <h3 className="text-base md:text-lg font-semibold text-foreground">Đường vốn</h3>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        width="100%"
-        height="220"
-        preserveAspectRatio="none"
-        className="overflow-visible"
-      >
-        <defs>
-          <linearGradient id="eq-machine-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#CD9C20" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#CD9C20" stopOpacity="0" />
-          </linearGradient>
-        </defs>
+    <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+      <h3 className="text-lg md:text-xl font-bold text-foreground">Đường vốn</h3>
 
-        {/* Milestones — dashed horizontal lines + label on right */}
-        {sortedMilestones.map((m) => {
-          if (m < minY || m > maxY) return null;
-          const y = sy(m);
-          return (
-            <g key={m}>
-              <line
-                x1={PAD_X}
-                x2={W - PAD_RIGHT}
-                y1={y}
-                y2={y}
-                stroke="currentColor"
-                strokeOpacity="0.15"
-                strokeDasharray="2 4"
+      <div className="relative" style={{ height: H_PX }}>
+        {/* Chart area — left, leaves 84px right margin for labels */}
+        <div
+          className="absolute inset-y-0 left-0 right-[84px]"
+          style={{ paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }}
+        >
+          <div className="relative h-full w-full">
+            <svg
+              viewBox={`0 0 ${svgViewW} ${svgViewH}`}
+              preserveAspectRatio="none"
+              className="absolute inset-0 h-full w-full overflow-visible"
+            >
+              <defs>
+                <linearGradient id="eq-machine-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#CD9C20" stopOpacity="0.28" />
+                  <stop offset="100%" stopColor="#CD9C20" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+
+              {/* Milestone dashed lines */}
+              {sortedMilestones.map((m) => {
+                if (m < minY || m > maxY) return null;
+                const y = sy(m);
+                return (
+                  <line
+                    key={m}
+                    x1={0}
+                    x2={svgViewW}
+                    y1={y}
+                    y2={y}
+                    stroke="currentColor"
+                    strokeOpacity="0.18"
+                    strokeDasharray="0.4 0.8"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
+
+              {/* Area + line */}
+              <path d={areaPath} fill="url(#eq-machine-fill)" />
+              <path
+                d={linePath}
+                fill="none"
+                stroke="#CD9C20"
+                strokeWidth="2"
+                vectorEffect="non-scaling-stroke"
+                strokeLinejoin="round"
+                strokeLinecap="round"
               />
-              <text
-                x={W - PAD_RIGHT + 6}
-                y={y + 3}
-                fontSize="10"
-                className="fill-muted-foreground tabular-nums"
-              >
-                {usd.format(m)}
-              </text>
-            </g>
-          );
-        })}
 
-        {/* Area + line */}
-        <path d={areaPath} fill="url(#eq-machine-fill)" />
-        <path d={linePath} fill="none" stroke="#CD9C20" strokeWidth="1.75" />
-        {/* Markers */}
-        {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={sx(p.x)}
-            cy={sy(p.y)}
-            r={i === points.length - 1 ? 3.5 : 2}
-            fill="#CD9C20"
-          />
-        ))}
-      </svg>
+              {/* Markers */}
+              {points.map((p, i) => (
+                <circle
+                  key={i}
+                  cx={sx(p.x)}
+                  cy={sy(p.y)}
+                  r={i === points.length - 1 ? 1.2 : 0.8}
+                  fill="#CD9C20"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+            </svg>
+          </div>
+        </div>
+
+        {/* Labels — HTML overlay (font không bị stretch) */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-[84px]"
+          style={{ paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }}
+        >
+          <div className="relative h-full w-full">
+            {sortedMilestones.map((m) => {
+              if (m < minY || m > maxY) return null;
+              const yPct = (1 - (m - minY) / rangeY) * 100;
+              return (
+                <div
+                  key={m}
+                  className="absolute right-0 -translate-y-1/2 text-sm font-bold text-foreground/80 tabular-nums tracking-tight"
+                  style={{ top: `${yPct}%` }}
+                >
+                  {usd.format(m)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

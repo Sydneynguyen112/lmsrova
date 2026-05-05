@@ -28,6 +28,7 @@ import { MachineBalanceBreakdown } from "./machine-balance-breakdown";
 import { MachineEquityCurve } from "./machine-equity-curve";
 import { TradeJournal } from "./trade-journal";
 import { WithdrawJournal } from "./withdraw-journal";
+import { WithdrawDialog } from "./withdraw-dialog";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -58,6 +59,14 @@ export function MachineDetailView({
   const router = useRouter();
   const [tick, setTick] = useState(0);
   const refresh = () => setTick((n) => n + 1);
+
+  // Withdraw dialog state — shared by anchor strip + withdraw journal
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawPreset, setWithdrawPreset] = useState({ amount: 0, anchor: 0 });
+  function openWithdraw(amount: number, anchor: number) {
+    setWithdrawPreset({ amount, anchor });
+    setWithdrawOpen(true);
+  }
 
   const resolved = useMemo<{
     machine: Machine;
@@ -206,6 +215,7 @@ export function MachineDetailView({
         milestones={machine.anchor_milestones ?? []}
         balance={balance}
         readOnly={readOnly}
+        onWithdraw={openWithdraw}
       />
 
       {/* Equity curve + Balance breakdown */}
@@ -235,12 +245,22 @@ export function MachineDetailView({
 
       {/* Withdraw journal */}
       <WithdrawJournal
-        ownerId={resolvedOwner}
-        machineId={machineId}
         tx={tx}
         currentAnchor={machine.current_anchor}
-        onChange={refresh}
+        balance={balance}
         readOnly={readOnly}
+        onRequestWithdraw={openWithdraw}
+      />
+
+      {/* Shared withdraw dialog (with fireworks) */}
+      <WithdrawDialog
+        open={withdrawOpen}
+        onOpenChange={setWithdrawOpen}
+        ownerId={resolvedOwner}
+        machineId={machineId}
+        presetAmount={withdrawPreset.amount}
+        currentAnchor={withdrawPreset.anchor || machine.current_anchor}
+        onSuccess={refresh}
       />
     </div>
   );

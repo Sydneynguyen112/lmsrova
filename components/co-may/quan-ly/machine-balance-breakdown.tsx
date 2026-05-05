@@ -19,7 +19,7 @@ export function MachineBalanceBreakdown({ capital, totalPnl, totalWithdrawn }: P
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-      <h3 className="text-base md:text-lg font-semibold text-foreground">Số dư tài khoản</h3>
+      <h3 className="text-lg md:text-xl font-bold text-foreground">Số dư tài khoản</h3>
 
       <dl className="space-y-2.5 text-sm border-t border-dashed border-border pt-3">
         <Row label="Vốn gốc" value={usd.format(capital)} />
@@ -69,7 +69,9 @@ function Row({
       <dt
         className={cn(
           "uppercase tracking-widest",
-          highlight ? "text-sm font-semibold text-foreground" : "text-[11px] text-muted-foreground",
+          highlight
+            ? "text-sm font-bold text-foreground"
+            : "text-xs font-bold text-foreground/70",
         )}
       >
         {label}
