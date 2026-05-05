@@ -4,6 +4,14 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn, formatDate } from "@/lib/utils";
 import { recordTransaction } from "@/lib/co-may/mock-data";
 import type { MachineTransaction, TradeDirection } from "@/lib/co-may/types";
@@ -159,107 +167,132 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
 
       {!readOnly && (
         <div className="border-t border-border p-3">
-          {!open ? (
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="w-full rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors py-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground hover:text-primary"
-            >
-              <Plus className="h-3.5 w-3.5 inline mr-1.5" />
-              Ghi nhận lệnh mới
-            </button>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-3 p-2">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Field label="Hướng">
-                  <select
-                    value={form.direction}
-                    onChange={(e) => update("direction", e.target.value as TradeDirection)}
-                    className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none"
-                  >
-                    <option value="long">Long</option>
-                    <option value="short">Short</option>
-                  </select>
-                </Field>
-                <Field label="Cặp / Mã">
-                  <Input
-                    value={form.symbol}
-                    onChange={(e) => update("symbol", e.target.value)}
-                    placeholder="EURUSD, BTC..."
-                    className="h-10"
-                  />
-                </Field>
-                <Field label="KL">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={form.volume}
-                    onChange={(e) => update("volume", e.target.value)}
-                    placeholder="0.05"
-                    className="h-10"
-                  />
-                </Field>
-                <Field label="PNL ($)">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={form.pnl}
-                    onChange={(e) => update("pnl", e.target.value)}
-                    placeholder="+45 hoặc −32"
-                    className="h-10"
-                    autoFocus
-                  />
-                </Field>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Field label="Lý do vào">
-                  <Input
-                    value={form.entryReason}
-                    onChange={(e) => update("entryReason", e.target.value)}
-                    placeholder="Setup pullback..."
-                    className="h-10"
-                  />
-                </Field>
-                <Field label="Lý do thoát">
-                  <Input
-                    value={form.exitReason}
-                    onChange={(e) => update("exitReason", e.target.value)}
-                    placeholder="Hit TP / SL / kỷ luật"
-                    className="h-10"
-                  />
-                </Field>
-                <Field label="Cảm xúc">
-                  <Input
-                    value={form.emotion}
-                    onChange={(e) => update("emotion", e.target.value)}
-                    placeholder="bình tĩnh, lo lắng..."
-                    className="h-10"
-                  />
-                </Field>
-              </div>
-              {error && <p className="text-xs text-destructive">{error}</p>}
-              <div className="flex justify-end gap-2 pt-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setOpen(false);
-                    setForm(INITIAL_FORM);
-                    setError(null);
-                  }}
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Huỷ
-                </Button>
-                <Button type="submit" variant="anchor" size="sm">
-                  Ghi nhận
-                </Button>
-              </div>
-            </form>
-          )}
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="w-full rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors py-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground hover:text-primary"
+          >
+            <Plus className="h-3.5 w-3.5 inline mr-1.5" />
+            Ghi nhận lệnh mới
+          </button>
         </div>
       )}
+
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) {
+            setForm(INITIAL_FORM);
+            setError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ghi nhận lệnh mới</DialogTitle>
+            <DialogDescription>
+              Điền đầy đủ thông tin lệnh — hướng, cặp, KL, PNL, lý do, cảm xúc.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Field label="Hướng">
+                <select
+                  value={form.direction}
+                  onChange={(e) => update("direction", e.target.value as TradeDirection)}
+                  className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 outline-none"
+                >
+                  <option value="long">Long</option>
+                  <option value="short">Short</option>
+                </select>
+              </Field>
+              <Field label="Cặp / Mã">
+                <Input
+                  value={form.symbol}
+                  onChange={(e) => update("symbol", e.target.value)}
+                  placeholder="EURUSD, BTC..."
+                  className="h-11 text-base"
+                />
+              </Field>
+              <Field label="KL">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={form.volume}
+                  onChange={(e) => update("volume", e.target.value)}
+                  placeholder="0.05"
+                  className="h-11 text-base"
+                />
+              </Field>
+              <Field label="PNL ($)">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={form.pnl}
+                  onChange={(e) => update("pnl", e.target.value)}
+                  placeholder="+45 hoặc -32"
+                  className="h-11 text-base"
+                  autoFocus
+                />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Field label="Lý do vào">
+                <Input
+                  value={form.entryReason}
+                  onChange={(e) => update("entryReason", e.target.value)}
+                  placeholder="Setup pullback..."
+                  className="h-11 text-base"
+                />
+              </Field>
+              <Field label="Lý do thoát">
+                <Input
+                  value={form.exitReason}
+                  onChange={(e) => update("exitReason", e.target.value)}
+                  placeholder="Hit TP / SL / kỷ luật"
+                  className="h-11 text-base"
+                />
+              </Field>
+              <Field label="Cảm xúc">
+                <Input
+                  value={form.emotion}
+                  onChange={(e) => update("emotion", e.target.value)}
+                  placeholder="bình tĩnh, lo lắng..."
+                  className="h-11 text-base"
+                />
+              </Field>
+            </div>
+
+            {error && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <DialogFooter className="-mx-4 -mb-4 mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setOpen(false);
+                  setForm(INITIAL_FORM);
+                  setError(null);
+                }}
+              >
+                <X className="h-3.5 w-3.5" />
+                Huỷ
+              </Button>
+              <Button type="submit" variant="anchor">
+                <Plus className="h-3.5 w-3.5" />
+                Ghi nhận
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
