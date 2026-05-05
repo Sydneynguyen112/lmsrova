@@ -101,13 +101,18 @@ export function MachineAnchorStrip({
 
       {showLossPanel && !showPanel && (
         <div className="rounded-2xl border-2 border-primary/40 bg-primary/8 p-4 space-y-3">
-          <div className="text-center space-y-1.5">
+          <div className="text-center space-y-1">
             <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-              Số dư hiện tại dưới neo
+              Số dư hiện tại dưới mốc neo
             </div>
-            <div className="text-lg md:text-xl italic text-foreground leading-none">
-              Có thể hạ neo xuống{" "}
-              <span className="font-bold not-italic tabular-nums">{usd.format(balance)}</span>
+            <div className="text-3xl md:text-4xl font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums leading-none">
+              −{usd.format(underflow)}
+            </div>
+            <div className="text-sm italic text-muted-foreground pt-1">
+              Bạn có thể hạ neo xuống{" "}
+              <span className="font-bold not-italic text-foreground tabular-nums">
+                {usd.format(balance)}
+              </span>
             </div>
           </div>
 
