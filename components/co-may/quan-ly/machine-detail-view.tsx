@@ -213,6 +213,7 @@ export function MachineDetailView({
       {/* Anchor strip */}
       <MachineAnchorStrip
         milestones={machine.anchor_milestones ?? []}
+        currentAnchor={machine.current_anchor}
         balance={balance}
         readOnly={readOnly}
         onWithdraw={openWithdraw}
