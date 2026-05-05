@@ -6,7 +6,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
@@ -49,9 +48,9 @@ export function FeatureAccessMenu({ userId, compact }: Props) {
         <ChevronDown className="h-3 w-3 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
+        <div className="px-1.5 py-1 text-xs font-medium text-muted-foreground">
           Bật/tắt chức năng cho học viên
-        </DropdownMenuLabel>
+        </div>
         <DropdownMenuSeparator />
         {FEATURES.map((f) => {
           const isOn = enabled.includes(f.id);
