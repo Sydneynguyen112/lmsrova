@@ -74,10 +74,10 @@ export function PerformanceMatrix({
           : "bg-[#3B6C4F]/15 text-[#1F4030] dark:text-[#A6D9B8]";
     }
     return alphaTier === 40
-      ? "bg-[#C03B3B]/40 text-[#5C1818] dark:text-[#F0A8A8]"
+      ? "bg-primary/40 text-[#5C1818] dark:text-[#F0A8A8]"
       : alphaTier === 25
-        ? "bg-[#C03B3B]/25 text-[#5C1818] dark:text-[#F0A8A8]"
-        : "bg-[#C03B3B]/15 text-[#5C1818] dark:text-[#F0A8A8]";
+        ? "bg-primary/25 text-[#5C1818] dark:text-[#F0A8A8]"
+        : "bg-primary/15 text-[#5C1818] dark:text-[#F0A8A8]";
   }
 
   return (
@@ -135,7 +135,7 @@ export function PerformanceMatrix({
                       total > 0
                         ? "text-[#3B6C4F] dark:text-[#5C9C75]"
                         : total < 0
-                          ? "text-[#C03B3B] dark:text-[#E06464]"
+                          ? "text-foreground"
                           : "text-muted-foreground",
                     )}
                   >

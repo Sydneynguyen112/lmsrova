@@ -90,7 +90,7 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
             totalGrowth > 0
               ? "text-2xl font-bold tabular-nums text-[#3B6C4F] dark:text-[#5C9C75]"
               : totalGrowth < 0
-                ? "text-2xl font-bold tabular-nums text-[#C03B3B] dark:text-[#E06464]"
+                ? "text-2xl font-bold tabular-nums text-foreground"
                 : "text-2xl font-bold tabular-nums text-foreground"
           }
         >

@@ -63,7 +63,7 @@ export function CloseCycleDialog({
                 cyclePnl > 0
                   ? "font-semibold text-[#3B6C4F] dark:text-[#5C9C75]"
                   : cyclePnl < 0
-                    ? "font-semibold text-[#C03B3B] dark:text-[#E06464]"
+                    ? "font-semibold text-foreground"
                     : "font-semibold"
               }
             >

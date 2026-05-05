@@ -135,7 +135,7 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                       <span
                         className={cn(
                           "uppercase text-[11px] font-semibold tracking-wider",
-                          t.direction === "short" ? "text-[#E06464]" : "text-[#5C9C75]",
+                          t.direction === "short" ? "text-foreground" : "text-[#5C9C75]",
                         )}
                       >
                         {t.direction ?? "long"}
@@ -150,7 +150,7 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                         className={cn(
                           "font-semibold tabular-nums",
                           tone === "profit" && "text-[#5C9C75]",
-                          tone === "loss" && "text-[#E06464]",
+                          tone === "loss" && "text-foreground",
                         )}
                       >
                         {t.amount > 0 ? "+" : ""}

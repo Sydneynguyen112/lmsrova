@@ -60,7 +60,7 @@ function Row({
     tone === "profit"
       ? "text-[#5C9C75]"
       : tone === "loss"
-        ? "text-[#E06464]"
+        ? "text-foreground"
         : highlight
           ? "text-foreground"
           : "text-foreground";

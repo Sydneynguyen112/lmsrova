@@ -71,7 +71,7 @@ export function KpiGrid({ kpi, role }: { kpi: KpiSnapshot; role?: string | null 
           c.tone === "profit"
             ? "text-[#3B6C4F] dark:text-[#5C9C75]"
             : c.tone === "loss"
-              ? "text-[#C03B3B] dark:text-[#E06464]"
+              ? "text-foreground"
               : "text-foreground";
         return (
           <div

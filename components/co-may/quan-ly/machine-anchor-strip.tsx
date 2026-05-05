@@ -85,22 +85,22 @@ export function MachineAnchorStrip({
       </header>
 
       {showLossPanel && !showPanel && (
-        <div className="rounded-2xl border-2 border-[#C03B3B]/40 bg-[#C03B3B]/8 p-4 space-y-3">
+        <div className="rounded-2xl border-2 border-primary/40 bg-primary/8 p-4 space-y-3">
           <div className="text-center space-y-1">
             <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
               Số dư hiện tại dưới mốc neo
             </div>
-            <div className="text-3xl md:text-4xl font-bold text-[#C03B3B] dark:text-[#E06464] tabular-nums leading-none">
+            <div className="text-3xl md:text-4xl font-bold text-foreground tabular-nums leading-none">
               −{usd.format(underflow)}
             </div>
           </div>
           <button
             type="button"
             onClick={() => onLowerAnchor?.(balance)}
-            className="w-full rounded-xl bg-[#C03B3B] hover:bg-[#A02E2E] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+            className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
           >
             <TrendingDown className="h-4 w-4" />
-            Hạ neo xuống {usd.format(balance)} (chấp nhận lỗ {usd.format(underflow)})
+            Hạ neo xuống {usd.format(balance)}
           </button>
           <button
             type="button"

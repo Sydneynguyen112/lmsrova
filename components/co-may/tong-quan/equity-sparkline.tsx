@@ -92,7 +92,7 @@ export function EquitySparkline({
           className={
             tone === "profit"
               ? "text-2xl font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums"
-              : "text-2xl font-bold text-[#C03B3B] dark:text-[#E06464] tabular-nums"
+              : "text-2xl font-bold text-foreground tabular-nums"
           }
         >
           {last >= 0 ? "+" : ""}

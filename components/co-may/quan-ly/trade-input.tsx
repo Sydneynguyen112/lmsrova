@@ -73,7 +73,7 @@ export function TradeInput({
               "flex-1 flex items-center justify-center gap-1.5 rounded-lg font-medium border-2 transition-colors",
               togglePadCls,
               type === "trade_loss"
-                ? "border-[#C03B3B] bg-[#C03B3B]/10 text-[#C03B3B] dark:text-[#E06464]"
+                ? "border-primary bg-primary/10 text-foreground"
                 : "border-border text-muted-foreground hover:bg-muted",
             )}
           >

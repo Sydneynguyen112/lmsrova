@@ -156,7 +156,7 @@ function CashflowBarChart({ tx, senior }: { tx: MachineTransaction[]; senior: bo
         </div>
         <div className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
           Xu hướng
-          {trendUp ? <TrendingUp className="h-4 w-4 text-[#5C9C75]" /> : <TrendingDown className="h-4 w-4 text-[#E06464]" />}
+          {trendUp ? <TrendingUp className="h-4 w-4 text-[#5C9C75]" /> : <TrendingDown className="h-4 w-4 text-foreground" />}
         </div>
       </div>
     </div>
@@ -216,7 +216,7 @@ function MachineRanking({
                     className={cn(
                       "font-bold tabular-nums whitespace-nowrap",
                       senior ? "text-base" : "text-sm",
-                      r.pnl > 0 ? "text-[#5C9C75]" : r.pnl < 0 ? "text-[#E06464]" : "text-muted-foreground",
+                      r.pnl > 0 ? "text-[#5C9C75]" : r.pnl < 0 ? "text-foreground" : "text-muted-foreground",
                     )}
                   >
                     {r.pnl > 0 ? "+" : ""}

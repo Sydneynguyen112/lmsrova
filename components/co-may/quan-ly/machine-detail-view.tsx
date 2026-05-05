@@ -300,7 +300,7 @@ function KpiTile({
     tone === "profit"
       ? "text-[#5C9C75]"
       : tone === "loss"
-        ? "text-[#E06464]"
+        ? "text-foreground"
         : dark
           ? "text-primary"
           : "text-foreground";

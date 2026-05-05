@@ -107,7 +107,7 @@ export function ReportTable({
                     r.pnl > 0
                       ? "text-[#3B6C4F] dark:text-[#5C9C75]"
                       : r.pnl < 0
-                        ? "text-[#C03B3B] dark:text-[#E06464]"
+                        ? "text-foreground"
                         : "text-muted-foreground",
                   )}
                 >

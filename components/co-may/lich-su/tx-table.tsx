@@ -16,7 +16,7 @@ const PAGE_SIZE = 20;
 
 const TYPE_META: Record<TransactionType, { label: string; icon: React.ElementType; tone: string }> = {
   trade_win: { label: "Thắng", icon: TrendingUp, tone: "text-[#3B6C4F] dark:text-[#5C9C75]" },
-  trade_loss: { label: "Thua", icon: TrendingDown, tone: "text-[#C03B3B] dark:text-[#E06464]" },
+  trade_loss: { label: "Thua", icon: TrendingDown, tone: "text-foreground" },
   withdraw: { label: "Rút", icon: Wallet, tone: "text-primary" },
   anchor_change: { label: "Anchor", icon: Anchor, tone: "text-muted-foreground" },
 };
@@ -90,7 +90,7 @@ export function TxTable({
                       t.amount > 0
                         ? "text-[#3B6C4F] dark:text-[#5C9C75]"
                         : t.amount < 0
-                          ? "text-[#C03B3B] dark:text-[#E06464]"
+                          ? "text-foreground"
                           : "text-muted-foreground",
                     )}
                   >

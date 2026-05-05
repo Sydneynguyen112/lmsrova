@@ -64,7 +64,7 @@ export function TransactionList({
               meta.tone === "profit"
                 ? "bg-[#3B6C4F]/10 text-[#3B6C4F] dark:text-[#5C9C75]"
                 : meta.tone === "loss"
-                  ? "bg-[#C03B3B]/10 text-[#C03B3B] dark:text-[#E06464]"
+                  ? "bg-primary/10 text-foreground"
                   : meta.tone === "primary"
                     ? "bg-primary/10 text-primary"
                     : "bg-muted text-muted-foreground";
@@ -72,7 +72,7 @@ export function TransactionList({
               t.amount > 0
                 ? "text-[#3B6C4F] dark:text-[#5C9C75]"
                 : t.amount < 0
-                  ? "text-[#C03B3B] dark:text-[#E06464]"
+                  ? "text-foreground"
                   : "text-muted-foreground";
             return (
               <li

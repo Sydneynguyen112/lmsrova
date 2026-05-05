@@ -248,7 +248,7 @@ function KpiTile({
     tone === "profit"
       ? "text-[#5C9C75]"
       : tone === "loss"
-        ? "text-[#E06464]"
+        ? "text-foreground"
         : dark
           ? "text-primary"
           : "text-foreground";
@@ -362,7 +362,7 @@ function FeaturedMachineCard({
               <span
                 className={cn(
                   "ml-2 text-sm font-medium tabular-nums",
-                  pnlPct > 0 ? "text-[#5C9C75]" : "text-[#E06464]",
+                  pnlPct > 0 ? "text-[#5C9C75]" : "text-foreground",
                 )}
               >
                 {pnlPct > 0 ? "+" : ""}
@@ -432,7 +432,7 @@ function Stat({
           "font-semibold tabular-nums",
           senior ? "text-base" : "text-sm",
           tone === "profit" && "text-[#5C9C75]",
-          tone === "loss" && "text-[#E06464]",
+          tone === "loss" && "text-foreground",
           !tone && "text-foreground",
         )}
       >
@@ -482,7 +482,7 @@ function ActivityRow({
             "font-semibold tabular-nums whitespace-nowrap",
             senior ? "text-base" : "text-sm",
             tone === "profit" && "text-[#5C9C75]",
-            tone === "loss" && "text-[#E06464]",
+            tone === "loss" && "text-foreground",
           )}
         >
           {tx.amount > 0 ? "+" : ""}
