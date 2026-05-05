@@ -75,10 +75,10 @@ function LichSuViewInner({ role }: { role: RoleSlug }) {
           <TabsTrigger value="bao-cao">Báo cáo</TabsTrigger>
         </TabsList>
         <TabsContent value="nhat-ky" className="mt-4">
-          <NhatKyTab tx={data.tx} machines={data.machines} />
+          <NhatKyTab tx={data.tx} machines={data.machines} role={role} />
         </TabsContent>
         <TabsContent value="bao-cao" className="mt-4">
-          <BaoCaoTab reports={data.reports} machines={data.machines} tx={data.tx} />
+          <BaoCaoTab reports={data.reports} machines={data.machines} tx={data.tx} role={role} />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Anchor } from "lucide-react";
+import { Anchor, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { recordTransaction, updateMachine } from "@/lib/co-may/mock-data";
 import type { Machine } from "@/lib/co-may/types";
+import { isSeniorMode, seniorCx } from "@/lib/co-may/senior-ui";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -18,12 +20,15 @@ export function AnchorCard({
   ownerId,
   readOnly,
   onChange,
+  role,
 }: {
   machine: Machine;
   ownerId: string;
   readOnly?: boolean;
   onChange: () => void;
+  role?: string | null;
 }) {
+  const senior = isSeniorMode(role);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(machine.current_anchor));
   const [error, setError] = useState<string | null>(null);
@@ -51,34 +56,55 @@ export function AnchorCard({
   }
 
   return (
-    <div className="rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-card to-secondary/5 p-6 space-y-4">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Anchor className="h-3.5 w-3.5 text-primary" />
+    <div
+      className={cn(
+        "rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-card to-secondary/5 space-y-4",
+        senior ? "p-7 md:p-8" : "p-6",
+      )}
+    >
+      <div className={cn("flex items-center gap-2 text-muted-foreground", senior ? "text-sm" : "text-xs")}>
+        <Anchor className={senior ? "h-4 w-4 text-primary" : "h-3.5 w-3.5 text-primary"} />
         <span className="uppercase tracking-wider font-semibold">Anchor hiện tại</span>
       </div>
 
-      <div className="text-4xl md:text-5xl font-bold gold-gradient-text tabular-nums leading-none">
+      <div
+        className={cn(
+          "font-bold gold-gradient-text tabular-nums leading-none",
+          senior ? "text-5xl md:text-6xl" : "text-4xl md:text-5xl",
+        )}
+      >
         {usd.format(machine.current_anchor)}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Anchor là mức giá &quot;neo&quot; — không cho phép rút xuống thấp hơn để giữ kỷ luật.
-      </p>
+      {senior ? (
+        <div className="rounded-xl bg-primary/5 border border-primary/20 px-4 py-3 flex gap-2.5">
+          <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+          <p className="text-sm text-foreground/80 leading-relaxed">
+            <strong>Anchor</strong> là mức tiền &quot;neo&quot; trong cỗ máy — không cho phép rút xuống thấp hơn.
+            Đây là cơ chế giữ kỷ luật: bạn chỉ được hạ neo tự nguyện, không được tăng tuỳ ý.
+          </p>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Anchor là mức giá &quot;neo&quot; — không cho phép rút xuống thấp hơn để giữ kỷ luật.
+        </p>
+      )}
 
       {!readOnly && (
         <>
           {!editing ? (
             <Button
               variant="anchor"
+              size={senior ? "lg" : "default"}
               onClick={() => setEditing(true)}
-              className="w-full"
+              className={senior ? "w-full text-base" : "w-full"}
             >
-              <Anchor className="h-3.5 w-3.5" />
+              <Anchor className={senior ? "h-4 w-4" : "h-3.5 w-3.5"} />
               Hạ neo xuống mức mới
             </Button>
           ) : (
             <div className="space-y-2">
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                 <Input
                   type="number"
                   value={draft}
@@ -89,13 +115,14 @@ export function AnchorCard({
                   placeholder="Anchor mới (USD)"
                   max={machine.current_anchor - 1}
                   autoFocus
+                  className={senior ? "h-11 text-base flex-1 min-w-0" : "flex-1 min-w-0"}
                 />
-                <Button variant="anchor" size="sm" onClick={handleSet}>
+                <Button variant="anchor" size={senior ? "default" : "sm"} onClick={handleSet}>
                   Xác nhận
                 </Button>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size={senior ? "default" : "sm"}
                   onClick={() => {
                     setEditing(false);
                     setError(null);

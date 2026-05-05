@@ -1,6 +1,8 @@
 "use client";
 
 import { Coins } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { isSeniorMode, seniorCx } from "@/lib/co-may/senior-ui";
 import { SubNav } from "./sub-nav";
 
 type RoleSlug = "student" | "mentor" | "admin";
@@ -18,17 +20,23 @@ export function CoMayShell({
   role: RoleSlug;
   children: React.ReactNode;
 }) {
+  const senior = isSeniorMode(role);
   return (
-    <div className="space-y-6">
+    <div className={seniorCx.sectionGap(senior)}>
       <header className="flex items-start gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 border border-primary/30">
-          <Coins className="h-6 w-6 text-primary" />
+        <div
+          className={cn(
+            "flex items-center justify-center rounded-2xl bg-primary/15 border border-primary/30 shrink-0",
+            senior ? "h-14 w-14" : "h-12 w-12",
+          )}
+        >
+          <Coins className={senior ? "h-7 w-7 text-primary" : "h-6 w-6 text-primary"} />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold gold-gradient-text">
+          <h1 className={cn(seniorCx.pageTitle(senior), "gold-gradient-text leading-tight")}>
             Cỗ Máy In Tiền
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <p className={cn(seniorCx.pageSubtitle(senior), "mt-1")}>
             {ROLE_LABEL[role]} — quản trị kỷ luật rút tiền cho trader
           </p>
         </div>

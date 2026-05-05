@@ -80,6 +80,7 @@ export function QuanLyListView({ role }: { role: RoleSlug }) {
               machine={m}
               tx={tx.filter((t) => t.machine_id === m.id)}
               detailHref={`/${role}/co-may/quan-ly/${m.id}?owner=${ownerId}`}
+              role={role}
             />
           ))}
         </div>

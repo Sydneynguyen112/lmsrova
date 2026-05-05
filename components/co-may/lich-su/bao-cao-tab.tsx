@@ -8,10 +8,12 @@ export function BaoCaoTab({
   reports,
   machines,
   tx,
+  role,
 }: {
   reports: CycleReport[];
   machines: Machine[];
   tx: MachineTransaction[];
+  role?: string | null;
 }) {
   const [machineId, setMachineId] = useState<string | "all">("all");
   const [decision, setDecision] = useState<"all" | "reset" | "scale">("all");
@@ -53,7 +55,7 @@ export function BaoCaoTab({
           {filtered.length} chu kỳ
         </span>
       </div>
-      <ReportTable reports={filtered} machines={machines} tx={tx} />
+      <ReportTable reports={filtered} machines={machines} tx={tx} role={role} />
     </div>
   );
 }

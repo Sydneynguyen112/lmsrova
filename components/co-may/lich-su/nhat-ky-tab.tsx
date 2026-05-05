@@ -14,9 +14,11 @@ const DAY_MS = 86400_000;
 export function NhatKyTab({
   tx,
   machines,
+  role,
 }: {
   tx: MachineTransaction[];
   machines: Machine[];
+  role?: string | null;
 }) {
   const [filter, setFilter] = useState<TxFilterState>(DEFAULT_TX_FILTER);
   const machineNameById = useMemo(
@@ -61,7 +63,7 @@ export function NhatKyTab({
           Xuất CSV ({filtered.length})
         </Button>
       </div>
-      <TxTable tx={filtered} machines={machines} />
+      <TxTable tx={filtered} machines={machines} role={role} />
     </div>
   );
 }

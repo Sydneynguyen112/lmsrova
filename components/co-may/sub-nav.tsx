@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Settings, FileBarChart, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isSeniorMode } from "@/lib/co-may/senior-ui";
 
 type RoleSlug = "student" | "mentor" | "admin";
 
@@ -21,6 +22,7 @@ const TABS: SubNavTab[] = [
 
 export function SubNav({ role }: { role: RoleSlug }) {
   const pathname = usePathname();
+  const senior = isSeniorMode(role);
 
   return (
     <nav className="border-b border-border">
@@ -34,13 +36,14 @@ export function SubNav({ role }: { role: RoleSlug }) {
               key={tab.segment}
               href={href}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors",
+                "flex items-center font-medium whitespace-nowrap border-b-2 -mb-px transition-colors",
+                senior ? "gap-2.5 px-5 py-4 text-base" : "gap-2 px-4 py-3 text-sm",
                 active
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
               )}
             >
-              <Icon size={16} />
+              <Icon size={senior ? 18 : 16} />
               {tab.label}
             </Link>
           );

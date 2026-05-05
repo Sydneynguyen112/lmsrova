@@ -93,16 +93,16 @@ export function MachineDetailView({
         </div>
       </div>
 
-      <AnchorCard machine={machine} ownerId={resolvedOwner} readOnly={readOnly} onChange={refresh} />
+      <AnchorCard machine={machine} ownerId={resolvedOwner} readOnly={readOnly} onChange={refresh} role={role} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
-          <TransactionList tx={tx} limit={10} />
+          <TransactionList tx={tx} limit={10} role={role} />
         </div>
         <div className="space-y-4">
           {!readOnly && (
             <>
-              <TradeInput ownerId={resolvedOwner} machineId={machine.id} onChange={refresh} />
+              <TradeInput ownerId={resolvedOwner} machineId={machine.id} onChange={refresh} role={role} />
               <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Hành động</h3>
                 <WithdrawModal
@@ -110,12 +110,14 @@ export function MachineDetailView({
                   machineId={machine.id}
                   currentAnchor={machine.current_anchor}
                   onChange={refresh}
+                  role={role}
                 />
                 <CloseCycleDialog
                   ownerId={resolvedOwner}
                   machineId={machine.id}
                   cyclePnl={cyclePnl}
                   onChange={refresh}
+                  role={role}
                 />
               </div>
             </>

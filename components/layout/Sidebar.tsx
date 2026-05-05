@@ -120,9 +120,12 @@ export function Sidebar() {
     const Icon = item.icon;
     const iconSize = depth > 0 ? 16 : 18;
 
+    const senior = fallbackRole === "student";
     const baseClass = cn(
-      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full",
-      depth > 0 && "ml-3 pl-2 gap-2 py-2 text-[13px]",
+      "flex items-center rounded-xl font-medium transition-all w-full",
+      senior ? "gap-3 px-3 py-3 text-[15px]" : "gap-3 px-3 py-2.5 text-sm",
+      // Child indent — senior keeps full text-sm, default shrinks
+      depth > 0 && (senior ? "ml-3 pl-2 gap-2.5 py-2.5 text-sm" : "ml-3 pl-2 gap-2 py-2 text-[13px]"),
       isLocked
         ? "text-sidebar-foreground/30 cursor-default"
         : active || (hasChildren && branchActive && !expanded)

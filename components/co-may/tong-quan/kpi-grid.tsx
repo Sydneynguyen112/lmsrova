@@ -3,6 +3,7 @@
 import { Wallet, TrendingUp, Target, TrendingDown, Clock, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { KpiSnapshot } from "@/lib/co-may/types";
+import { isSeniorMode, seniorCx } from "@/lib/co-may/senior-ui";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -59,10 +60,11 @@ function buildCards(kpi: KpiSnapshot): KpiCard[] {
   ];
 }
 
-export function KpiGrid({ kpi }: { kpi: KpiSnapshot }) {
+export function KpiGrid({ kpi, role }: { kpi: KpiSnapshot; role?: string | null }) {
   const cards = buildCards(kpi);
+  const senior = isSeniorMode(role);
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className={cn("grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5", senior ? "gap-4" : "gap-3")}>
       {cards.map((c) => {
         const Icon = c.icon;
         const valueColor =
@@ -75,30 +77,38 @@ export function KpiGrid({ kpi }: { kpi: KpiSnapshot }) {
           <div
             key={c.label}
             className={cn(
-              "rounded-2xl p-4 border bg-card transition-colors",
+              "rounded-2xl border bg-card transition-colors",
+              seniorCx.kpiCardPad(senior),
               c.highlight ? "border-primary/40 shadow-sm" : "border-border",
             )}
           >
             <div className="flex items-center justify-between mb-3">
               <div
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-lg",
+                  "flex items-center justify-center",
+                  seniorCx.kpiIconBox(senior),
                   c.highlight ? "bg-primary/15" : "bg-muted",
                 )}
               >
-                <Icon size={16} className={c.highlight ? "text-primary" : "text-muted-foreground"} />
+                <Icon
+                  size={seniorCx.kpiIconSize(senior)}
+                  className={c.highlight ? "text-primary" : "text-muted-foreground"}
+                />
               </div>
               {c.highlight && (
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-primary/70">
+                <span
+                  className={cn(
+                    "font-semibold uppercase tracking-wider text-primary/70",
+                    senior ? "text-xs" : "text-[10px]",
+                  )}
+                >
                   KPI
                 </span>
               )}
             </div>
-            <div className={cn("text-xl md:text-2xl font-bold leading-tight", valueColor)}>
-              {c.value}
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5">{c.label}</div>
-            {c.hint && <div className="text-[11px] text-muted-foreground/70 mt-1">{c.hint}</div>}
+            <div className={cn(seniorCx.kpiValue(senior), valueColor, "tabular-nums")}>{c.value}</div>
+            <div className={cn(seniorCx.kpiLabel(senior), "mt-1")}>{c.label}</div>
+            {c.hint && <div className={cn(seniorCx.kpiHint(senior), "mt-1")}>{c.hint}</div>}
           </div>
         );
       })}

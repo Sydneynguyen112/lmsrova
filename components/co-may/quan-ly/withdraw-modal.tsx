@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { recordTransaction } from "@/lib/co-may/mock-data";
 import { fireworks, FIREWORK_DURATION } from "@/lib/co-may/celebrate";
+import { isSeniorMode } from "@/lib/co-may/senior-ui";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -28,12 +29,15 @@ export function WithdrawModal({
   machineId,
   currentAnchor,
   onChange,
+  role,
 }: {
   ownerId: string;
   machineId: string;
   currentAnchor: number;
   onChange: () => void;
+  role?: string | null;
 }) {
+  const senior = isSeniorMode(role);
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -95,8 +99,8 @@ export function WithdrawModal({
       >
         <DialogTrigger
           render={
-            <Button variant="anchor" className="w-full">
-              <Wallet className="h-3.5 w-3.5" />
+            <Button variant="anchor" size={senior ? "lg" : "default"} className="w-full">
+              <Wallet className={senior ? "h-4 w-4" : "h-3.5 w-3.5"} />
               Rút tiền
             </Button>
           }
@@ -112,7 +116,9 @@ export function WithdrawModal({
 
           <form onSubmit={handleSubmit} className="space-y-3 mt-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-foreground">Số tiền (USD)</label>
+              <label className={senior ? "text-sm font-medium text-foreground" : "text-xs font-medium text-foreground"}>
+                Số tiền (USD)
+              </label>
               <Input
                 type="number"
                 value={amount}
@@ -121,9 +127,10 @@ export function WithdrawModal({
                 min={0.01}
                 step="0.01"
                 autoFocus
+                className={senior ? "h-11 text-base" : ""}
               />
             </div>
-            {error && <p className="text-xs text-destructive">{error}</p>}
+            {error && <p className={senior ? "text-sm text-destructive" : "text-xs text-destructive"}>{error}</p>}
 
             <DialogFooter className="-mx-4 -mb-4 mt-3">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
