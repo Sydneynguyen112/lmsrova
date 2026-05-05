@@ -117,6 +117,14 @@ export function MachineAnchorStrip({
             <>
               <button
                 type="button"
+                onClick={() => onLowerAnchor?.(nextLowerMilestone!)}
+                className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+              >
+                <TrendingDown className="h-4 w-4" />
+                Hạ neo xuống {usd.format(nextLowerMilestone)}
+              </button>
+              <button
+                type="button"
                 onClick={() => onWithdraw?.(withdrawToLowerAmount, nextLowerMilestone!)}
                 className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
               >
