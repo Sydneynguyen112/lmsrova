@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
+  adjustTotalCapital,
   allocateMore,
   QUICK_CAPITAL_CHIPS,
   saveSetup,
@@ -37,7 +38,6 @@ export function SetupWizard({
   reservePool?: number;
 }) {
   const router = useRouter();
-  // Mode "allocate" skip thẳng step 3 với pool dự trữ.
   const [step, setStep] = useState<1 | 2 | 3>(mode === "allocate" ? 3 : 1);
   const [capital, setCapital] = useState<number>(mode === "allocate" ? reservePool : 1000);
   const [strategy, setStrategy] = useState<StrategyId>("concentrated");
@@ -46,6 +46,9 @@ export function SetupWizard({
       ? [{ name: "Cỗ máy mới", capital: 0 }]
       : [],
   );
+  // Mode allocate: thêm vốn doanh chủ. Pool = reservePool + addedCapital.
+  const [addedCapital, setAddedCapital] = useState<number>(0);
+  const effectivePool = mode === "allocate" ? reservePool + addedCapital : capital;
 
   const machineCount = useMemo(
     () =>
@@ -68,25 +71,30 @@ export function SetupWizard({
 
   function handleFinish() {
     const sum = allocations.reduce((s, a) => s + a.capital, 0);
+    const totalPool = mode === "allocate" ? effectivePool : capital;
     // Allow under-allocation (phần dư = vốn dự trữ). Block over-allocation only.
-    if (sum > capital + 1) {
+    if (sum > totalPool + 1) {
       // eslint-disable-next-line no-alert
       alert(
         `Tổng phân bổ (${usd.format(sum)}) vượt quá ${
-          mode === "allocate" ? "vốn dự trữ" : "tổng vốn"
-        } (${usd.format(capital)}).`,
+          mode === "allocate" ? "vốn dự trữ khả dụng" : "tổng vốn"
+        } (${usd.format(totalPool)}).`,
       );
       return;
     }
     if (mode === "allocate") {
-      // Chỉ thêm machines, không reset setup.
+      // Bước 1: nếu có thêm vốn → cộng vào totalCapital
+      if (addedCapital > 0) {
+        adjustTotalCapital(userId, addedCapital);
+      }
+      // Bước 2: thêm machines (nếu có).
       const valid = allocations.filter((a) => a.capital > 0 && a.name.trim());
-      if (valid.length === 0) {
+      if (valid.length === 0 && addedCapital <= 0) {
         // eslint-disable-next-line no-alert
-        alert("Cần ít nhất 1 cỗ máy có vốn > 0.");
+        alert("Phải nạp thêm vốn HOẶC tạo ít nhất 1 cỗ máy có vốn > 0.");
         return;
       }
-      allocateMore(userId, valid);
+      if (valid.length > 0) allocateMore(userId, valid);
     } else {
       saveSetup(userId, { totalCapital: capital, strategy, allocations });
     }
@@ -129,11 +137,20 @@ export function SetupWizard({
         {step === 2 && !isAllocateMode && (
           <StepStrategy strategy={strategy} onChange={setStrategy} />
         )}
+        {step === 3 && isAllocateMode && (
+          <AddCapitalSection
+            reservePool={reservePool}
+            addedCapital={addedCapital}
+            onChangeAddedCapital={setAddedCapital}
+            effectivePool={effectivePool}
+          />
+        )}
+
         {step === 3 && (
           <StepAllocation
             allocations={allocations}
             onChange={setAllocations}
-            total={capital}
+            total={isAllocateMode ? effectivePool : capital}
             machineCount={machineCount}
             isAllocateMode={isAllocateMode}
             onAddRow={addAllocationRow}
@@ -467,6 +484,71 @@ function StepAllocation({
               : `Vốn dự trữ: ${usd.format(reserve)}`}
         </span>
       </div>
+    </div>
+  );
+}
+
+function AddCapitalSection({
+  reservePool,
+  addedCapital,
+  onChangeAddedCapital,
+  effectivePool,
+}: {
+  reservePool: number;
+  addedCapital: number;
+  onChangeAddedCapital: (n: number) => void;
+  effectivePool: number;
+}) {
+  return (
+    <div className="rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 p-5 space-y-4">
+      <div>
+        <h2 className="text-xl md:text-2xl font-bold text-foreground">
+          Tăng <span className="text-primary">vốn doanh chủ</span> (tuỳ chọn)
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+          Nạp thêm tiền từ ngoài vào vốn doanh chủ. Số tiền này cộng thẳng vào vốn dự trữ
+          và bạn có thể phân bổ cho cỗ máy mới ở dưới.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            Vốn dự trữ hiện có
+          </label>
+          <div className="h-11 rounded-lg bg-muted px-3 flex items-center text-base font-bold tabular-nums text-foreground">
+            {usd.format(reservePool)}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold uppercase tracking-widest text-primary">
+            Nạp thêm ($)
+          </label>
+          <Input
+            type="number"
+            value={addedCapital === 0 ? "" : addedCapital}
+            onChange={(e) => onChangeAddedCapital(Math.max(0, Number(e.target.value) || 0))}
+            placeholder="0"
+            min={0}
+            step={1}
+            className="h-11 text-base tabular-nums"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            Pool khả dụng
+          </label>
+          <div className="h-11 rounded-lg bg-primary/10 border-2 border-primary/30 px-3 flex items-center text-base font-bold tabular-nums text-primary">
+            {usd.format(effectivePool)}
+          </div>
+        </div>
+      </div>
+
+      {addedCapital > 0 && (
+        <p className="text-xs italic text-primary/80">
+          Sau khi xác nhận: tổng vốn doanh chủ sẽ tăng thêm <strong>{usd.format(addedCapital)}</strong>.
+        </p>
+      )}
     </div>
   );
 }
