@@ -459,7 +459,7 @@ function ActivityRow({
   senior: boolean;
 }) {
   const machine = machines.find((m) => m.id === tx.machine_id);
-  const tone = tx.amount > 0 ? "profit" : tx.amount < 0 ? "loss" : undefined;
+  const tone = tx.type === "withdraw" || tx.amount > 0 ? "profit" : tx.amount < 0 ? "loss" : undefined;
 
   return (
     <li className={cn("grid grid-cols-[120px_1fr_auto] items-center gap-4", senior ? "px-5 py-4" : "px-4 py-3")}>
