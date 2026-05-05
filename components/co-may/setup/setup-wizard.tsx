@@ -2,18 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Coins, Check, Ban } from "lucide-react";
+import { ArrowLeft, ArrowRight, Coins, Check, Ban, Anchor, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   adjustTotalCapital,
-  allocateMore,
   QUICK_CAPITAL_CHIPS,
   saveSetup,
   STRATEGIES,
   type StrategyId,
 } from "@/lib/co-may/setup-store";
+import { deleteMachine, getMachinesByUser } from "@/lib/co-may/mock-data";
+import type { Machine } from "@/lib/co-may/types";
+import { CreateMachineDialog } from "@/components/co-may/quan-ly/create-machine-dialog";
 
 export type WizardMode = "initial" | "allocate";
 
@@ -48,7 +50,21 @@ export function SetupWizard({
   );
   // Mode allocate: thêm vốn doanh chủ. Pool = reservePool + addedCapital.
   const [addedCapital, setAddedCapital] = useState<number>(0);
+  // Snapshot initial machine IDs để track session additions
+  const [initialIds] = useState<Set<string>>(() =>
+    mode === "allocate"
+      ? new Set(getMachinesByUser(userId).map((m) => m.id))
+      : new Set(),
+  );
+  const [tick, setTick] = useState(0);
+  const sessionMachines = useMemo<Machine[]>(() => {
+    if (mode !== "allocate") return [];
+    return getMachinesByUser(userId).filter((m) => !initialIds.has(m.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, mode, tick]);
+  const sessionAllocated = sessionMachines.reduce((s, m) => s + m.capital, 0);
   const effectivePool = mode === "allocate" ? reservePool + addedCapital : capital;
+  const remainingReserve = effectivePool - sessionAllocated;
 
   const machineCount = useMemo(
     () =>
@@ -70,35 +86,35 @@ export function SetupWizard({
   }
 
   function handleFinish() {
-    const sum = allocations.reduce((s, a) => s + a.capital, 0);
-    const totalPool = mode === "allocate" ? effectivePool : capital;
-    // Allow under-allocation (phần dư = vốn dự trữ). Block over-allocation only.
-    if (sum > totalPool + 1) {
-      // eslint-disable-next-line no-alert
-      alert(
-        `Tổng phân bổ (${usd.format(sum)}) vượt quá ${
-          mode === "allocate" ? "vốn dự trữ khả dụng" : "tổng vốn"
-        } (${usd.format(totalPool)}).`,
-      );
-      return;
-    }
     if (mode === "allocate") {
-      // Bước 1: nếu có thêm vốn → cộng vào totalCapital
+      // Allocate mode: machines đã được addMachine qua CreateMachineDialog rồi.
+      // Chỉ apply addedCapital nếu > 0.
+      if (addedCapital <= 0 && sessionMachines.length === 0) {
+        // eslint-disable-next-line no-alert
+        alert("Bạn chưa thay đổi gì — nạp thêm vốn HOẶC tạo cỗ máy mới.");
+        return;
+      }
       if (addedCapital > 0) {
         adjustTotalCapital(userId, addedCapital);
       }
-      // Bước 2: thêm machines (nếu có).
-      const valid = allocations.filter((a) => a.capital > 0 && a.name.trim());
-      if (valid.length === 0 && addedCapital <= 0) {
-        // eslint-disable-next-line no-alert
-        alert("Phải nạp thêm vốn HOẶC tạo ít nhất 1 cỗ máy có vốn > 0.");
-        return;
-      }
-      if (valid.length > 0) allocateMore(userId, valid);
-    } else {
-      saveSetup(userId, { totalCapital: capital, strategy, allocations });
+      router.replace(`/${role}/co-may/tong-quan`);
+      return;
     }
+    // Initial mode: legacy path
+    const sum = allocations.reduce((s, a) => s + a.capital, 0);
+    if (sum > capital + 1) {
+      // eslint-disable-next-line no-alert
+      alert(`Tổng phân bổ (${usd.format(sum)}) vượt quá tổng vốn (${usd.format(capital)}).`);
+      return;
+    }
+    saveSetup(userId, { totalCapital: capital, strategy, allocations });
     router.replace(`/${role}/co-may/tong-quan`);
+  }
+
+  function handleRemoveSessionMachine(machineId: string) {
+    if (!confirm("Xoá cỗ máy này?")) return;
+    deleteMachine(userId, machineId);
+    setTick((n) => n + 1);
   }
 
   function addAllocationRow() {
@@ -138,21 +154,30 @@ export function SetupWizard({
           <StepStrategy strategy={strategy} onChange={setStrategy} />
         )}
         {step === 3 && isAllocateMode && (
-          <AddCapitalSection
-            reservePool={reservePool}
-            addedCapital={addedCapital}
-            onChangeAddedCapital={setAddedCapital}
-            effectivePool={effectivePool}
-          />
+          <>
+            <AddCapitalSection
+              reservePool={reservePool}
+              addedCapital={addedCapital}
+              onChangeAddedCapital={setAddedCapital}
+              effectivePool={effectivePool}
+            />
+            <AllocateSessionList
+              userId={userId}
+              sessionMachines={sessionMachines}
+              remainingReserve={remainingReserve}
+              onCreated={() => setTick((n) => n + 1)}
+              onRemove={handleRemoveSessionMachine}
+            />
+          </>
         )}
 
-        {step === 3 && (
+        {step === 3 && !isAllocateMode && (
           <StepAllocation
             allocations={allocations}
             onChange={setAllocations}
-            total={isAllocateMode ? effectivePool : capital}
+            total={capital}
             machineCount={machineCount}
-            isAllocateMode={isAllocateMode}
+            isAllocateMode={false}
             onAddRow={addAllocationRow}
             onRemoveRow={removeAllocationRow}
           />
@@ -549,6 +574,89 @@ function AddCapitalSection({
           Sau khi xác nhận: tổng vốn doanh chủ sẽ tăng thêm <strong>{usd.format(addedCapital)}</strong>.
         </p>
       )}
+    </div>
+  );
+}
+
+function AllocateSessionList({
+  userId,
+  sessionMachines,
+  remainingReserve,
+  onCreated,
+  onRemove,
+}: {
+  userId: string;
+  sessionMachines: Machine[];
+  remainingReserve: number;
+  onCreated: () => void;
+  onRemove: (machineId: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border-2 border-dashed border-primary/30 bg-card p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">
+            Khởi tạo <span className="text-primary">cỗ máy mới</span>
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+            Mỗi cỗ máy cấu hình đầy đủ: phương pháp, rủi ro, mục tiêu, mốc neo.
+          </p>
+        </div>
+        <CreateMachineDialog
+          userId={userId}
+          reservePool={Math.max(0, remainingReserve)}
+          onCreated={onCreated}
+        />
+      </div>
+
+      {sessionMachines.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm italic text-muted-foreground">
+          Chưa tạo cỗ máy nào trong phiên này. Bấm <strong className="text-foreground">Tạo cỗ máy mới</strong> để bắt đầu.
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {sessionMachines.map((m) => (
+            <li
+              key={m.id}
+              className="rounded-xl border border-border bg-card px-4 py-3 flex items-center gap-3"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 shrink-0">
+                <Anchor className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-foreground truncate">{m.name}</div>
+                <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+                  {usd.format(m.capital)}
+                  {m.method && ` · ${m.method}`}
+                  {m.anchor_milestones && m.anchor_milestones.length > 0 && (
+                    <> · {m.anchor_milestones.length} mốc neo</>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onRemove(m.id)}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Xoá cỗ máy này"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div
+        className={cn(
+          "rounded-xl border px-4 py-3 flex items-center justify-between text-sm md:text-base",
+          remainingReserve < 0
+            ? "border-destructive/40 bg-destructive/5 text-destructive"
+            : "border-primary/30 bg-primary/5 text-primary",
+        )}
+      >
+        <span className="font-medium">Vốn dự trữ còn lại</span>
+        <span className="font-bold tabular-nums">{usd.format(remainingReserve)}</span>
+      </div>
     </div>
   );
 }
