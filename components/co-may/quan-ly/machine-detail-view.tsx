@@ -225,7 +225,7 @@ export function MachineDetailView({
           recordTransaction(resolvedOwner, machineId, {
             type: "anchor_change",
             amount: newAnchor - oldAnchor,
-            note: `Hạ neo từ ${usd.format(oldAnchor)} xuống ${usd.format(newAnchor)} — chấp nhận lỗ ${usd.format(oldAnchor - newAnchor)}`,
+            note: `Hạ neo từ ${usd.format(oldAnchor)} xuống ${usd.format(newAnchor)}`,
           });
           refresh();
         }}
