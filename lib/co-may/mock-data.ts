@@ -164,7 +164,18 @@ function nextId(prefix: string) {
 
 export function addMachine(
   userId: string,
-  input: { name: string; capital: number; current_anchor: number },
+  input: {
+    name: string;
+    capital: number;
+    current_anchor: number;
+    method?: string;
+    signal_source?: Machine["signal_source"];
+    risk_per_trade_pct?: number;
+    max_drawdown_pct?: number;
+    target_withdraw_count?: number;
+    target_profit?: number;
+    anchor_milestones?: number[];
+  },
 ): Machine {
   const data = getDataFor(userId);
   const now = new Date().toISOString();
@@ -178,6 +189,13 @@ export function addMachine(
     status: "active",
     created_at: now,
     updated_at: now,
+    method: input.method,
+    signal_source: input.signal_source,
+    risk_per_trade_pct: input.risk_per_trade_pct,
+    max_drawdown_pct: input.max_drawdown_pct,
+    target_withdraw_count: input.target_withdraw_count,
+    target_profit: input.target_profit,
+    anchor_milestones: input.anchor_milestones,
   };
   data.machines.unshift(m);
   return m;

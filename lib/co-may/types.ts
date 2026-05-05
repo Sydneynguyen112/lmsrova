@@ -11,6 +11,8 @@ export type TransactionType =
 
 export type CycleDecision = "reset" | "scale";
 
+export type SignalSource = "self" | "rova" | "other";
+
 export interface Machine {
   id: string;
   user_id: string;
@@ -21,6 +23,14 @@ export interface Machine {
   status: MachineStatus;
   created_at: string;
   updated_at: string;
+  // ── Cấu hình mở rộng (optional cho machines tạo từ wizard quick-allocate) ──
+  method?: string;
+  signal_source?: SignalSource;
+  risk_per_trade_pct?: number;
+  max_drawdown_pct?: number;
+  target_withdraw_count?: number;
+  target_profit?: number;
+  anchor_milestones?: number[];
 }
 
 export interface MachineTransaction {

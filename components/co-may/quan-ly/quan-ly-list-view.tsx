@@ -7,6 +7,7 @@ import {
   getTxByUser,
   getUserScope,
 } from "@/lib/co-may/mock-data";
+import { getSetup } from "@/lib/co-may/setup-store";
 import type { Machine, MachineTransaction } from "@/lib/co-may/types";
 import { MachineCard } from "./machine-card";
 import { CreateMachineDialog } from "./create-machine-dialog";
@@ -48,6 +49,17 @@ export function QuanLyListView({ role }: { role: RoleSlug }) {
 
   const canCreate = role === "student";
 
+  // Reserve pool = totalCapital - sum(active machine.capital của chính user, không phải scope)
+  let reservePool: number | undefined;
+  if (canCreate) {
+    const setup = getSetup(user.id);
+    if (setup) {
+      const ownActive = getMachinesByUser(user.id).filter((m) => m.status !== "closed");
+      const allocated = ownActive.reduce((s, m) => s + m.capital, 0);
+      reservePool = Math.max(0, setup.totalCapital - allocated);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -56,10 +68,15 @@ export function QuanLyListView({ role }: { role: RoleSlug }) {
           <p className="text-xs text-muted-foreground mt-0.5">
             {SCOPE_LABEL[role]} • {machineMap.length} cỗ máy
             {!canCreate && " • read-only"}
+            {canCreate && reservePool !== undefined && ` • Vốn dự trữ: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(reservePool)}`}
           </p>
         </div>
         {canCreate && (
-          <CreateMachineDialog userId={user.id} onCreated={() => setTick((n) => n + 1)} />
+          <CreateMachineDialog
+            userId={user.id}
+            reservePool={reservePool}
+            onCreated={() => setTick((n) => n + 1)}
+          />
         )}
       </div>
 
