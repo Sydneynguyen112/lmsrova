@@ -54,14 +54,23 @@ const INITIAL: FormState = {
 };
 
 /**
- * Default anchor milestones — chia capital thành 5 mốc neo cách đều, strict giữa 0 và capital.
- * Step = capital / 6, levels = [5, 4, 3, 2, 1] * step.
- * Vd capital=200 → [167, 133, 100, 67, 33].
+ * Default anchor milestones — geometric spacing match loss-aversion psychology.
+ * NEO 1 = 70% capital (đệm tâm lý 30% cho biến động bình thường).
+ * NEO 2..5 = 80% mốc trước (mỗi step -20%, mốc gần đáy gắt hơn).
+ *
+ * Vd capital=200  → [140, 112, 90, 72, 57].
+ * Vd capital=1000 → [700, 560, 448, 358, 287].
  */
 function generateAnchors(capital: number): number[] {
   if (!Number.isFinite(capital) || capital <= 0) return [];
-  const step = capital / 6;
-  return [5, 4, 3, 2, 1].map((m) => Math.max(1, Math.round(m * step)));
+  const ratio = 0.8;
+  const out: number[] = [];
+  let v = capital * 0.7; // NEO 1 = 70% capital
+  for (let i = 0; i < 5; i++) {
+    out.push(Math.max(1, Math.round(v)));
+    v *= ratio;
+  }
+  return out;
 }
 
 export function CreateMachineDialog({
