@@ -100,53 +100,48 @@ export function MachineAnchorStrip({
       </header>
 
       {showLossPanel && !showPanel && (
-        <div className="rounded-2xl border-2 border-primary/40 bg-primary/8 p-4 space-y-3">
-          <div className="text-center space-y-1">
+        <div className="rounded-2xl border-2 border-dashed border-primary/50 bg-primary/8 p-4 space-y-3">
+          <div className="text-center space-y-1.5">
             <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
               Số dư hiện tại dưới mốc neo
             </div>
-            <div className="text-3xl md:text-4xl font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums leading-none">
-              −{usd.format(underflow)}
-            </div>
-            <div className="text-sm italic text-muted-foreground pt-1">
-              Bạn có thể hạ neo xuống{" "}
-              <span className="font-bold not-italic text-foreground tabular-nums">
-                {usd.format(balance)}
+            <div className="text-base md:text-lg italic text-foreground leading-snug">
+              Có thể hạ neo xuống{" "}
+              <span className="font-bold not-italic tabular-nums">
+                {usd.format(canWithdrawToLower && nextLowerMilestone !== null ? nextLowerMilestone : balance)}
               </span>
             </div>
           </div>
 
-          {/* Option 1: Rút về mốc DƯỚI — chỉ khi balance vẫn cao hơn mốc dưới */}
-          {canWithdrawToLower && nextLowerMilestone !== null && (
+          {canWithdrawToLower && nextLowerMilestone !== null ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onWithdraw?.(withdrawToLowerAmount, nextLowerMilestone!)}
+                className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Rút {usd.format(withdrawToLowerAmount)} về mốc {usd.format(nextLowerMilestone)}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDismissedLossAt(underflow)}
+                className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
+              >
+                <Target className="h-3.5 w-3.5 inline mr-1.5" />
+                Giữ nguyên — quay về mốc {usd.format(currentAnchor)}
+              </button>
+            </>
+          ) : (
             <button
               type="button"
-              onClick={() => onWithdraw?.(withdrawToLowerAmount, nextLowerMilestone!)}
-              className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+              onClick={() => onLowerAnchor?.(balance)}
+              className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
             >
-              <Sparkles className="h-4 w-4" />
-              Rút {usd.format(withdrawToLowerAmount)} về mốc {usd.format(nextLowerMilestone)}
+              <TrendingDown className="h-4 w-4" />
+              Hạ neo xuống {usd.format(balance)}
             </button>
           )}
-
-          {/* Option 2: Hạ neo về balance — lock-in khoản lỗ */}
-          <button
-            type="button"
-            onClick={() => onLowerAnchor?.(balance)}
-            className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-          >
-            <TrendingDown className="h-4 w-4" />
-            Hạ neo xuống {usd.format(balance)}
-          </button>
-
-          {/* Option 3: Giữ vốn — quay về mốc hiện tại */}
-          <button
-            type="button"
-            onClick={() => setDismissedLossAt(underflow)}
-            className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
-          >
-            <Target className="h-3.5 w-3.5 inline mr-1.5" />
-            Giữ vốn — quay về mốc {usd.format(currentAnchor)}
-          </button>
         </div>
       )}
 
@@ -161,37 +156,34 @@ export function MachineAnchorStrip({
             </div>
           </div>
 
-          {/* Option 1: Rút về mốc CŨ (M-prev) — chỉ khi balance ≥ mốc cũ */}
+          {/* Khi balance vượt cả mốc trên — nâng neo lên mốc đó (rút ít hơn) */}
           {prevMilestone !== null && overflowPrev > 0 && (
             <button
               type="button"
               onClick={() => onWithdraw?.(overflowPrev, prevMilestone)}
-              className="w-full rounded-xl border-2 border-[#3B6C4F]/50 bg-card hover:bg-[#3B6C4F]/10 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
+              className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
             >
-              <Target className="h-4 w-4" />
-              Rút {usd.format(overflowPrev)} về mốc cũ {usd.format(prevMilestone)}
+              <Sparkles className="h-4 w-4" />
+              Rút {usd.format(overflowPrev)} về mốc {usd.format(prevMilestone)} · NÂNG NEO ↑
             </button>
           )}
 
-          {/* Option 2: Rút về mốc HIỆN TẠI (current_anchor) — luôn show khi overflow > 0 */}
+          {/* Rút phần dư về mốc hiện tại — luôn show khi có overflow */}
           <button
             type="button"
             onClick={() => onWithdraw?.(overflowCurrent, currentAnchor)}
             className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            Rút {usd.format(overflowCurrent)} về mốc hiện tại {usd.format(currentAnchor)}
+            Rút {usd.format(overflowCurrent)} về mốc {usd.format(currentAnchor)}
           </button>
 
-          {/* Option 3: Dismiss — chỉ ẩn cho overflow level hiện tại */}
           <button
             type="button"
             onClick={() => setDismissedAt(overflowCurrent)}
             className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
           >
-            {prevMilestone !== null && overflowPrev <= 0
-              ? `Tôi ổn — đặt mục tiêu lên mốc cũ ${usd.format(prevMilestone)}`
-              : "Tôi ổn"}
+            Tôi ổn
           </button>
         </div>
       )}
