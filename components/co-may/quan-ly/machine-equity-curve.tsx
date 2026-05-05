@@ -15,62 +15,92 @@ interface Props {
   milestones?: number[];
 }
 
+interface Point {
+  x: number;
+  y: number;
+  amount?: number;
+}
+
 export function MachineEquityCurve({ capital, tx, milestones }: Props) {
-  const sorted = [...tx]
+  // Trades + withdraws (excluding anchor changes), chronological
+  const events = [...tx]
     .filter((t) => t.type !== "anchor_change")
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
-  const points: { x: number; y: number }[] = [{ x: 0, y: capital }];
-  let bal = capital;
-  sorted.forEach((t, i) => {
-    bal += t.amount;
-    points.push({ x: i + 1, y: bal });
+  // Build cumulative-growth curve.
+  // y(t) = capital + ΣPnL(t)    — KHÔNG trừ withdraws
+  // Withdraws thành markers tại x của event đó, y = curve hiện thời.
+  const linePoints: Point[] = [{ x: 0, y: capital }];
+  const withdrawMarkers: Point[] = [];
+  let cum = 0;
+  events.forEach((t, i) => {
+    const x = i + 1;
+    if (t.type === "trade_win" || t.type === "trade_loss") {
+      cum += t.amount;
+      linePoints.push({ x, y: capital + cum, amount: t.amount });
+    } else if (t.type === "withdraw") {
+      withdrawMarkers.push({ x, y: capital + cum, amount: -t.amount });
+    }
   });
 
-  // Range: include capital, all balance points, all milestones — đảm bảo lines không chồng.
   const ms = milestones ?? [];
-  const collect = [...points.map((p) => p.y), ...ms, capital];
-  const minRaw = Math.min(...collect);
-  const maxRaw = Math.max(...collect);
-  // Padding 8% để lines không sát biên
+  const collectY = [...linePoints.map((p) => p.y), ...ms, capital];
+  const minRaw = Math.min(...collectY);
+  const maxRaw = Math.max(...collectY);
   const padding = Math.max(1, (maxRaw - minRaw) * 0.08);
   const minY = minRaw - padding;
   const maxY = maxRaw + padding;
   const rangeY = maxY - minY || 1;
-  const maxX = Math.max(1, points[points.length - 1].x);
+  const maxX = Math.max(1, events.length);
 
-  // Track-style chart: render labels via HTML positioned outside SVG để font không bị stretch.
   const sortedMilestones = [...ms].sort((a, b) => b - a);
 
-  // Heights:
   const H_PX = 240;
   const PAD_TOP = 24;
   const PAD_BOTTOM = 24;
-  const innerH = H_PX - PAD_TOP - PAD_BOTTOM;
-
-  // SVG width: dùng "auto-stretch" qua viewBox = 100x100 và preserveAspectRatio none.
-  // Labels nằm OUTSIDE svg nên không bị stretch.
   const svgViewW = 100;
   const svgViewH = 100;
 
   const sx = (x: number) => (x / maxX) * svgViewW;
   const sy = (y: number) => (1 - (y - minY) / rangeY) * svgViewH;
 
-  const linePath = points
+  const linePath = linePoints
     .map((p, i) => `${i === 0 ? "M" : "L"} ${sx(p.x).toFixed(2)} ${sy(p.y).toFixed(2)}`)
     .join(" ");
 
   const areaPath =
-    `M ${sx(points[0].x).toFixed(2)} ${svgViewH} ` +
-    points.map((p) => `L ${sx(p.x).toFixed(2)} ${sy(p.y).toFixed(2)}`).join(" ") +
-    ` L ${sx(points[points.length - 1].x).toFixed(2)} ${svgViewH} Z`;
+    `M ${sx(linePoints[0].x).toFixed(2)} ${svgViewH} ` +
+    linePoints.map((p) => `L ${sx(p.x).toFixed(2)} ${sy(p.y).toFixed(2)}`).join(" ") +
+    ` L ${sx(linePoints[linePoints.length - 1].x).toFixed(2)} ${svgViewH} Z`;
+
+  const finalY = linePoints[linePoints.length - 1].y;
+  const totalGrowth = finalY - capital;
+  const totalWithdrawn = withdrawMarkers.reduce((s, w) => s + (w.amount ?? 0), 0);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-      <h3 className="text-lg md:text-xl font-bold text-foreground">Đường vốn</h3>
+      <header className="flex items-baseline justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-lg md:text-xl font-bold text-foreground">Đường tăng trưởng</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Vốn + lãi tích luỹ (chưa trừ tiền đã rút) — kỹ năng trading thuần
+          </p>
+        </div>
+        <div
+          className={
+            totalGrowth > 0
+              ? "text-2xl font-bold tabular-nums text-[#3B6C4F] dark:text-[#5C9C75]"
+              : totalGrowth < 0
+                ? "text-2xl font-bold tabular-nums text-[#C03B3B] dark:text-[#E06464]"
+                : "text-2xl font-bold tabular-nums text-foreground"
+          }
+        >
+          {totalGrowth > 0 ? "+" : ""}
+          {usd.format(totalGrowth)}
+        </div>
+      </header>
 
       <div className="relative" style={{ height: H_PX }}>
-        {/* Chart area — left, leaves 84px right margin for labels */}
         <div
           className="absolute inset-y-0 left-0 right-[84px]"
           style={{ paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }}
@@ -88,7 +118,6 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
                 </linearGradient>
               </defs>
 
-              {/* Milestone dashed lines */}
               {sortedMilestones.map((m) => {
                 if (m < minY || m > maxY) return null;
                 const y = sy(m);
@@ -107,7 +136,6 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
                 );
               })}
 
-              {/* Area + line */}
               <path d={areaPath} fill="url(#eq-machine-fill)" />
               <path
                 d={linePath}
@@ -119,22 +147,41 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
                 strokeLinecap="round"
               />
 
-              {/* Markers */}
-              {points.map((p, i) => (
+              {/* Trade markers — gold dots */}
+              {linePoints.map((p, i) => (
                 <circle
-                  key={i}
+                  key={`pt-${i}`}
                   cx={sx(p.x)}
                   cy={sy(p.y)}
-                  r={i === points.length - 1 ? 1.2 : 0.8}
+                  r={i === linePoints.length - 1 ? 1.4 : 0.8}
                   fill="#CD9C20"
                   vectorEffect="non-scaling-stroke"
                 />
               ))}
+
+              {/* Withdraw markers — green diamond */}
+              {withdrawMarkers.map((w, i) => {
+                const cx = sx(w.x);
+                const cy = sy(w.y);
+                return (
+                  <rect
+                    key={`wd-${i}`}
+                    x={cx - 1.2}
+                    y={cy - 1.2}
+                    width="2.4"
+                    height="2.4"
+                    transform={`rotate(45 ${cx} ${cy})`}
+                    fill="#3B6C4F"
+                    stroke="#FFFFFF"
+                    strokeWidth="0.3"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })}
             </svg>
           </div>
         </div>
 
-        {/* Labels — HTML overlay (font không bị stretch) */}
         <div
           className="absolute right-0 top-0 bottom-0 w-[84px]"
           style={{ paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }}
@@ -155,6 +202,26 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
             })}
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground border-t border-dashed border-border pt-3">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-3 h-0.5 bg-[#CD9C20] rounded" />
+          Tăng trưởng tích luỹ
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block w-2.5 h-2.5 bg-[#3B6C4F] dark:bg-[#5C9C75]"
+            style={{ transform: "rotate(45deg)" }}
+          />
+          Đã rút phần dư ({withdrawMarkers.length} lần)
+        </span>
+        {withdrawMarkers.length > 0 && (
+          <span className="text-foreground/70">
+            · Tổng đã rút:{" "}
+            <strong className="tabular-nums">{usd.format(totalWithdrawn)}</strong>
+          </span>
+        )}
       </div>
     </div>
   );
