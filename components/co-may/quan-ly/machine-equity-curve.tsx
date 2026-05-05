@@ -224,5 +224,3 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
     </div>
   );
 }
-
-void totalWithdrawn;
