@@ -21,6 +21,8 @@ interface Props {
   /** Hạ neo về newAnchor (= balance khi user chấp nhận lỗ). */
   onLowerAnchor?: (newAnchor: number) => void;
   readOnly?: boolean;
+  /** Số lệnh trade — mỗi lệnh mới sẽ reset dismiss state để panel rút luôn xuất hiện. */
+  tradeCount?: number;
 }
 
 export function MachineAnchorStrip({
@@ -31,6 +33,7 @@ export function MachineAnchorStrip({
   onWithdraw,
   onLowerAnchor,
   readOnly,
+  tradeCount,
 }: Props) {
   // Dismissed-at cho overflow (lãi). Khi overflow tăng vượt → re-show.
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
@@ -67,6 +70,12 @@ export function MachineAnchorStrip({
   useEffect(() => {
     if (dismissedLossAt !== null && underflow > dismissedLossAt) setDismissedLossAt(null);
   }, [underflow, dismissedLossAt]);
+
+  // Mỗi lệnh trade mới → reset dismiss state để panel luôn xuất hiện
+  useEffect(() => {
+    setDismissedAt(null);
+    setDismissedLossAt(null);
+  }, [tradeCount]);
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 space-y-4">

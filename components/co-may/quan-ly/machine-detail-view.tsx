@@ -200,6 +200,7 @@ export function MachineDetailView({
           value={usd.format(withdrawnAbs)}
           hint="Tiền thật về tài khoản"
           icon={Wallet}
+          tone="profit"
         />
         <KpiTile label="Số dư hiện tại" value={usd.format(balance)} icon={Coins} />
         <KpiTile label="Vốn gốc" value={usd.format(machine.capital)} icon={Coins} />
@@ -218,6 +219,7 @@ export function MachineDetailView({
         currentAnchor={machine.current_anchor}
         balance={balance}
         readOnly={readOnly}
+        tradeCount={allTrades.length}
         onWithdraw={openWithdraw}
         onLowerAnchor={(newAnchor) => {
           const oldAnchor = machine.current_anchor;

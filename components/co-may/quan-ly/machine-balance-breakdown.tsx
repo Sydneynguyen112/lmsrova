@@ -28,7 +28,7 @@ export function MachineBalanceBreakdown({ capital, totalPnl, totalWithdrawn }: P
           value={`${totalPnl >= 0 ? "+" : ""}${usd.format(totalPnl)}`}
           tone={totalPnl > 0 ? "profit" : totalPnl < 0 ? "loss" : "neutral"}
         />
-        <Row label="− Đã rút" value={`−${usd.format(totalWithdrawn)}`} />
+        <Row label="− Đã rút" value={`−${usd.format(totalWithdrawn)}`} tone="profit" />
         <div className="border-t border-border pt-2.5 mt-1" />
         <Row
           label="= Số dư hiện tại"
