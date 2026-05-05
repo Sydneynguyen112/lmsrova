@@ -32,22 +32,19 @@ export function MachineAnchorStrip({
   // Dismissed-at = overflow value tại lúc user bấm "Tôi ổn". Khi overflow tăng vượt → re-show.
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
 
-  if (!milestones || milestones.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-        Chưa có mốc neo cho cỗ máy này.
-      </div>
-    );
-  }
-  const sorted = [...milestones].sort((a, b) => b - a);
+  const sorted = milestones && milestones.length > 0 ? [...milestones].sort((a, b) => b - a) : [];
+  const hasMilestones = sorted.length > 0;
 
   // Index của milestone == currentAnchor (hoặc closest ≤ nếu user nhập custom)
-  let currentIdx = sorted.findIndex((m) => m === currentAnchor);
-  if (currentIdx === -1) currentIdx = sorted.findIndex((m) => m <= currentAnchor);
-  if (currentIdx === -1) currentIdx = sorted.length - 1;
-
-  // Mốc cũ = milestone CAO HƠN current liền kề
-  const prevMilestone = currentIdx > 0 ? sorted[currentIdx - 1] : null;
+  let currentIdx = -1;
+  let prevMilestone: number | null = null;
+  if (hasMilestones) {
+    currentIdx = sorted.findIndex((m) => m === currentAnchor);
+    if (currentIdx === -1) currentIdx = sorted.findIndex((m) => m <= currentAnchor);
+    if (currentIdx === -1) currentIdx = sorted.length - 1;
+    // Mốc cũ = milestone CAO HƠN current liền kề
+    prevMilestone = currentIdx > 0 ? sorted[currentIdx - 1] : null;
+  }
 
   const overflowCurrent = balance - currentAnchor;
   const overflowPrev = prevMilestone !== null ? balance - prevMilestone : 0;
@@ -121,6 +118,14 @@ export function MachineAnchorStrip({
         </div>
       )}
 
+      {!hasMilestones && (
+        <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground italic">
+          Cỗ máy này chưa có mốc neo cấu hình. Bấm <strong className="text-foreground">Chỉnh</strong> để thêm
+          5 mốc neo theo công thức (M1 = vốn gốc, M2..5 = 80% mốc trước).
+        </div>
+      )}
+
+      {hasMilestones && (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {sorted.map((m, i) => {
           const isCurrent = i === currentIdx;
@@ -167,6 +172,7 @@ export function MachineAnchorStrip({
           );
         })}
       </div>
+      )}
 
       <div className="rounded-lg border-l-4 border-primary bg-primary/5 px-3 py-2">
         <p className="text-xs md:text-sm italic text-foreground/80 leading-relaxed">
