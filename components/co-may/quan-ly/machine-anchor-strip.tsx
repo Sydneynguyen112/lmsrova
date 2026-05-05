@@ -12,15 +12,24 @@ const usd = new Intl.NumberFormat("en-US", {
 
 interface Props {
   milestones: number[];
+  /** Mốc neo hiện tại (machine.current_anchor) — user-chosen, có thể khác milestone exact. */
+  currentAnchor: number;
   balance: number;
   onEdit?: () => void;
-  /** Callback khi user bấm "Rút $X về mốc": parent mở WithdrawDialog. */
+  /** Mở WithdrawDialog với amount + target anchor. */
   onWithdraw?: (amount: number, toAnchor: number) => void;
   readOnly?: boolean;
 }
 
-export function MachineAnchorStrip({ milestones, balance, onEdit, onWithdraw, readOnly }: Props) {
-  // Dismissed panel cho current overflow level. Khi overflow tăng (lệnh thắng mới) → re-ask.
+export function MachineAnchorStrip({
+  milestones,
+  currentAnchor,
+  balance,
+  onEdit,
+  onWithdraw,
+  readOnly,
+}: Props) {
+  // Dismissed-at = overflow value tại lúc user bấm "Tôi ổn". Khi overflow tăng vượt → re-show.
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
 
   if (!milestones || milestones.length === 0) {
@@ -32,25 +41,23 @@ export function MachineAnchorStrip({ milestones, balance, onEdit, onWithdraw, re
   }
   const sorted = [...milestones].sort((a, b) => b - a);
 
-  // M-current = mốc cao nhất ≤ balance. Nếu balance < tất cả → M cuối cùng.
-  let currentIdx = sorted.findIndex((m) => m <= balance);
+  // Index của milestone == currentAnchor (hoặc closest ≤ nếu user nhập custom)
+  let currentIdx = sorted.findIndex((m) => m === currentAnchor);
+  if (currentIdx === -1) currentIdx = sorted.findIndex((m) => m <= currentAnchor);
   if (currentIdx === -1) currentIdx = sorted.length - 1;
-  const currentMilestone = sorted[currentIdx];
-  const overflow = balance - currentMilestone;
 
-  // M-prev = mốc cao hơn liền kề trước M-current. Khi user "hạ neo" về M-current,
-  // M-prev là mốc gốc trước đó (mục tiêu để leo lại).
+  // Mốc cũ = milestone CAO HƠN current liền kề
   const prevMilestone = currentIdx > 0 ? sorted[currentIdx - 1] : null;
 
-  const showOverflowPanel =
-    !readOnly && overflow > 0 && (dismissedAt === null || overflow > dismissedAt);
+  const overflowCurrent = balance - currentAnchor;
+  const overflowPrev = prevMilestone !== null ? balance - prevMilestone : 0;
 
-  // Khi overflow tăng vượt mức dismissed cũ → re-show automatically
+  const showPanel =
+    !readOnly && overflowCurrent > 0 && (dismissedAt === null || overflowCurrent > dismissedAt);
+
   useEffect(() => {
-    if (dismissedAt !== null && overflow > dismissedAt) {
-      setDismissedAt(null);
-    }
-  }, [overflow, dismissedAt]);
+    if (dismissedAt !== null && overflowCurrent > dismissedAt) setDismissedAt(null);
+  }, [overflowCurrent, dismissedAt]);
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
@@ -68,63 +75,68 @@ export function MachineAnchorStrip({ milestones, balance, onEdit, onWithdraw, re
         )}
       </header>
 
-      {showOverflowPanel && (
+      {showPanel && (
         <div className="rounded-2xl border-2 border-[#3B6C4F]/40 bg-[#3B6C4F]/8 p-4 space-y-3">
           <div className="text-center space-y-1">
             <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
               Số dư hiện tại trên mốc neo
             </div>
             <div className="text-3xl md:text-4xl font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums leading-none">
-              +{usd.format(overflow)}
+              +{usd.format(overflowCurrent)}
             </div>
           </div>
-          {/* Option 1: Rút về mốc hiện tại */}
+
+          {/* Option 1: Rút về mốc CŨ (M-prev) — chỉ khi balance ≥ mốc cũ */}
+          {prevMilestone !== null && overflowPrev > 0 && (
+            <button
+              type="button"
+              onClick={() => onWithdraw?.(overflowPrev, prevMilestone)}
+              className="w-full rounded-xl border-2 border-[#3B6C4F]/50 bg-card hover:bg-[#3B6C4F]/10 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
+            >
+              <Target className="h-4 w-4" />
+              Rút {usd.format(overflowPrev)} về mốc cũ {usd.format(prevMilestone)}
+            </button>
+          )}
+
+          {/* Option 2: Rút về mốc HIỆN TẠI (current_anchor) — luôn show khi overflow > 0 */}
           <button
             type="button"
-            onClick={() => onWithdraw?.(overflow, currentMilestone)}
+            onClick={() => onWithdraw?.(overflowCurrent, currentAnchor)}
             className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            Rút {usd.format(overflow)} về mốc hiện tại {usd.format(currentMilestone)}
+            Rút {usd.format(overflowCurrent)} về mốc hiện tại {usd.format(currentAnchor)}
           </button>
-          {/* Option 2: Giữ lãi, target M-prev. Nếu balance ≥ M-prev → có thể rút phần dư về M-prev. */}
-          {prevMilestone !== null ? (
-            balance >= prevMilestone ? (
-              <button
-                type="button"
-                onClick={() => onWithdraw?.(balance - prevMilestone, prevMilestone)}
-                className="w-full rounded-xl border-2 border-primary/40 bg-primary/5 hover:bg-primary/10 py-3 text-sm font-bold uppercase tracking-widest text-primary transition-colors flex items-center justify-center gap-2"
-              >
-                <Target className="h-4 w-4" />
-                Rút {usd.format(balance - prevMilestone)} về mốc cũ {usd.format(prevMilestone)}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setDismissedAt(overflow)}
-                className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
-              >
-                <Target className="h-3.5 w-3.5 inline mr-1.5" />
-                Tôi ổn — giữ lãi, đặt mục tiêu lên mốc cũ {usd.format(prevMilestone)}
-              </button>
-            )
-          ) : (
-            <button
-              type="button"
-              onClick={() => setDismissedAt(overflow)}
-              className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
-            >
-              Tôi ổn
-            </button>
-          )}
+
+          {/* Option 3: Dismiss — chỉ ẩn cho overflow level hiện tại */}
+          <button
+            type="button"
+            onClick={() => setDismissedAt(overflowCurrent)}
+            className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
+          >
+            {prevMilestone !== null && overflowPrev <= 0
+              ? `Tôi ổn — đặt mục tiêu lên mốc cũ ${usd.format(prevMilestone)}`
+              : "Tôi ổn"}
+          </button>
         </div>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {sorted.map((m, i) => {
           const isCurrent = i === currentIdx;
-          const isTouched = i > currentIdx;
-          const stateLabel = isCurrent ? "Hiện tại" : isTouched ? "Đã chạm" : "Chưa đến";
+          const isAbove = i < currentIdx; // Cao hơn current
+          const isBelow = i > currentIdx; // Thấp hơn current
+
+          // Trong vùng "có thể rút" (above current AND ≤ balance) → vượt mốc
+          const isReachable = isAbove && balance >= m;
+          const stateLabel = isCurrent
+            ? "Hiện tại"
+            : isReachable
+              ? "Vượt mốc"
+              : isAbove
+                ? "Chưa đến"
+                : "Đã chạm";
+
           return (
             <div
               key={i}
@@ -132,15 +144,17 @@ export function MachineAnchorStrip({ milestones, balance, onEdit, onWithdraw, re
                 "rounded-xl border-2 p-3 text-center transition-colors",
                 isCurrent
                   ? "border-[#3B6C4F] bg-[#3B6C4F]/15 text-foreground"
-                  : isTouched
-                    ? "border-border bg-muted/30 text-foreground/70"
-                    : "border-border/60 bg-card text-muted-foreground/70",
+                  : isReachable
+                    ? "border-[#3B6C4F]/50 bg-[#3B6C4F]/5 text-foreground"
+                    : isBelow
+                      ? "border-border bg-muted/30 text-foreground/70"
+                      : "border-border/60 bg-card text-muted-foreground/70",
               )}
             >
               <div
                 className={cn(
                   "text-[11px] font-bold uppercase tracking-widest mb-1",
-                  isCurrent ? "text-[#5C9C75]" : "text-muted-foreground",
+                  isCurrent || isReachable ? "text-[#5C9C75]" : "text-muted-foreground",
                 )}
               >
                 M{i + 1}
