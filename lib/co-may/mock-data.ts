@@ -370,15 +370,12 @@ export function computeKpi(userId: string, machineId?: string): KpiSnapshot {
   return { total_capital, pnl, win_rate, drawdown, days_active, trade_count };
 }
 
-// ── Access flag (mock subscription check) ──
-// student: 70% has access (deterministic per id)
-// mentor: ~50% has access
-// admin: always has access
-export function hasMoneyMachineAccess(userId: string, role?: string): boolean {
-  if (role === "admin" || userId.startsWith("u-admin")) return true;
-  const r = mulberry32(hash(userId + ":mm-access"))();
-  if (role === "mentor" || userId.startsWith("u-mentor")) return r < 0.5;
-  return r < 0.7;
+// ── Access flag ──
+// Đọc từ feature-flags store (admin toggle qua UI). Admin role/id có override TRUE.
+import { hasFeature } from "@/lib/feature-flags/store";
+
+export function hasMoneyMachineAccess(userId: string, role?: string | null): boolean {
+  return hasFeature(userId, "money_machine", role);
 }
 
 // ── Demo scope (cho mentor + admin view) ──

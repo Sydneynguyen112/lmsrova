@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { FeatureAccessMenu } from "@/components/admin/feature-access-menu";
 import {
   Dialog,
   DialogContent,
@@ -327,7 +328,7 @@ export default function AdminStudentsPage() {
                               {formatDate(student.created_at)}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1.5 justify-center">
+                              <div className="flex items-center gap-1.5 justify-center flex-wrap">
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -346,6 +347,7 @@ export default function AdminStudentsPage() {
                                   <UserCog className="h-3.5 w-3.5 mr-1" />
                                   Mentor
                                 </Button>
+                                <FeatureAccessMenu userId={student.id} compact />
                               </div>
                             </TableCell>
                           </TableRow>

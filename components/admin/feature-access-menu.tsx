@@ -1,0 +1,98 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { ShieldCheck, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  FEATURES,
+  getUserFeatures,
+  setFeature,
+  subscribe,
+  type FeatureId,
+} from "@/lib/feature-flags/store";
+
+const vnd = new Intl.NumberFormat("vi-VN", {
+  style: "currency",
+  currency: "VND",
+  maximumFractionDigits: 0,
+});
+
+interface Props {
+  userId: string;
+  /** Hiển thị label rút gọn / số quyền active. Defaults full label. */
+  compact?: boolean;
+}
+
+export function FeatureAccessMenu({ userId, compact }: Props) {
+  const [enabled, setEnabled] = useState<FeatureId[]>([]);
+
+  useEffect(() => {
+    setEnabled(getUserFeatures(userId));
+    return subscribe(() => setEnabled(getUserFeatures(userId)));
+  }, [userId]);
+
+  const activeCount = enabled.length;
+  const totalCount = FEATURES.length;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-primary/40 text-primary hover:bg-primary/10"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {compact ? `${activeCount}/${totalCount}` : `Quyền (${activeCount}/${totalCount})`}
+            <ChevronDown className="h-3 w-3 opacity-60" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel className="text-xs text-muted-foreground">
+          Bật/tắt chức năng cho học viên
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {FEATURES.map((f) => {
+          const isOn = enabled.includes(f.id);
+          const Icon = f.icon;
+          return (
+            <DropdownMenuCheckboxItem
+              key={f.id}
+              checked={isOn}
+              onCheckedChange={(next) => setFeature(userId, f.id, !!next)}
+              closeOnClick={false}
+              className="items-start gap-2 py-2.5"
+            >
+              <Icon className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-foreground">{f.label}</div>
+                <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                  {f.description}
+                </div>
+                {f.priceVndMonthly !== undefined && (
+                  <div className="text-[11px] text-primary/80 mt-1 font-medium">
+                    {vnd.format(f.priceVndMonthly)}/tháng
+                  </div>
+                )}
+              </div>
+            </DropdownMenuCheckboxItem>
+          );
+        })}
+        <DropdownMenuSeparator />
+        <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+          Lưu local (mock). Sẽ wire Supabase ở plan kế tiếp.
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
