@@ -7,11 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
+  allocateMore,
   QUICK_CAPITAL_CHIPS,
   saveSetup,
   STRATEGIES,
   type StrategyId,
 } from "@/lib/co-may/setup-store";
+
+export type WizardMode = "initial" | "allocate";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -21,22 +24,39 @@ const usd = new Intl.NumberFormat("en-US", {
 
 const TOTAL_STEPS = 3;
 
-export function SetupWizard({ userId, role }: { userId: string; role: string }) {
+export function SetupWizard({
+  userId,
+  role,
+  mode = "initial",
+  reservePool = 0,
+}: {
+  userId: string;
+  role: string;
+  mode?: WizardMode;
+  /** Khi mode="allocate", đây là pool vốn dự trữ available. */
+  reservePool?: number;
+}) {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [capital, setCapital] = useState<number>(1000);
+  // Mode "allocate" skip thẳng step 3 với pool dự trữ.
+  const [step, setStep] = useState<1 | 2 | 3>(mode === "allocate" ? 3 : 1);
+  const [capital, setCapital] = useState<number>(mode === "allocate" ? reservePool : 1000);
   const [strategy, setStrategy] = useState<StrategyId>("concentrated");
-  const [allocations, setAllocations] = useState<{ name: string; capital: number }[]>([]);
-
-  const machineCount = useMemo(
-    () => STRATEGIES.find((s) => s.id === strategy)?.machineCount ?? 0,
-    [strategy],
+  const [allocations, setAllocations] = useState<{ name: string; capital: number }[]>(
+    mode === "allocate"
+      ? [{ name: "Cỗ máy mới", capital: 0 }]
+      : [],
   );
 
-  // Khi user vào step 3 (sau khi chọn strategy), khởi tạo allocations mặc định.
+  const machineCount = useMemo(
+    () =>
+      mode === "allocate"
+        ? allocations.length
+        : STRATEGIES.find((s) => s.id === strategy)?.machineCount ?? 0,
+    [mode, allocations.length, strategy],
+  );
+
   function handleStrategyNext() {
     if (strategy === "later") {
-      // Skip step 3 → save với 0 machines
       saveSetup(userId, { totalCapital: capital, strategy, allocations: [] });
       router.replace(`/${role}/co-may/tong-quan`);
       return;
@@ -48,35 +68,65 @@ export function SetupWizard({ userId, role }: { userId: string; role: string }) 
 
   function handleFinish() {
     const sum = allocations.reduce((s, a) => s + a.capital, 0);
-    if (sum !== capital) {
-      // Cho phép sai khác ±1 do làm tròn
-      if (Math.abs(sum - capital) > 1) {
+    // Allow under-allocation (phần dư = vốn dự trữ). Block over-allocation only.
+    if (sum > capital + 1) {
+      // eslint-disable-next-line no-alert
+      alert(
+        `Tổng phân bổ (${usd.format(sum)}) vượt quá ${
+          mode === "allocate" ? "vốn dự trữ" : "tổng vốn"
+        } (${usd.format(capital)}).`,
+      );
+      return;
+    }
+    if (mode === "allocate") {
+      // Chỉ thêm machines, không reset setup.
+      const valid = allocations.filter((a) => a.capital > 0 && a.name.trim());
+      if (valid.length === 0) {
         // eslint-disable-next-line no-alert
-        alert(
-          `Tổng phân bổ (${usd.format(sum)}) phải bằng tổng vốn (${usd.format(capital)}).`,
-        );
+        alert("Cần ít nhất 1 cỗ máy có vốn > 0.");
         return;
       }
+      allocateMore(userId, valid);
+    } else {
+      saveSetup(userId, { totalCapital: capital, strategy, allocations });
     }
-    saveSetup(userId, { totalCapital: capital, strategy, allocations });
     router.replace(`/${role}/co-may/tong-quan`);
   }
 
+  function addAllocationRow() {
+    setAllocations((prev) => [...prev, { name: `Cỗ máy ${prev.length + 1}`, capital: 0 }]);
+  }
+  function removeAllocationRow(idx: number) {
+    setAllocations((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  const isAllocateMode = mode === "allocate";
+
   return (
     <div className="max-w-3xl mx-auto py-8 md:py-12 px-4 space-y-6">
-      <StepIndicator current={step} total={TOTAL_STEPS} />
+      {!isAllocateMode && <StepIndicator current={step} total={TOTAL_STEPS} />}
 
       <div className="rounded-3xl border border-border bg-card p-6 md:p-10 space-y-6">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Bước {String(step).padStart(2, "0")} / 0{TOTAL_STEPS}
-          <span className="text-muted-foreground/40">·</span>
-          <span className="text-primary">{stepLabel(step)}</span>
+          {isAllocateMode ? (
+            <>
+              <span>Hoạch định lại</span>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="text-primary">Phân bổ vốn dự trữ</span>
+            </>
+          ) : (
+            <>
+              Bước {String(step).padStart(2, "0")} / 0{TOTAL_STEPS}
+              <span className="text-muted-foreground/40">·</span>
+              <span className="text-primary">{stepLabel(step)}</span>
+            </>
+          )}
         </div>
 
-        {step === 1 && (
+        {step === 1 && !isAllocateMode && (
           <StepCapital capital={capital} onChange={setCapital} />
         )}
-        {step === 2 && (
+        {step === 2 && !isAllocateMode && (
           <StepStrategy strategy={strategy} onChange={setStrategy} />
         )}
         {step === 3 && (
@@ -85,11 +135,14 @@ export function SetupWizard({ userId, role }: { userId: string; role: string }) 
             onChange={setAllocations}
             total={capital}
             machineCount={machineCount}
+            isAllocateMode={isAllocateMode}
+            onAddRow={addAllocationRow}
+            onRemoveRow={removeAllocationRow}
           />
         )}
 
         <div className="flex items-center justify-between gap-3 pt-4 border-t border-dashed border-border">
-          {step > 1 ? (
+          {!isAllocateMode && step > 1 ? (
             <Button
               variant="outline"
               size="lg"
@@ -98,17 +151,26 @@ export function SetupWizard({ userId, role }: { userId: string; role: string }) 
               <ArrowLeft className="h-4 w-4" />
               Quay lại
             </Button>
+          ) : isAllocateMode ? (
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => router.replace(`/${role}/co-may/tong-quan`)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Huỷ
+            </Button>
           ) : (
             <span />
           )}
 
-          {step === 1 && (
+          {step === 1 && !isAllocateMode && (
             <Button variant="anchor" size="lg" onClick={() => setStep(2)} disabled={capital <= 0}>
               Tiếp: Chiến lược phân bổ
               <ArrowRight className="h-4 w-4" />
             </Button>
           )}
-          {step === 2 && (
+          {step === 2 && !isAllocateMode && (
             <Button variant="anchor" size="lg" onClick={handleStrategyNext}>
               {strategy === "later" ? "Hoàn tất" : "Tiếp: Phân bổ chi tiết"}
               <ArrowRight className="h-4 w-4" />
@@ -117,7 +179,7 @@ export function SetupWizard({ userId, role }: { userId: string; role: string }) 
           {step === 3 && (
             <Button variant="anchor" size="lg" onClick={handleFinish}>
               <Check className="h-4 w-4" />
-              Khởi tạo cỗ máy
+              {isAllocateMode ? "Phân bổ thêm" : "Khởi tạo cỗ máy"}
             </Button>
           )}
         </div>
@@ -305,14 +367,21 @@ function StepAllocation({
   onChange,
   total,
   machineCount,
+  isAllocateMode,
+  onAddRow,
+  onRemoveRow,
 }: {
   allocations: { name: string; capital: number }[];
   onChange: (a: { name: string; capital: number }[]) => void;
   total: number;
   machineCount: number;
+  isAllocateMode?: boolean;
+  onAddRow?: () => void;
+  onRemoveRow?: (idx: number) => void;
 }) {
   const sum = allocations.reduce((s, a) => s + a.capital, 0);
-  const remain = total - sum;
+  const reserve = total - sum;
+  const overAllocated = reserve < -1;
 
   function update(idx: number, patch: Partial<{ name: string; capital: number }>) {
     const next = allocations.map((a, i) => (i === idx ? { ...a, ...patch } : a));
@@ -323,19 +392,40 @@ function StepAllocation({
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-          Phân bổ <span className="text-primary">chi tiết</span>
+          {isAllocateMode ? (
+            <>
+              Phân bổ thêm từ <span className="text-primary">vốn dự trữ</span>
+            </>
+          ) : (
+            <>
+              Phân bổ <span className="text-primary">chi tiết</span>
+            </>
+          )}
         </h2>
         <p className="text-sm md:text-base text-muted-foreground mt-2 leading-relaxed">
-          Đặt tên + vốn cho {machineCount} cỗ máy. Tổng phải bằng {usd.format(total)}.
+          {isAllocateMode
+            ? `Vốn dự trữ khả dụng: ${usd.format(total)}. Đặt tên + vốn cho cỗ máy mới (có thể thêm nhiều).`
+            : `Đặt tên + vốn cho ${machineCount} cỗ máy. Phần dư sẽ thành vốn dự trữ — không bắt buộc dùng hết.`}
         </p>
       </div>
 
       <div className="space-y-3">
         {allocations.map((a, i) => (
           <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <Coins className="h-3.5 w-3.5 text-primary" />
-              Cỗ máy #{i + 1}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Coins className="h-3.5 w-3.5 text-primary" />
+                Cỗ máy #{i + 1}
+              </div>
+              {isAllocateMode && onRemoveRow && allocations.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveRow(i)}
+                  className="text-xs text-destructive hover:underline"
+                >
+                  Xoá
+                </button>
+              )}
             </div>
             <Input
               value={a.name}
@@ -354,19 +444,27 @@ function StepAllocation({
         ))}
       </div>
 
+      {isAllocateMode && onAddRow && (
+        <Button variant="outline" size="default" onClick={onAddRow} className="w-full">
+          + Thêm cỗ máy
+        </Button>
+      )}
+
       <div
         className={cn(
           "rounded-xl border px-4 py-3 flex items-center justify-between text-sm md:text-base",
-          remain === 0
-            ? "border-primary/40 bg-primary/5 text-primary"
-            : Math.abs(remain) <= 1
-              ? "border-primary/30 bg-primary/5 text-primary"
-              : "border-destructive/40 bg-destructive/5 text-destructive",
+          overAllocated
+            ? "border-destructive/40 bg-destructive/5 text-destructive"
+            : "border-primary/30 bg-primary/5 text-primary",
         )}
       >
-        <span>Đã phân bổ: {usd.format(sum)}</span>
+        <span>Đang phân bổ: {usd.format(sum)}</span>
         <span className="font-semibold tabular-nums">
-          {remain === 0 ? "Khớp 100%" : `Còn ${usd.format(remain)}`}
+          {overAllocated
+            ? `Vượt ${usd.format(-reserve)}`
+            : reserve === 0
+              ? "Dùng hết, không còn dự trữ"
+              : `Vốn dự trữ: ${usd.format(reserve)}`}
         </span>
       </div>
     </div>

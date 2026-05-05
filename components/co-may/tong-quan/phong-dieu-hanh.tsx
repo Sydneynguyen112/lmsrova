@@ -15,7 +15,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import type { Machine, MachineTransaction, TransactionType } from "@/lib/co-may/types";
-import { resetSetup } from "@/lib/co-may/setup-store";
 import { isSeniorMode } from "@/lib/co-may/senior-ui";
 
 const usd = new Intl.NumberFormat("en-US", {
@@ -34,27 +33,22 @@ interface Props {
 }
 
 export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, onReset }: Props) {
+  void userId;
   const senior = isSeniorMode(role);
 
-  // Aggregate KPIs
-  const totalAllocated = machines.reduce((s, m) => s + m.capital, 0);
+  // Loại bỏ closed machines khỏi running stats — vốn của chúng đã trả về totalCapital.
+  const activeMachines = machines.filter((m) => m.status !== "closed");
+  const totalAllocated = activeMachines.reduce((s, m) => s + m.capital, 0);
   const reserve = Math.max(0, totalCapitalSetup - totalAllocated);
   const trades = tx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
   const openPnl = trades.reduce((s, t) => s + t.amount, 0);
   const withdrawn = -tx
     .filter((t) => t.type === "withdraw")
     .reduce((s, t) => s + t.amount, 0);
-  const activeCount = machines.filter((m) => m.status === "active").length;
-  const totalCapitalRunning = machines.reduce((s, m) => s + m.capital + 0, 0);
+  const activeCount = activeMachines.filter((m) => m.status === "active").length;
+  const totalCapitalRunning = totalAllocated;
 
   function handleReset() {
-    if (typeof window !== "undefined") {
-      const ok = window.confirm(
-        "Hoạch định lại sẽ xoá setup hiện tại và đưa bạn về wizard 3 bước. Tiếp tục?",
-      );
-      if (!ok) return;
-    }
-    resetSetup(userId);
     onReset?.();
   }
 
@@ -63,7 +57,7 @@ export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, o
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 6);
 
-  const featured = [...machines]
+  const featured = [...activeMachines]
     .sort((a, b) => {
       const pnlA = pnlForMachine(a, tx);
       const pnlB = pnlForMachine(b, tx);
@@ -114,11 +108,17 @@ export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, o
       {/* 3 secondary KPI on dashed line */}
       <div className="rounded-2xl border-2 border-dashed border-border px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
         <SecondaryStat label="Tổng vốn doanh chủ" value={usd.format(totalCapitalSetup)} senior={senior} />
-        <SecondaryStat label="Đã phân bổ" value={usd.format(totalAllocated)} senior={senior} />
+        <SecondaryStat label="Đang phân bổ" value={usd.format(totalAllocated)} senior={senior} />
         <SecondaryStat label="Vốn dự trữ" value={usd.format(reserve)} senior={senior} />
         {role === "student" && (
           <div className="flex md:justify-end">
-            <Button variant="outline" size={senior ? "default" : "sm"} onClick={handleReset}>
+            <Button
+              variant="outline"
+              size={senior ? "default" : "sm"}
+              onClick={handleReset}
+              disabled={reserve <= 0}
+              title={reserve <= 0 ? "Không còn vốn dự trữ để phân bổ" : undefined}
+            >
               <RotateCcw className="h-3.5 w-3.5" />
               Hoạch định lại
             </Button>

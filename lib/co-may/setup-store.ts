@@ -92,6 +92,34 @@ export function resetSetup(userId: string): void {
   notify();
 }
 
+/** Cộng/trừ vào tổng vốn doanh chủ (vd: khi đóng cỗ máy → cộng balance). */
+export function adjustTotalCapital(userId: string, delta: number): void {
+  const all = loadAll();
+  const current = all[userId];
+  if (!current) return;
+  const updated: SetupConfig = { ...current, totalCapital: current.totalCapital + delta };
+  all[userId] = updated;
+  persistAll(all);
+  cache.set(userId, updated);
+  notify();
+}
+
+/** Phân bổ thêm machines từ phần vốn dự trữ — không reset setup. */
+export function allocateMore(
+  userId: string,
+  newAllocations: { name: string; capital: number }[],
+): void {
+  for (const a of newAllocations) {
+    if (a.capital <= 0 || !a.name.trim()) continue;
+    addMachine(userId, {
+      name: a.name,
+      capital: a.capital,
+      current_anchor: a.capital,
+    });
+  }
+  notify();
+}
+
 export function subscribe(fn: () => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);

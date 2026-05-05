@@ -242,6 +242,35 @@ export function recordTransaction(
   return tx;
 }
 
+/**
+ * Đóng cỗ máy hoàn toàn — khác close cycle.
+ * Tính balance cuối (capital + pnl + withdraws âm), trả lại vào tổng vốn doanh chủ
+ * dạng delta = balance - capital ban đầu (gain/loss). Mark machine.status = "closed".
+ * Caller chịu trách nhiệm gọi adjustTotalCapital ở setup-store.
+ *
+ * Returns: { balance, capital, delta }
+ */
+export function closeMachine(
+  userId: string,
+  machineId: string,
+): { balance: number; capital: number; delta: number } {
+  assertOwnership(userId, machineId);
+  const data = getDataFor(userId);
+  const idx = data.machines.findIndex((m) => m.id === machineId);
+  const m = data.machines[idx];
+  const machineTx = data.tx.filter((t) => t.machine_id === machineId);
+  const trades = machineTx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
+  const pnl = trades.reduce((s, t) => s + t.amount, 0);
+  const withdraws = machineTx.filter((t) => t.type === "withdraw").reduce((s, t) => s + t.amount, 0);
+  const balance = m.capital + pnl + withdraws; // withdraws is negative
+  data.machines[idx] = {
+    ...m,
+    status: "closed",
+    updated_at: new Date().toISOString(),
+  };
+  return { balance, capital: m.capital, delta: balance - m.capital };
+}
+
 export function closeCycleMock(
   userId: string,
   machineId: string,

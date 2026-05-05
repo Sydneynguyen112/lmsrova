@@ -51,7 +51,7 @@ export function TongQuanView({ role }: { role: RoleSlug }) {
       totalCapitalSetup={totalCapitalSetup}
       machines={machines}
       tx={tx}
-      onReset={() => router.replace(`/${role}/co-may/setup`)}
+      onReset={() => router.push(`/${role}/co-may/setup?mode=allocate`)}
     />
   );
 }

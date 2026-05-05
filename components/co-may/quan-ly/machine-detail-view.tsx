@@ -1,20 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, PowerOff } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
 import {
+  closeMachine,
   getMachineById,
   getTxByMachine,
   getUserScope,
 } from "@/lib/co-may/mock-data";
+import { adjustTotalCapital } from "@/lib/co-may/setup-store";
 import type { Machine, MachineTransaction } from "@/lib/co-may/types";
 import { AnchorCard } from "./anchor-card";
 import { TradeInput } from "./trade-input";
 import { WithdrawModal } from "./withdraw-modal";
 import { CloseCycleDialog } from "./close-cycle-dialog";
 import { TransactionList } from "./transaction-list";
+
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
 
 type RoleSlug = "student" | "mentor" | "admin";
 
@@ -28,8 +38,28 @@ export function MachineDetailView({
   ownerId?: string;
 }) {
   const user = useCurrentUser(role);
+  const router = useRouter();
   const [tick, setTick] = useState(0);
   const refresh = () => setTick((n) => n + 1);
+
+  function handleCloseMachine(
+    ownerId: string,
+    machineId: string,
+    preview: { capital: number; balance: number; delta: number },
+  ) {
+    if (typeof window === "undefined") return;
+    const msg =
+      `Đóng cỗ máy này?\n\n` +
+      `• Vốn ban đầu: ${usd.format(preview.capital)}\n` +
+      `• Số dư cuối: ${usd.format(preview.balance)}\n` +
+      `• Chênh lệch: ${preview.delta >= 0 ? "+" : ""}${usd.format(preview.delta)}\n\n` +
+      `Số dư cuối sẽ được cộng vào tổng vốn doanh chủ. Hành động không thể hoàn tác.`;
+    const ok = window.confirm(msg);
+    if (!ok) return;
+    const result = closeMachine(ownerId, machineId);
+    adjustTotalCapital(ownerId, result.delta);
+    router.push(`/${role}/co-may/quan-ly`);
+  }
 
   const resolved = useMemo<{ machine: Machine; tx: MachineTransaction[]; resolvedOwner: string } | null>(() => {
     if (!user) return null;
@@ -71,6 +101,18 @@ export function MachineDetailView({
   const cycleTx = tx.filter((t) => new Date(t.created_at).getTime() >= cycleStartTs);
   const trades = cycleTx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
   const cyclePnl = trades.reduce((s, t) => s + t.amount, 0);
+
+  // Preview close machine — read-only, không mutate
+  const allTrades = tx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
+  const allWithdraws = tx.filter((t) => t.type === "withdraw");
+  const totalPnl = allTrades.reduce((s, t) => s + t.amount, 0);
+  const totalWithdraws = allWithdraws.reduce((s, t) => s + t.amount, 0); // negative
+  const closeBalance = machine.capital + totalPnl + totalWithdraws;
+  const closePreview = {
+    capital: machine.capital,
+    balance: closeBalance,
+    delta: closeBalance - machine.capital,
+  };
 
   const readOnly = role !== "student" || resolvedOwner !== user.id;
 
@@ -119,6 +161,23 @@ export function MachineDetailView({
                   onChange={refresh}
                   role={role}
                 />
+                {machine.status !== "closed" && (
+                  <>
+                    <div className="border-t border-dashed border-border my-1" />
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => handleCloseMachine(resolvedOwner, machine.id, closePreview)}
+                    >
+                      <PowerOff className="h-3.5 w-3.5" />
+                      Đóng cỗ máy hoàn toàn
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
+                      Số dư cuối ({usd.format(closeBalance)}) cộng lại vào{" "}
+                      <strong>tổng vốn doanh chủ</strong>. Cỗ máy ngừng hoạt động.
+                    </p>
+                  </>
+                )}
               </div>
             </>
           )}

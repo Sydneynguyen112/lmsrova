@@ -1,7 +1,7 @@
 // Cỗ Máy In Tiền — domain types
 // MVP scope: mock-data only. Sẽ map 1:1 với Supabase money_machine schema khi wire backend.
 
-export type MachineStatus = "active" | "paused";
+export type MachineStatus = "active" | "paused" | "closed";
 
 export type TransactionType =
   | "trade_win"
