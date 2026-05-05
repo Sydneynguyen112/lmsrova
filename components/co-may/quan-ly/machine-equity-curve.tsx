@@ -55,9 +55,9 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
 
   const sortedMilestones = [...ms].sort((a, b) => b - a);
 
-  const H_PX = 240;
-  const PAD_TOP = 24;
-  const PAD_BOTTOM = 24;
+  const H_PX = 220;
+  const PAD_TOP = 16;
+  const PAD_BOTTOM = 16;
   const svgViewW = 100;
   const svgViewH = 100;
 
@@ -73,29 +73,26 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
     linePoints.map((p) => `L ${sx(p.x).toFixed(2)} ${sy(p.y).toFixed(2)}`).join(" ") +
     ` L ${sx(linePoints[linePoints.length - 1].x).toFixed(2)} ${svgViewH} Z`;
 
-  const finalY = linePoints[linePoints.length - 1].y;
-  const totalGrowth = finalY - capital;
-
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-      <header className="flex items-baseline justify-between gap-3 flex-wrap">
+    <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+      <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h3 className="text-lg md:text-xl font-bold text-foreground">Đường tăng trưởng</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Vốn + lãi tích luỹ (chưa trừ tiền đã rút) — kỹ năng trading thuần
           </p>
         </div>
-        <div
-          className={
-            totalGrowth > 0
-              ? "text-2xl font-bold tabular-nums text-[#3B6C4F] dark:text-[#5C9C75]"
-              : totalGrowth < 0
-                ? "text-2xl font-bold tabular-nums text-foreground"
-                : "text-2xl font-bold tabular-nums text-foreground"
-          }
-        >
-          {totalGrowth > 0 ? "+" : ""}
-          {usd.format(totalGrowth)}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block w-3 h-0.5 bg-[#CD9C20] rounded" />
+            Tăng trưởng tích luỹ
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#3B6C4F] dark:bg-[#5C9C75] text-white text-[9px] font-bold">
+              $
+            </span>
+            Đã rút phần dư ({withdrawMarkers.length} lần)
+          </span>
         </div>
       </header>
 
@@ -146,36 +143,35 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
                 strokeLinecap="round"
               />
 
-              {/* Trade markers — gold dots */}
-              {linePoints.map((p, i) => (
-                <circle
-                  key={`pt-${i}`}
-                  cx={sx(p.x)}
-                  cy={sy(p.y)}
-                  r={i === linePoints.length - 1 ? 1.4 : 0.8}
-                  fill="#CD9C20"
-                  vectorEffect="non-scaling-stroke"
-                />
-              ))}
-
-              {/* Withdraw markers — green circle, rendered above as HTML for clean $ symbol */}
+              {/* Trade markers rendered as HTML overlay — keep dots round, không bị méo do preserveAspectRatio="none" */}
             </svg>
-          </div>
-        </div>
 
-        {/* Withdraw $ markers — HTML overlay (rendered cùng tỉ lệ với chart left area) */}
-        <div
-          className="absolute inset-y-0 left-0 right-[84px] pointer-events-none"
-          style={{ paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }}
-        >
-          <div className="relative h-full w-full">
+            {/* Trade dots — HTML overlay, perfectly round small yellow */}
+            {linePoints.map((p, i) => {
+              const xPct = (p.x / maxX) * 100;
+              const yPct = (1 - (p.y - minY) / rangeY) * 100;
+              const isLast = i === linePoints.length - 1;
+              return (
+                <div
+                  key={`pt-${i}`}
+                  className={
+                    isLast
+                      ? "absolute -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[#CD9C20] ring-2 ring-card pointer-events-none"
+                      : "absolute -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#CD9C20] pointer-events-none"
+                  }
+                  style={{ left: `${xPct}%`, top: `${yPct}%` }}
+                />
+              );
+            })}
+
+            {/* Withdraw $ markers — HTML overlay */}
             {withdrawMarkers.map((w, i) => {
               const xPct = (w.x / maxX) * 100;
               const yPct = (1 - (w.y - minY) / rangeY) * 100;
               return (
                 <div
                   key={`wd-html-${i}`}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 rounded-full bg-[#3B6C4F] dark:bg-[#5C9C75] text-white text-[10px] font-bold ring-2 ring-card"
+                  className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 rounded-full bg-[#3B6C4F] dark:bg-[#5C9C75] text-white text-[10px] font-bold ring-2 ring-card pointer-events-none"
                   style={{ left: `${xPct}%`, top: `${yPct}%` }}
                   title={`Rút ${usd.format(w.amount ?? 0)}`}
                 >
@@ -207,19 +203,6 @@ export function MachineEquityCurve({ capital, tx, milestones }: Props) {
             })}
           </div>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground border-t border-dashed border-border pt-3">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block w-3 h-0.5 bg-[#CD9C20] rounded" />
-          Tăng trưởng tích luỹ
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#3B6C4F] dark:bg-[#5C9C75] text-white text-[9px] font-bold">
-            $
-          </span>
-          Đã rút phần dư ({withdrawMarkers.length} lần)
-        </span>
       </div>
     </div>
   );
