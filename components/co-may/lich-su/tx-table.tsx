@@ -87,7 +87,7 @@ export function TxTable({
                     className={cn(
                       "px-4 text-right tabular-nums font-semibold whitespace-nowrap",
                       cellY,
-                      t.amount > 0
+                      t.type === "withdraw" || t.amount > 0
                         ? "text-[#3B6C4F] dark:text-[#5C9C75]"
                         : t.amount < 0
                           ? "text-foreground"

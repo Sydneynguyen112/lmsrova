@@ -69,7 +69,7 @@ export function TransactionList({
                     ? "bg-primary/10 text-primary"
                     : "bg-muted text-muted-foreground";
             const amountClass =
-              t.amount > 0
+              t.type === "withdraw" || t.amount > 0
                 ? "text-[#3B6C4F] dark:text-[#5C9C75]"
                 : t.amount < 0
                   ? "text-foreground"
