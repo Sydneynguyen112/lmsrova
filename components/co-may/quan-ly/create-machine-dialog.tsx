@@ -55,17 +55,17 @@ const INITIAL: FormState = {
 
 /**
  * Default anchor milestones — geometric spacing match loss-aversion psychology.
- * NEO 1 = 70% capital (đệm tâm lý 30% cho biến động bình thường).
+ * NEO 1 = vốn gốc (= 100% capital).
  * NEO 2..5 = 80% mốc trước (mỗi step -20%, mốc gần đáy gắt hơn).
  *
- * Vd capital=200  → [140, 112, 90, 72, 57].
- * Vd capital=1000 → [700, 560, 448, 358, 287].
+ * Vd capital=200  → [200, 160, 128, 102, 82].
+ * Vd capital=1000 → [1000, 800, 640, 512, 410].
  */
 function generateAnchors(capital: number): number[] {
   if (!Number.isFinite(capital) || capital <= 0) return [];
   const ratio = 0.8;
   const out: number[] = [];
-  let v = capital * 0.7; // NEO 1 = 70% capital
+  let v = capital; // NEO 1 = vốn gốc
   for (let i = 0; i < 5; i++) {
     out.push(Math.max(1, Math.round(v)));
     v *= ratio;
