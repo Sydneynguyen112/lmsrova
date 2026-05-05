@@ -18,6 +18,8 @@ import {
   getMachineById,
   getTxByMachine,
   getUserScope,
+  recordTransaction,
+  updateMachine,
 } from "@/lib/co-may/mock-data";
 import { adjustTotalCapital } from "@/lib/co-may/setup-store";
 import { cn } from "@/lib/utils";
@@ -217,6 +219,16 @@ export function MachineDetailView({
         balance={balance}
         readOnly={readOnly}
         onWithdraw={openWithdraw}
+        onLowerAnchor={(newAnchor) => {
+          const oldAnchor = machine.current_anchor;
+          updateMachine(resolvedOwner, machineId, { current_anchor: newAnchor });
+          recordTransaction(resolvedOwner, machineId, {
+            type: "anchor_change",
+            amount: newAnchor - oldAnchor,
+            note: `Hạ neo từ ${usd.format(oldAnchor)} xuống ${usd.format(newAnchor)} — chấp nhận lỗ ${usd.format(oldAnchor - newAnchor)}`,
+          });
+          refresh();
+        }}
       />
 
       {/* Equity curve + Balance breakdown */}

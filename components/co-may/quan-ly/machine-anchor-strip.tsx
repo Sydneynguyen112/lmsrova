@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, Sparkles, Target } from "lucide-react";
+import { Pencil, Sparkles, Target, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const usd = new Intl.NumberFormat("en-US", {
@@ -18,6 +18,8 @@ interface Props {
   onEdit?: () => void;
   /** Mở WithdrawDialog với amount + target anchor. */
   onWithdraw?: (amount: number, toAnchor: number) => void;
+  /** Hạ neo về newAnchor (= balance khi user chấp nhận lỗ). */
+  onLowerAnchor?: (newAnchor: number) => void;
   readOnly?: boolean;
 }
 
@@ -27,10 +29,13 @@ export function MachineAnchorStrip({
   balance,
   onEdit,
   onWithdraw,
+  onLowerAnchor,
   readOnly,
 }: Props) {
-  // Dismissed-at = overflow value tại lúc user bấm "Tôi ổn". Khi overflow tăng vượt → re-show.
+  // Dismissed-at cho overflow (lãi). Khi overflow tăng vượt → re-show.
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  // Dismissed cho underflow (lỗ) — track underflow value đã dismiss.
+  const [dismissedLossAt, setDismissedLossAt] = useState<number | null>(null);
 
   const sorted = milestones && milestones.length > 0 ? [...milestones].sort((a, b) => b - a) : [];
   const hasMilestones = sorted.length > 0;
@@ -48,13 +53,20 @@ export function MachineAnchorStrip({
 
   const overflowCurrent = balance - currentAnchor;
   const overflowPrev = prevMilestone !== null ? balance - prevMilestone : 0;
+  const underflow = currentAnchor - balance;
 
   const showPanel =
     !readOnly && overflowCurrent > 0 && (dismissedAt === null || overflowCurrent > dismissedAt);
+  const showLossPanel =
+    !readOnly && underflow > 0 && (dismissedLossAt === null || underflow > dismissedLossAt);
 
   useEffect(() => {
     if (dismissedAt !== null && overflowCurrent > dismissedAt) setDismissedAt(null);
   }, [overflowCurrent, dismissedAt]);
+
+  useEffect(() => {
+    if (dismissedLossAt !== null && underflow > dismissedLossAt) setDismissedLossAt(null);
+  }, [underflow, dismissedLossAt]);
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
@@ -71,6 +83,35 @@ export function MachineAnchorStrip({
           </button>
         )}
       </header>
+
+      {showLossPanel && !showPanel && (
+        <div className="rounded-2xl border-2 border-[#C03B3B]/40 bg-[#C03B3B]/8 p-4 space-y-3">
+          <div className="text-center space-y-1">
+            <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+              Số dư hiện tại dưới mốc neo
+            </div>
+            <div className="text-3xl md:text-4xl font-bold text-[#C03B3B] dark:text-[#E06464] tabular-nums leading-none">
+              −{usd.format(underflow)}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onLowerAnchor?.(balance)}
+            className="w-full rounded-xl bg-[#C03B3B] hover:bg-[#A02E2E] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+          >
+            <TrendingDown className="h-4 w-4" />
+            Hạ neo xuống {usd.format(balance)} (chấp nhận lỗ {usd.format(underflow)})
+          </button>
+          <button
+            type="button"
+            onClick={() => setDismissedLossAt(underflow)}
+            className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
+          >
+            <Target className="h-3.5 w-3.5 inline mr-1.5" />
+            Giữ vốn — quay về mốc {usd.format(currentAnchor)}
+          </button>
+        </div>
+      )}
 
       {showPanel && (
         <div className="rounded-2xl border-2 border-[#3B6C4F]/40 bg-[#3B6C4F]/8 p-4 space-y-3">

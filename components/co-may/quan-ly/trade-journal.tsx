@@ -76,6 +76,9 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
       return setError("PNL phải là số ≠ 0");
     }
     const volNum = Number(form.volume);
+    if (!Number.isFinite(volNum) || volNum <= 0) {
+      return setError("Khối lượng phải > 0");
+    }
     recordTransaction(ownerId, machineId, {
       type: pnlNum > 0 ? "trade_win" : "trade_loss",
       amount: pnlNum,
@@ -108,7 +111,7 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
               <Th>Ngày</Th>
               <Th>Hướng</Th>
               <Th>Cặp / Mã</Th>
-              <Th align="right">KL</Th>
+              <Th align="right">Khối lượng</Th>
               <Th align="right">PNL ($)</Th>
               <Th>Lý do vào</Th>
               <Th>Lý do thoát</Th>
@@ -192,7 +195,7 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
           <DialogHeader>
             <DialogTitle>Ghi nhận lệnh mới</DialogTitle>
             <DialogDescription>
-              Điền đầy đủ thông tin lệnh — hướng, cặp, KL, PNL, lý do, cảm xúc.
+              Điền đầy đủ thông tin lệnh — hướng, cặp, khối lượng, PNL, lý do, cảm xúc.
             </DialogDescription>
           </DialogHeader>
 
@@ -216,7 +219,7 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                   className="h-11 text-base"
                 />
               </Field>
-              <Field label="KL">
+              <Field label="Khối lượng">
                 <Input
                   type="number"
                   step="0.01"
