@@ -123,9 +123,9 @@ export function Sidebar() {
     const senior = fallbackRole === "student";
     const baseClass = cn(
       "flex items-center rounded-xl font-medium transition-all w-full",
-      senior ? "gap-3 px-3 py-3 text-[15px]" : "gap-3 px-3 py-2.5 text-sm",
-      // Child indent — senior keeps full text-sm, default shrinks
-      depth > 0 && (senior ? "ml-3 pl-2 gap-2.5 py-2.5 text-sm" : "ml-3 pl-2 gap-2 py-2 text-[13px]"),
+      // Senior dùng text-base đồng nhất cho cả parent + children, bump 1 nấc so với default.
+      senior ? "gap-3 px-3 py-3 text-base" : "gap-3 px-3 py-2.5 text-sm",
+      depth > 0 && (senior ? "ml-3 pl-2 gap-2.5 py-2.5" : "ml-3 pl-2 gap-2 py-2 text-[13px]"),
       isLocked
         ? "text-sidebar-foreground/30 cursor-default"
         : active || (hasChildren && branchActive && !expanded)
