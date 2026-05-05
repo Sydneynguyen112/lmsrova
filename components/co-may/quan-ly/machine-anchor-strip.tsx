@@ -46,17 +46,23 @@ export function MachineAnchorStrip({
   // Index của milestone == currentAnchor (hoặc closest ≤ nếu user nhập custom)
   let currentIdx = -1;
   let prevMilestone: number | null = null;
+  let nextLowerMilestone: number | null = null;
   if (hasMilestones) {
     currentIdx = sorted.findIndex((m) => m === currentAnchor);
     if (currentIdx === -1) currentIdx = sorted.findIndex((m) => m <= currentAnchor);
     if (currentIdx === -1) currentIdx = sorted.length - 1;
     // Mốc cũ = milestone CAO HƠN current liền kề
     prevMilestone = currentIdx > 0 ? sorted[currentIdx - 1] : null;
+    // Mốc dưới = milestone THẤP HƠN current liền kề (dùng khi balance lọt giữa current và mốc dưới)
+    nextLowerMilestone = currentIdx + 1 < sorted.length ? sorted[currentIdx + 1] : null;
   }
 
   const overflowCurrent = balance - currentAnchor;
   const overflowPrev = prevMilestone !== null ? balance - prevMilestone : 0;
   const underflow = currentAnchor - balance;
+  // Có thể rút về mốc dưới nếu balance vẫn cao hơn nó
+  const canWithdrawToLower = nextLowerMilestone !== null && balance > nextLowerMilestone;
+  const withdrawToLowerAmount = canWithdrawToLower && nextLowerMilestone !== null ? balance - nextLowerMilestone : 0;
 
   const showPanel =
     !readOnly && overflowCurrent > 0 && (dismissedAt === null || overflowCurrent > dismissedAt);
@@ -99,10 +105,24 @@ export function MachineAnchorStrip({
             <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
               Số dư hiện tại dưới mốc neo
             </div>
-            <div className="text-3xl md:text-4xl font-bold text-foreground tabular-nums leading-none">
+            <div className="text-3xl md:text-4xl font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums leading-none">
               −{usd.format(underflow)}
             </div>
           </div>
+
+          {/* Option 1: Rút về mốc DƯỚI — chỉ khi balance vẫn cao hơn mốc dưới */}
+          {canWithdrawToLower && nextLowerMilestone !== null && (
+            <button
+              type="button"
+              onClick={() => onWithdraw?.(withdrawToLowerAmount, nextLowerMilestone!)}
+              className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              Rút {usd.format(withdrawToLowerAmount)} về mốc {usd.format(nextLowerMilestone)}
+            </button>
+          )}
+
+          {/* Option 2: Hạ neo về balance — lock-in khoản lỗ */}
           <button
             type="button"
             onClick={() => onLowerAnchor?.(balance)}
@@ -111,6 +131,8 @@ export function MachineAnchorStrip({
             <TrendingDown className="h-4 w-4" />
             Hạ neo xuống {usd.format(balance)}
           </button>
+
+          {/* Option 3: Giữ vốn — quay về mốc hiện tại */}
           <button
             type="button"
             onClick={() => setDismissedLossAt(underflow)}
