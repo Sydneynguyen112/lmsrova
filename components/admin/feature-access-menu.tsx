@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { ShieldCheck, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,19 +43,11 @@ export function FeatureAccessMenu({ userId, compact }: Props) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-primary/40 text-primary hover:bg-primary/10"
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            {compact ? `${activeCount}/${totalCount}` : `Quyền (${activeCount}/${totalCount})`}
-            <ChevronDown className="h-3 w-3 opacity-60" />
-          </Button>
-        }
-      />
+      <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-transparent px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-primary/10">
+        <ShieldCheck className="h-3.5 w-3.5" />
+        {compact ? `${activeCount}/${totalCount}` : `Quyền (${activeCount}/${totalCount})`}
+        <ChevronDown className="h-3 w-3 opacity-60" />
+      </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           Bật/tắt chức năng cho học viên
@@ -70,7 +61,6 @@ export function FeatureAccessMenu({ userId, compact }: Props) {
               key={f.id}
               checked={isOn}
               onCheckedChange={(next) => setFeature(userId, f.id, !!next)}
-              closeOnClick={false}
               className="items-start gap-2 py-2.5"
             >
               <Icon className="h-4 w-4 text-primary mt-0.5 shrink-0" />
