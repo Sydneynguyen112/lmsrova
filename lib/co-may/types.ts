@@ -33,6 +33,8 @@ export interface Machine {
   anchor_milestones?: number[];
 }
 
+export type TradeDirection = "long" | "short";
+
 export interface MachineTransaction {
   id: string;
   machine_id: string;
@@ -41,6 +43,13 @@ export interface MachineTransaction {
   amount: number;
   note: string | null;
   created_at: string;
+  // ── Trade-specific (optional) — chỉ điền khi type = trade_win | trade_loss ──
+  direction?: TradeDirection;
+  symbol?: string;
+  volume?: number;
+  entry_reason?: string;
+  exit_reason?: string;
+  emotion?: string;
 }
 
 export interface CycleReport {

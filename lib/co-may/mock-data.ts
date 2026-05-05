@@ -243,7 +243,17 @@ export function deleteMachine(userId: string, machineId: string): void {
 export function recordTransaction(
   userId: string,
   machineId: string,
-  input: { type: TransactionType; amount: number; note?: string | null },
+  input: {
+    type: TransactionType;
+    amount: number;
+    note?: string | null;
+    direction?: MachineTransaction["direction"];
+    symbol?: string;
+    volume?: number;
+    entry_reason?: string;
+    exit_reason?: string;
+    emotion?: string;
+  },
 ): MachineTransaction {
   assertOwnership(userId, machineId);
   const data = getDataFor(userId);
@@ -255,6 +265,12 @@ export function recordTransaction(
     amount: input.amount,
     note: input.note ?? null,
     created_at: new Date().toISOString(),
+    direction: input.direction,
+    symbol: input.symbol,
+    volume: input.volume,
+    entry_reason: input.entry_reason,
+    exit_reason: input.exit_reason,
+    emotion: input.emotion,
   };
   data.tx.unshift(tx);
   return tx;
