@@ -13,6 +13,7 @@ import {
   STRATEGIES,
   type StrategyId,
 } from "@/lib/co-may/setup-store";
+import Link from "next/link";
 import { deleteMachine, getMachinesByUser } from "@/lib/co-may/mock-data";
 import type { Machine } from "@/lib/co-may/types";
 import { CreateMachineDialog } from "@/components/co-may/quan-ly/create-machine-dialog";
@@ -163,6 +164,7 @@ export function SetupWizard({
             />
             <AllocateSessionList
               userId={userId}
+              role={role}
               sessionMachines={sessionMachines}
               remainingReserve={remainingReserve}
               onCreated={() => setTick((n) => n + 1)}
@@ -200,7 +202,7 @@ export function SetupWizard({
               onClick={() => router.replace(`/${role}/co-may/tong-quan`)}
             >
               <ArrowLeft className="h-4 w-4" />
-              Huỷ
+              Về tổng quan
             </Button>
           ) : (
             <span />
@@ -580,12 +582,14 @@ function AddCapitalSection({
 
 function AllocateSessionList({
   userId,
+  role,
   sessionMachines,
   remainingReserve,
   onCreated,
   onRemove,
 }: {
   userId: string;
+  role: string;
   sessionMachines: Machine[];
   remainingReserve: number;
   onCreated: () => void;
@@ -616,27 +620,36 @@ function AllocateSessionList({
       ) : (
         <ul className="space-y-2">
           {sessionMachines.map((m) => (
-            <li
-              key={m.id}
-              className="rounded-xl border border-border bg-card px-4 py-3 flex items-center gap-3"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 shrink-0">
-                <Anchor className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-foreground truncate">{m.name}</div>
-                <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-                  {usd.format(m.capital)}
-                  {m.method && ` · ${m.method}`}
-                  {m.anchor_milestones && m.anchor_milestones.length > 0 && (
-                    <> · {m.anchor_milestones.length} mốc neo</>
-                  )}
+            <li key={m.id} className="relative">
+              <Link
+                href={`/${role}/co-may/quan-ly/${m.id}?owner=${userId}`}
+                className="block rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 px-4 py-3 flex items-center gap-3 transition-colors"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 shrink-0">
+                  <Anchor className="h-4 w-4 text-primary" />
                 </div>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground truncate">{m.name}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+                    {usd.format(m.capital)}
+                    {m.method && ` · ${m.method}`}
+                    {m.anchor_milestones && m.anchor_milestones.length > 0 && (
+                      <> · {m.anchor_milestones.length} mốc neo</>
+                    )}
+                  </div>
+                </div>
+                <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Xem chi tiết →
+                </span>
+              </Link>
               <button
                 type="button"
-                onClick={() => onRemove(m.id)}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onRemove(m.id);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 title="Xoá cỗ máy này"
               >
                 <X className="h-4 w-4" />
