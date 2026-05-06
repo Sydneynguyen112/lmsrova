@@ -128,10 +128,14 @@ export function MachineCard({
           <div className="relative h-3 mx-6">
             {milestones.map((m) => {
               const pct = ((m - minM) / range) * 100;
+              const isCurrent = m === machine.current_anchor;
               return (
                 <span
                   key={m}
-                  className="absolute -translate-x-1/2 text-[10px] tabular-nums text-muted-foreground whitespace-nowrap"
+                  className={cn(
+                    "absolute -translate-x-1/2 text-[10px] tabular-nums whitespace-nowrap",
+                    isCurrent ? "font-bold text-primary" : "text-muted-foreground",
+                  )}
                   style={{ left: `${pct}%` }}
                 >
                   {usd.format(m)}
