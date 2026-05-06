@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import type { Machine, MachineTransaction, TransactionType } from "@/lib/co-may/types";
 import { isSeniorMode } from "@/lib/co-may/senior-ui";
+import { MachineCard } from "@/components/co-may/quan-ly/machine-card";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -126,16 +127,22 @@ export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, o
         )}
       </div>
 
-      {/* § 01 Featured machines */}
+      {/* § 01 Active machines */}
       <div className="space-y-3">
-        <SubSectionHeader number="01" label="Cỗ máy nổi bật" actionHref={`/${role}/co-may/quan-ly`} actionText="Xem tất cả" senior={senior} />
+        <SubSectionHeader number="01" label="Cỗ máy đang hoạt động" actionHref={`/${role}/co-may/quan-ly`} actionText="Xem tất cả" senior={senior} />
 
         {featured.length === 0 ? (
           <EmptyMachineState role={role} senior={senior} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {featured.map((m) => (
-              <FeaturedMachineCard key={m.id} machine={m} tx={tx} role={role} senior={senior} />
+              <MachineCard
+                key={m.id}
+                machine={m}
+                tx={tx.filter((t) => t.machine_id === m.id)}
+                detailHref={`/${role}/co-may/quan-ly/${m.id}?owner=${m.user_id}`}
+                role={role}
+              />
             ))}
           </div>
         )}
