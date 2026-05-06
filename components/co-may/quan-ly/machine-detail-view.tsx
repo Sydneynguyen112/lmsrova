@@ -261,6 +261,11 @@ export function MachineDetailView({
         balance={balance}
         readOnly={readOnly}
         tradeCount={allTrades.length}
+        persistKey={machineId}
+        onEditMilestones={(next) => {
+          updateMachine(resolvedOwner, machineId, { anchor_milestones: next });
+          refresh();
+        }}
         onWithdraw={openWithdraw}
         onLiftAnchor={(amount, toAnchor) => {
           const fromAnchor = machine.current_anchor;

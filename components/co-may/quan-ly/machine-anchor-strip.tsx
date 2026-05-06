@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil, Sparkles, Target, TrendingDown } from "lucide-react";
+import { Check, Pencil, Sparkles, Target, TrendingDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const usd = new Intl.NumberFormat("en-US", {
@@ -15,6 +15,8 @@ interface Props {
   /** Mốc neo hiện tại (machine.current_anchor) — user-chosen, có thể khác milestone exact. */
   currentAnchor: number;
   balance: number;
+  /** Lưu mảng milestone mới sau khi user chỉnh. */
+  onEditMilestones?: (next: number[]) => void;
   onEdit?: () => void;
   /** Mở WithdrawDialog với amount + target anchor. */
   onWithdraw?: (amount: number, toAnchor: number) => void;
@@ -27,6 +29,8 @@ interface Props {
   readOnly?: boolean;
   /** Số lệnh trade — mỗi lệnh mới sẽ reset dismiss state để panel rút luôn xuất hiện. */
   tradeCount?: number;
+  /** Key persist dismiss state (vd: machineId) — để dismiss survive reload. */
+  persistKey?: string;
 }
 
 export function MachineAnchorStrip({
@@ -34,15 +38,60 @@ export function MachineAnchorStrip({
   currentAnchor,
   balance,
   onEdit,
+  onEditMilestones,
   onWithdraw,
   onLiftAnchor,
   onLowerAnchor,
   onHold,
   readOnly,
   tradeCount,
+  persistKey,
 }: Props) {
   // Mỗi lệnh = 1 hành động. Sau khi user rút / hạ neo / giữ vốn → ẩn panel cho tới lệnh tiếp theo.
-  const [dismissed, setDismissed] = useState(false);
+  // Persist tradeCount lúc dismiss vào localStorage để survive reload.
+  const storageKey = persistKey ? `co-may-anchor-dismiss-${persistKey}` : null;
+  const [dismissed, setDismissedRaw] = useState(false);
+
+  // Edit mode for milestones
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<string[]>([]);
+  function startEdit() {
+    setDraft(sorted.map((m) => String(m)));
+    setEditing(true);
+  }
+  function cancelEdit() {
+    setEditing(false);
+    setDraft([]);
+  }
+  function saveEdit() {
+    const nums = draft.map((s) => Number(s)).filter((n) => Number.isFinite(n) && n > 0);
+    if (nums.length === 0) return;
+    nums.sort((a, b) => b - a);
+    onEditMilestones?.(nums);
+    setEditing(false);
+    setDraft([]);
+  }
+
+  // Hydrate dismiss state từ localStorage trên mount
+  useEffect(() => {
+    if (typeof window === "undefined" || !storageKey || tradeCount === undefined) return;
+    const stored = window.localStorage.getItem(storageKey);
+    if (stored !== null && Number(stored) === tradeCount) {
+      setDismissedRaw(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function setDismissed(value: boolean) {
+    setDismissedRaw(value);
+    if (typeof window !== "undefined" && storageKey && tradeCount !== undefined) {
+      if (value) {
+        window.localStorage.setItem(storageKey, String(tradeCount));
+      } else {
+        window.localStorage.removeItem(storageKey);
+      }
+    }
+  }
 
   const sorted = milestones && milestones.length > 0 ? [...milestones].sort((a, b) => b - a) : [];
   const hasMilestones = sorted.length > 0;
@@ -91,15 +140,35 @@ export function MachineAnchorStrip({
     <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
       <header className="flex items-center justify-between">
         <h3 className="text-lg md:text-xl font-bold text-foreground">Mốc neo</h3>
-        {!readOnly && onEdit && (
+        {!readOnly && (onEdit || onEditMilestones) && !editing && (
           <button
             type="button"
-            onClick={onEdit}
+            onClick={onEditMilestones ? startEdit : onEdit}
             className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <Pencil className="h-3 w-3" />
             Chỉnh
           </button>
+        )}
+        {editing && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Huỷ
+            </button>
+            <button
+              type="button"
+              onClick={saveEdit}
+              className="inline-flex items-center gap-1 rounded-md bg-primary hover:bg-primary/90 text-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest transition-colors"
+            >
+              <Check className="h-3 w-3" />
+              Lưu
+            </button>
+          </div>
         )}
       </header>
 
@@ -231,53 +300,74 @@ export function MachineAnchorStrip({
         </div>
       )}
 
-      {hasMilestones && (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-        {sorted.map((m, i) => {
-          const isCurrent = i === currentIdx;
-          const isAbove = i < currentIdx; // Cao hơn current
-          const isBelow = i > currentIdx; // Thấp hơn current
+      {hasMilestones && !editing && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {sorted.map((m, i) => {
+            const isCurrent = i === currentIdx;
+            const isAbove = i < currentIdx;
+            const isBelow = i > currentIdx;
+            const isReachable = isAbove && balance >= m;
+            const stateLabel = isCurrent
+              ? "Hiện tại"
+              : isReachable
+                ? "Vượt mốc"
+                : isAbove
+                  ? "Chưa đến"
+                  : "Đã chạm";
 
-          // Trong vùng "có thể rút" (above current AND ≤ balance) → vượt mốc
-          const isReachable = isAbove && balance >= m;
-          const stateLabel = isCurrent
-            ? "Hiện tại"
-            : isReachable
-              ? "Vượt mốc"
-              : isAbove
-                ? "Chưa đến"
-                : "Đã chạm";
-
-          return (
-            <div
-              key={i}
-              className={cn(
-                "rounded-xl border-2 p-3 text-center transition-colors",
-                isCurrent
-                  ? "border-[#3B6C4F] bg-[#3B6C4F]/15 text-foreground"
-                  : isReachable
-                    ? "border-[#3B6C4F]/50 bg-[#3B6C4F]/5 text-foreground"
-                    : isBelow
-                      ? "border-border bg-muted/30 text-foreground/70"
-                      : "border-border/60 bg-card text-muted-foreground/70",
-              )}
-            >
+            return (
               <div
+                key={i}
                 className={cn(
-                  "text-[11px] font-bold uppercase tracking-widest mb-1",
-                  isCurrent || isReachable ? "text-[#5C9C75]" : "text-muted-foreground",
+                  "rounded-xl border-2 p-3 text-center transition-colors",
+                  isCurrent
+                    ? "border-[#3B6C4F] bg-[#3B6C4F]/15 text-foreground"
+                    : isReachable
+                      ? "border-[#3B6C4F]/50 bg-[#3B6C4F]/5 text-foreground"
+                      : isBelow
+                        ? "border-border bg-muted/30 text-foreground/70"
+                        : "border-border/60 bg-card text-muted-foreground/70",
                 )}
               >
+                <div
+                  className={cn(
+                    "text-[11px] font-bold uppercase tracking-widest mb-1",
+                    isCurrent || isReachable ? "text-[#5C9C75]" : "text-muted-foreground",
+                  )}
+                >
+                  M{i + 1}
+                </div>
+                <div className="text-lg md:text-xl font-bold tabular-nums">{usd.format(m)}</div>
+                <div className="text-[10px] uppercase tracking-widest mt-1 opacity-70 font-semibold">
+                  {stateLabel}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {editing && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {draft.map((v, i) => (
+            <div
+              key={i}
+              className="rounded-xl border-2 border-primary/40 bg-primary/5 p-3 text-center"
+            >
+              <div className="text-[11px] font-bold uppercase tracking-widest mb-1 text-primary">
                 M{i + 1}
               </div>
-              <div className="text-lg md:text-xl font-bold tabular-nums">{usd.format(m)}</div>
-              <div className="text-[10px] uppercase tracking-widest mt-1 opacity-70 font-semibold">
-                {stateLabel}
-              </div>
+              <input
+                type="number"
+                value={v}
+                onChange={(e) =>
+                  setDraft((d) => d.map((x, j) => (j === i ? e.target.value : x)))
+                }
+                className="w-full rounded-md border border-input bg-card px-2 py-1.5 text-center text-lg font-bold tabular-nums focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 outline-none"
+              />
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
       )}
 
       <div className="rounded-lg border-l-4 border-primary bg-primary/5 px-3 py-2">

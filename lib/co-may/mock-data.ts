@@ -263,7 +263,9 @@ function assertOwnership(userId: string, machineId: string): void {
 export function updateMachine(
   userId: string,
   machineId: string,
-  patch: Partial<Pick<Machine, "name" | "capital" | "current_anchor" | "status">>,
+  patch: Partial<
+    Pick<Machine, "name" | "capital" | "current_anchor" | "status" | "anchor_milestones">
+  >,
 ): Machine {
   assertOwnership(userId, machineId);
   const data = getDataFor(userId);
