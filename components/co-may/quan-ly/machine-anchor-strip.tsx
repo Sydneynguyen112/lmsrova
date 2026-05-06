@@ -72,15 +72,22 @@ export function MachineAnchorStrip({
     setDraft([]);
   }
 
-  // Hydrate dismiss state từ localStorage trên mount
+  // Single source of truth: dismiss state hydrate từ localStorage theo tradeCount.
+  // - Mount: nếu storage[key] === tradeCount → đã dismiss phiên này → ẩn.
+  // - tradeCount thay đổi (lệnh mới) → storage stale → reset = false (panel hiện lại).
   useEffect(() => {
-    if (typeof window === "undefined" || !storageKey || tradeCount === undefined) return;
+    if (typeof window === "undefined" || !storageKey || tradeCount === undefined) {
+      setDismissedRaw(false);
+      return;
+    }
     const stored = window.localStorage.getItem(storageKey);
     if (stored !== null && Number(stored) === tradeCount) {
       setDismissedRaw(true);
+    } else {
+      setDismissedRaw(false);
+      if (stored !== null) window.localStorage.removeItem(storageKey);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tradeCount, storageKey]);
 
   function setDismissed(value: boolean) {
     setDismissedRaw(value);
@@ -119,11 +126,6 @@ export function MachineAnchorStrip({
 
   const showPanel = !readOnly && !dismissed && overflowCurrent > 0;
   const showLossPanel = !readOnly && !dismissed && underflow > 0;
-
-  // Mỗi lệnh trade mới → reset dismiss để panel xuất hiện lại
-  useEffect(() => {
-    setDismissed(false);
-  }, [tradeCount]);
 
   // Wrap action handlers — set dismissed=true sau mỗi lần user act
   function actAndDismiss<T extends unknown[]>(fn?: (...args: T) => void) {
