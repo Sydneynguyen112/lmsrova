@@ -404,6 +404,13 @@ export function finalizeCycle(
   const endingBalance = machine.capital + pnl - withdrawn;
   const now = new Date().toISOString();
 
+  // Đóng cỗ máy hiện tại TRƯỚC, sau đó mới unshift cỗ máy mới (tránh shift index).
+  data.machines[machineIdx] = {
+    ...machine,
+    status: "closed",
+    updated_at: now,
+  };
+
   // Tạo cỗ máy mới (cho scale + reset). Đóng → không tạo.
   let nextMachine: Machine | null = null;
   if (input.decision === "scale" || input.decision === "reset") {
@@ -443,13 +450,6 @@ export function finalizeCycle(
     };
     data.machines.unshift(nextMachine);
   }
-
-  // Đóng cỗ máy hiện tại
-  data.machines[machineIdx] = {
-    ...machine,
-    status: "closed",
-    updated_at: now,
-  };
 
   const report: CycleReport = {
     id: nextId("rep-new"),
