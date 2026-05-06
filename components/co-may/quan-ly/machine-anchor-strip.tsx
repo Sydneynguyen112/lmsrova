@@ -18,6 +18,8 @@ interface Props {
   onEdit?: () => void;
   /** Mở WithdrawDialog với amount + target anchor. */
   onWithdraw?: (amount: number, toAnchor: number) => void;
+  /** Rút trực tiếp + nâng neo lên mốc cao hơn — không qua dialog (kỷ luật chốt nhanh). */
+  onLiftAnchor?: (amount: number, toAnchor: number) => void;
   /** Hạ neo về newAnchor (= balance khi user chấp nhận lỗ). */
   onLowerAnchor?: (newAnchor: number) => void;
   readOnly?: boolean;
@@ -31,6 +33,7 @@ export function MachineAnchorStrip({
   balance,
   onEdit,
   onWithdraw,
+  onLiftAnchor,
   onLowerAnchor,
   readOnly,
   tradeCount,
@@ -78,6 +81,7 @@ export function MachineAnchorStrip({
     };
   }
   const actWithdraw = actAndDismiss(onWithdraw);
+  const actLiftAnchor = actAndDismiss(onLiftAnchor);
   const actLowerAnchor = actAndDismiss(onLowerAnchor);
 
   return (
@@ -144,7 +148,7 @@ export function MachineAnchorStrip({
             <>
               <button
                 type="button"
-                onClick={() => actWithdraw(overflowPrev, prevMilestone)}
+                onClick={() => actLiftAnchor(overflowPrev, prevMilestone)}
                 className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
               >
                 <Sparkles className="h-4 w-4" />

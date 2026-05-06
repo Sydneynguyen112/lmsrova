@@ -221,6 +221,15 @@ export function MachineDetailView({
         readOnly={readOnly}
         tradeCount={allTrades.length}
         onWithdraw={openWithdraw}
+        onLiftAnchor={(amount, toAnchor) => {
+          recordTransaction(resolvedOwner, machineId, {
+            type: "withdraw",
+            amount: -amount,
+            note: `Rút ${usd.format(amount)} về mốc ${usd.format(toAnchor)} — nâng neo`,
+          });
+          updateMachine(resolvedOwner, machineId, { current_anchor: toAnchor });
+          refresh();
+        }}
         onLowerAnchor={(newAnchor) => {
           const oldAnchor = machine.current_anchor;
           updateMachine(resolvedOwner, machineId, { current_anchor: newAnchor });
