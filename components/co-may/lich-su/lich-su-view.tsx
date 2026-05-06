@@ -39,16 +39,12 @@ export function LichSuView({ role }: { role: RoleSlug }) {
     );
   }
 
-  const totalActions =
-    data.tx.length + data.machines.length + data.machines.filter((m) => m.status === "closed").length;
-
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold text-foreground">Nhật ký hoạt động</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {SCOPE_LABEL[role]} • {totalActions} hoạt động • {data.machines.length} cỗ máy •{" "}
-          {data.reports.length} chu kỳ đã đóng
+          {SCOPE_LABEL[role]} • {data.machines.length} cỗ máy
         </p>
       </div>
 
