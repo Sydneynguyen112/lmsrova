@@ -188,6 +188,23 @@ export function MachineDetailView({
               <span className="rounded-md bg-foreground text-background px-2.5 py-1 text-xs font-semibold tabular-nums uppercase tracking-widest">
                 {days} ngày
               </span>
+              {machine.capital > 0 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold tabular-nums uppercase tracking-widest border",
+                    totalPnl > 0
+                      ? "border-[#3B6C4F]/40 bg-[#3B6C4F]/10 text-[#3B6C4F] dark:text-[#5C9C75]"
+                      : totalPnl < 0
+                        ? "border-foreground/30 bg-foreground/5 text-foreground"
+                        : "border-border bg-muted/30 text-muted-foreground",
+                  )}
+                  title={`PNL ${usd.format(totalPnl)} / Vốn ${usd.format(machine.capital)}`}
+                >
+                  <TrendingUp className={cn("h-3 w-3", totalPnl < 0 && "rotate-180")} />
+                  {totalPnl > 0 ? "+" : ""}
+                  {((totalPnl / machine.capital) * 100).toFixed(1)}%
+                </span>
+              )}
             </div>
             <p className="text-xs uppercase tracking-widest text-muted-foreground mt-1">
               {machine.method ?? "—"} · {SIGNAL_LABEL[machine.signal_source ?? "self"] ?? "—"} · {allTrades.length} lệnh
@@ -225,7 +242,6 @@ export function MachineDetailView({
           value={usd.format(withdrawnAbs)}
           hint="Tiền thật về tài khoản"
           icon={Wallet}
-          tone="profit"
         />
         <KpiTile label="Số dư hiện tại" value={usd.format(balance)} icon={Coins} />
         <KpiTile label="Vốn gốc" value={usd.format(machine.capital)} icon={Coins} />
