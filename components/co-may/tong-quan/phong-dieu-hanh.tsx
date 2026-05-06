@@ -112,8 +112,6 @@ export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, o
               variant="outline"
               size={senior ? "default" : "sm"}
               onClick={handleReset}
-              disabled={reserve <= 0}
-              title={reserve <= 0 ? "Không còn vốn dự trữ để phân bổ" : undefined}
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Hoạch định lại
