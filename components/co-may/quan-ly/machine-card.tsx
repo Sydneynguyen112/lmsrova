@@ -104,7 +104,7 @@ export function MachineCard({
               · Số dư: <strong className="text-foreground">{usd.format(balance)}</strong>
             </span>
           </div>
-          <div className="relative h-2 mx-1">
+          <div className="relative h-2 mx-6">
             <div className="absolute top-1/2 left-0 right-0 h-px bg-border -translate-y-1/2" />
             {milestones.map((m) => {
               const pct = ((m - minM) / range) * 100;
@@ -125,13 +125,13 @@ export function MachineCard({
               style={{ left: `${balancePct}%` }}
             />
           </div>
-          <div className="relative h-3 mx-1">
+          <div className="relative h-3 mx-6">
             {milestones.map((m) => {
               const pct = ((m - minM) / range) * 100;
               return (
                 <span
                   key={m}
-                  className="absolute -translate-x-1/2 text-[10px] tabular-nums text-muted-foreground"
+                  className="absolute -translate-x-1/2 text-[10px] tabular-nums text-muted-foreground whitespace-nowrap"
                   style={{ left: `${pct}%` }}
                 >
                   {usd.format(m)}
