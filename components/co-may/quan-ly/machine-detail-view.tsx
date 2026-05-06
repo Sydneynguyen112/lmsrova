@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,7 +10,9 @@ import {
   TrendingUp,
   Coins,
   Activity,
+  ArrowUpRight,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useCurrentUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +24,7 @@ import {
   updateMachine,
 } from "@/lib/co-may/mock-data";
 import { adjustTotalCapital } from "@/lib/co-may/setup-store";
+import { fireworksGrand, FIREWORK_GRAND_DURATION } from "@/lib/co-may/celebrate";
 import { cn } from "@/lib/utils";
 import type { Machine, MachineTransaction } from "@/lib/co-may/types";
 import { CloseCycleDialog } from "./close-cycle-dialog";
@@ -69,6 +72,19 @@ export function MachineDetailView({
     setWithdrawPreset({ amount, anchor });
     setWithdrawOpen(true);
   }
+
+  // Lift-anchor celebration state
+  const [liftCelebrate, setLiftCelebrate] = useState<{
+    amount: number;
+    fromAnchor: number;
+    toAnchor: number;
+  } | null>(null);
+  const liftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (liftTimerRef.current) clearTimeout(liftTimerRef.current);
+    };
+  }, []);
 
   const resolved = useMemo<{
     machine: Machine;
@@ -222,6 +238,7 @@ export function MachineDetailView({
         tradeCount={allTrades.length}
         onWithdraw={openWithdraw}
         onLiftAnchor={(amount, toAnchor) => {
+          const fromAnchor = machine.current_anchor;
           recordTransaction(resolvedOwner, machineId, {
             type: "withdraw",
             amount: -amount,
@@ -229,6 +246,13 @@ export function MachineDetailView({
           });
           updateMachine(resolvedOwner, machineId, { current_anchor: toAnchor });
           refresh();
+          fireworksGrand();
+          setLiftCelebrate({ amount, fromAnchor, toAnchor });
+          if (liftTimerRef.current) clearTimeout(liftTimerRef.current);
+          liftTimerRef.current = setTimeout(() => {
+            setLiftCelebrate(null);
+            liftTimerRef.current = null;
+          }, FIREWORK_GRAND_DURATION);
         }}
         onLowerAnchor={(newAnchor) => {
           const oldAnchor = machine.current_anchor;
@@ -286,6 +310,53 @@ export function MachineDetailView({
         currentAnchor={withdrawPreset.anchor || machine.current_anchor}
         onSuccess={refresh}
       />
+
+      {/* NÂNG NEO grand celebration */}
+      <AnimatePresence>
+        {liftCelebrate && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            transition={{ type: "spring", duration: 0.5 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none px-4"
+          >
+            <div className="bg-card border-2 border-primary rounded-3xl px-12 py-8 shadow-2xl gold-glow text-center space-y-4 max-w-lg">
+              <div className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-[0.25em] text-primary">
+                <ArrowUpRight className="h-4 w-4" />
+                Nâng neo thành công
+              </div>
+              <h3 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
+                Cỗ máy lên bậc thang mới
+              </h3>
+              <div className="flex items-center justify-center gap-3 text-2xl md:text-3xl font-bold tabular-nums">
+                <span className="text-muted-foreground/60 line-through">
+                  {usd.format(liftCelebrate.fromAnchor)}
+                </span>
+                <ArrowUpRight className="h-6 w-6 text-primary" />
+                <span className="text-primary gold-gradient-text">
+                  {usd.format(liftCelebrate.toAnchor)}
+                </span>
+              </div>
+              <p className="text-base text-muted-foreground">
+                Đã rút{" "}
+                <strong className="text-[#3B6C4F] dark:text-[#5C9C75]">
+                  {usd.format(liftCelebrate.amount)}
+                </strong>{" "}
+                — phần lãi này không thể mất nữa.
+              </p>
+              <div className="border-t border-dashed border-border pt-4 space-y-1">
+                <p className="text-base md:text-lg italic text-foreground/90 leading-relaxed">
+                  &ldquo;Mỗi lần nâng neo là một bậc thang xây bằng kỷ luật.&rdquo;
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Doanh chủ đã chứng minh hệ thống vận hành — và biết khi nào thì chốt.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
