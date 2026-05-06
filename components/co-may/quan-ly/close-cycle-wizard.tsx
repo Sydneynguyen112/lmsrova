@@ -219,7 +219,7 @@ export function CloseCycleWizard({
                 tone={pnl > 0 ? "profit" : pnl < 0 ? "loss" : undefined}
               />
               <Stat label="Peak PnL" value={`+${usd.format(peakPnl)}`} />
-              <Stat label="Đã rút" value={usd.format(withdrawn)} />
+              <Stat label="Đã rút" value={usd.format(withdrawn)} tone="gold" />
               <Stat label="Lệnh" value={String(trades.length)} />
               <Stat label="Winrate" value={`${wr}%`} />
               <Stat label="R:R" value={rrAvg.toFixed(2)} />
@@ -472,7 +472,7 @@ function Stat({
 }: {
   label: string;
   value: string;
-  tone?: "profit" | "loss";
+  tone?: "profit" | "loss" | "gold";
 }) {
   return (
     <div className="space-y-1.5">
@@ -484,6 +484,7 @@ function Stat({
           "text-2xl md:text-3xl font-bold tabular-nums",
           tone === "profit" && "text-[#3B6C4F] dark:text-[#5C9C75]",
           tone === "loss" && "text-foreground",
+          tone === "gold" && "text-primary",
           !tone && "text-foreground",
         )}
       >
@@ -555,8 +556,10 @@ function RadarChart({ scorecard }: { scorecard: CycleScorecard }) {
 
   return (
     <div className="rounded-xl border border-border p-4 flex items-center justify-center">
-      <svg viewBox="0 0 200 200" className="w-full max-w-[260px] h-auto">
-        {/* Grid rings */}
+      <svg
+        viewBox="-40 -30 280 260"
+        className="w-full max-w-[300px] h-auto overflow-visible"
+      >
         {[0.25, 0.5, 0.75, 1].map((r, i) => (
           <polygon
             key={i}
@@ -572,7 +575,6 @@ function RadarChart({ scorecard }: { scorecard: CycleScorecard }) {
             strokeDasharray={i === 3 ? "none" : "2 3"}
           />
         ))}
-        {/* Axes */}
         {axes.map((a) => (
           <line
             key={a.label}
@@ -585,7 +587,6 @@ function RadarChart({ scorecard }: { scorecard: CycleScorecard }) {
             strokeDasharray="2 3"
           />
         ))}
-        {/* Filled polygon */}
         <polygon
           points={points}
           fill="#CD9C20"
@@ -593,38 +594,28 @@ function RadarChart({ scorecard }: { scorecard: CycleScorecard }) {
           stroke="#CD9C20"
           strokeWidth={1.5}
         />
-        {/* Vertices */}
         {axes.map((a, i) => {
           const r = (a.value / max) * radius;
           const dx = (a.x - cx) * (r / radius);
           const dy = (a.y - cy) * (r / radius);
-          return (
-            <circle
-              key={i}
-              cx={cx + dx}
-              cy={cy + dy}
-              r={2}
-              fill="#CD9C20"
-            />
-          );
+          return <circle key={i} cx={cx + dx} cy={cy + dy} r={2} fill="#CD9C20" />;
         })}
-        {/* Labels */}
         {axes.map((a) => {
-          const dx = (a.x - cx) * 1.18;
-          const dy = (a.y - cy) * 1.22;
+          const dx = (a.x - cx) * 1.22;
+          const dy = (a.y - cy) * 1.28;
           return (
             <g key={a.label} transform={`translate(${cx + dx} ${cy + dy})`}>
               <text
                 textAnchor="middle"
-                className="text-[8px] font-bold uppercase tracking-widest fill-muted-foreground"
-                y={-2}
+                className="text-[9px] font-bold uppercase tracking-widest fill-muted-foreground"
+                y={-3}
               >
                 {a.label}
               </text>
               <text
                 textAnchor="middle"
-                className="text-[9px] font-bold tabular-nums fill-foreground"
-                y={9}
+                className="text-[10px] font-bold tabular-nums fill-foreground"
+                y={10}
               >
                 {a.value}
                 <tspan className="fill-muted-foreground">/10</tspan>

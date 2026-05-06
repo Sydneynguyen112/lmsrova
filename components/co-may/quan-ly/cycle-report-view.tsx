@@ -256,7 +256,10 @@ function RadarSvg({ sc }: { sc: NonNullable<CycleReport["scorecard"]> }) {
     })
     .join(" ");
   return (
-    <svg viewBox="0 0 200 200" className="w-full max-w-[260px] h-auto">
+    <svg
+      viewBox="-40 -30 280 260"
+      className="w-full max-w-[300px] h-auto overflow-visible"
+    >
       {[0.25, 0.5, 0.75, 1].map((r, i) => (
         <polygon
           key={i}
@@ -286,21 +289,21 @@ function RadarSvg({ sc }: { sc: NonNullable<CycleReport["scorecard"]> }) {
       ))}
       <polygon points={points} fill="#CD9C20" fillOpacity={0.25} stroke="#CD9C20" strokeWidth={1.5} />
       {axes.map((a) => {
-        const dx = (a.x - cx) * 1.18;
-        const dy = (a.y - cy) * 1.22;
+        const dx = (a.x - cx) * 1.22;
+        const dy = (a.y - cy) * 1.28;
         return (
           <g key={a.label} transform={`translate(${cx + dx} ${cy + dy})`}>
             <text
               textAnchor="middle"
-              className="text-[8px] font-bold uppercase tracking-widest fill-muted-foreground"
-              y={-2}
+              className="text-[9px] font-bold uppercase tracking-widest fill-muted-foreground"
+              y={-3}
             >
               {a.label}
             </text>
             <text
               textAnchor="middle"
-              className="text-[9px] font-bold tabular-nums fill-foreground"
-              y={9}
+              className="text-[10px] font-bold tabular-nums fill-foreground"
+              y={10}
             >
               {a.value}
               <tspan className="fill-muted-foreground">/10</tspan>
