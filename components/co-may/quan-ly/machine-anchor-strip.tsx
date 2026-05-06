@@ -82,7 +82,7 @@ export function MachineAnchorStrip({
   }
   const actWithdraw = actAndDismiss(onWithdraw);
   const actLiftAnchor = actAndDismiss(onLiftAnchor);
-  const actLowerAnchor = actAndDismiss(onLowerAnchor);
+  // onLowerAnchor KHÔNG wrap dismiss — sau khi hạ neo, panel chuyển sang overflow để user chọn rút.
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
@@ -114,10 +114,15 @@ export function MachineAnchorStrip({
             </div>
           </div>
 
+          <p className="text-xs italic text-muted-foreground/90 leading-relaxed text-center px-2">
+            Việc hạ neo không ảnh hưởng đến số dư hiện tại. Sau khi hạ neo, doanh chủ có thể chọn
+            rút tiền hằng ngày, rút tiền về neo hoặc giữ vốn để quay về mốc.
+          </p>
+
           <button
             type="button"
             onClick={() =>
-              actLowerAnchor(
+              onLowerAnchor?.(
                 canWithdrawToLower && nextLowerMilestone !== null ? nextLowerMilestone : balance,
               )
             }
