@@ -139,48 +139,55 @@ export function MachineAnchorStrip({
             </div>
           </div>
 
-          {/* Khi balance vượt cả mốc trên — nâng neo lên mốc đó (rút ít hơn) */}
-          {prevMilestone !== null && overflowPrev > 0 && (
-            <button
-              type="button"
-              onClick={() => actWithdraw(overflowPrev, prevMilestone)}
-              className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-            >
-              <Sparkles className="h-4 w-4" />
-              Rút {usd.format(overflowPrev)} về mốc {usd.format(prevMilestone)} · NÂNG NEO ↑
-            </button>
+          {/* Case B: balance vượt mốc trên → NÂNG NEO là primary, các nút rút khác = dashed */}
+          {prevMilestone !== null && overflowPrev > 0 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => actWithdraw(overflowPrev, prevMilestone)}
+                className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Rút {usd.format(overflowPrev)} về mốc {usd.format(prevMilestone)} · NÂNG NEO ↑
+              </button>
+              <button
+                type="button"
+                onClick={() => actWithdraw(0, currentAnchor)}
+                className="w-full rounded-xl border-2 border-dashed border-[#3B6C4F]/40 hover:border-[#3B6C4F]/70 hover:bg-[#3B6C4F]/8 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Rút tiền hằng ngày
+              </button>
+              <button
+                type="button"
+                onClick={() => actWithdraw(overflowCurrent, currentAnchor)}
+                className="w-full rounded-xl border-2 border-dashed border-[#3B6C4F]/40 hover:border-[#3B6C4F]/70 hover:bg-[#3B6C4F]/8 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Rút {usd.format(overflowCurrent)} về mốc {usd.format(currentAnchor)}
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Case A: chưa vượt mốc trên → rút hằng ngày là primary */}
+              <button
+                type="button"
+                onClick={() => actWithdraw(0, currentAnchor)}
+                className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Rút tiền hằng ngày
+              </button>
+              <button
+                type="button"
+                onClick={() => actWithdraw(overflowCurrent, currentAnchor)}
+                className="w-full rounded-xl border-2 border-dashed border-[#3B6C4F]/40 hover:border-[#3B6C4F]/70 hover:bg-[#3B6C4F]/8 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Rút {usd.format(overflowCurrent)} về mốc {usd.format(currentAnchor)}
+              </button>
+            </>
           )}
-
-          {/* Rút tiền hằng ngày — primary action, custom amount */}
-          <button
-            type="button"
-            onClick={() => actWithdraw(0, currentAnchor)}
-            className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-          >
-            <Sparkles className="h-4 w-4" />
-            Rút tiền hằng ngày
-          </button>
-
-          {/* Rút phần dư về mốc — secondary, dashed */}
-          <button
-            type="button"
-            onClick={() => actWithdraw(overflowCurrent, currentAnchor)}
-            className="w-full rounded-xl border-2 border-dashed border-[#3B6C4F]/40 hover:border-[#3B6C4F]/70 hover:bg-[#3B6C4F]/8 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
-          >
-            <Sparkles className="h-4 w-4" />
-            Rút {usd.format(overflowCurrent)} về mốc {usd.format(currentAnchor)}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setDismissed(true)}
-            className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
-          >
-            <Target className="h-3.5 w-3.5 inline mr-1.5" />
-            {prevMilestone !== null
-              ? `Giữ vốn — quay về mốc ${usd.format(prevMilestone)}`
-              : "Giữ vốn — tích luỹ tiếp"}
-          </button>
         </div>
       )}
 
