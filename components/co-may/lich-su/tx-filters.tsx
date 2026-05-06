@@ -2,9 +2,18 @@
 
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Machine, TransactionType } from "@/lib/co-may/types";
+import type { Machine } from "@/lib/co-may/types";
 
 export type DateRange = "7" | "30" | "90" | "all";
+
+export type ActionFilterType =
+  | "all"
+  | "open"
+  | "close"
+  | "trade_win"
+  | "trade_loss"
+  | "withdraw"
+  | "anchor_change";
 
 const DATE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "7", label: "7 ngày" },
@@ -13,18 +22,20 @@ const DATE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: "all", label: "Tất cả" },
 ];
 
-const TYPE_OPTIONS: { value: TransactionType | "all"; label: string }[] = [
+const TYPE_OPTIONS: { value: ActionFilterType; label: string }[] = [
   { value: "all", label: "Tất cả loại" },
+  { value: "open", label: "Mở cỗ máy" },
+  { value: "close", label: "Đóng cỗ máy" },
   { value: "trade_win", label: "Lệnh thắng" },
   { value: "trade_loss", label: "Lệnh thua" },
   { value: "withdraw", label: "Rút tiền" },
-  { value: "anchor_change", label: "Đổi anchor" },
+  { value: "anchor_change", label: "Hạ/Nâng neo" },
 ];
 
 export interface TxFilterState {
   machineId: string | "all";
   dateRange: DateRange;
-  type: TransactionType | "all";
+  type: ActionFilterType;
 }
 
 export const DEFAULT_TX_FILTER: TxFilterState = {

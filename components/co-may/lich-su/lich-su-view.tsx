@@ -1,7 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 import { useCurrentUser } from "@/lib/auth";
 import {
   getMachinesForScope,
@@ -9,9 +8,7 @@ import {
   getTxForScope,
   getUserScope,
 } from "@/lib/co-may/mock-data";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { NhatKyTab } from "./nhat-ky-tab";
-import { BaoCaoTab } from "./bao-cao-tab";
+import { ActionLogView } from "./action-log-view";
 
 type RoleSlug = "student" | "mentor" | "admin";
 
@@ -21,25 +18,8 @@ const SCOPE_LABEL: Record<RoleSlug, string> = {
   admin: "Lịch sử toàn hệ thống",
 };
 
-function LichSuViewInner({ role }: { role: RoleSlug }) {
+export function LichSuView({ role }: { role: RoleSlug }) {
   const user = useCurrentUser(role);
-  const router = useRouter();
-  const sp = useSearchParams();
-  const initialTab = sp.get("tab") === "bao-cao" ? "bao-cao" : "nhat-ky";
-  const [tab, setTab] = useState<string>(initialTab);
-
-  useEffect(() => {
-    const next = sp.get("tab") === "bao-cao" ? "bao-cao" : "nhat-ky";
-    if (next !== tab) setTab(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sp]);
-
-  function handleTabChange(value: string) {
-    setTab(value);
-    const params = new URLSearchParams(sp.toString());
-    params.set("tab", value);
-    router.replace(`?${params.toString()}`, { scroll: false });
-  }
 
   const data = useMemo(() => {
     if (!user) return null;
@@ -48,7 +28,6 @@ function LichSuViewInner({ role }: { role: RoleSlug }) {
       machines: getMachinesForScope(userIds),
       tx: getTxForScope(userIds),
       reports: getReportsForScope(userIds),
-      userIds,
     };
   }, [user, role]);
 
@@ -60,35 +39,25 @@ function LichSuViewInner({ role }: { role: RoleSlug }) {
     );
   }
 
+  const totalActions =
+    data.tx.length + data.machines.length + data.machines.filter((m) => m.status === "closed").length;
+
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Báo cáo & Nhật ký</h2>
+        <h2 className="text-lg font-semibold text-foreground">Nhật ký hành động</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {SCOPE_LABEL[role]} • {data.tx.length} giao dịch • {data.reports.length} chu kỳ đã đóng
+          {SCOPE_LABEL[role]} • {totalActions} hành động • {data.machines.length} cỗ máy •{" "}
+          {data.reports.length} chu kỳ đã đóng
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={handleTabChange}>
-        <TabsList variant="line">
-          <TabsTrigger value="nhat-ky">Nhật ký</TabsTrigger>
-          <TabsTrigger value="bao-cao">Báo cáo</TabsTrigger>
-        </TabsList>
-        <TabsContent value="nhat-ky" className="mt-4">
-          <NhatKyTab tx={data.tx} machines={data.machines} role={role} />
-        </TabsContent>
-        <TabsContent value="bao-cao" className="mt-4">
-          <BaoCaoTab reports={data.reports} machines={data.machines} tx={data.tx} role={role} />
-        </TabsContent>
-      </Tabs>
+      <ActionLogView
+        tx={data.tx}
+        machines={data.machines}
+        reports={data.reports}
+        role={role}
+      />
     </div>
-  );
-}
-
-export function LichSuView({ role }: { role: RoleSlug }) {
-  return (
-    <Suspense fallback={<div className="text-sm text-muted-foreground">Đang tải...</div>}>
-      <LichSuViewInner role={role} />
-    </Suspense>
   );
 }
