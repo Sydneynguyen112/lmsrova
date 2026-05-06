@@ -154,24 +154,24 @@ export function MachineAnchorStrip({
             </button>
           )}
 
-          {/* Rút phần dư về mốc hiện tại — luôn show khi có overflow */}
-          <button
-            type="button"
-            onClick={() => onWithdraw?.(overflowCurrent, currentAnchor)}
-            className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-          >
-            <Sparkles className="h-4 w-4" />
-            Rút {usd.format(overflowCurrent)} về mốc {usd.format(currentAnchor)}
-          </button>
-
-          {/* Rút tiền hằng ngày — custom amount */}
+          {/* Rút tiền hằng ngày — primary action, custom amount */}
           <button
             type="button"
             onClick={() => onWithdraw?.(0, currentAnchor)}
-            className="w-full rounded-xl border-2 border-[#3B6C4F]/40 bg-card hover:bg-[#3B6C4F]/8 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
+            className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
           >
             <Sparkles className="h-4 w-4" />
             Rút tiền hằng ngày
+          </button>
+
+          {/* Rút phần dư về mốc — secondary, dashed */}
+          <button
+            type="button"
+            onClick={() => onWithdraw?.(overflowCurrent, currentAnchor)}
+            className="w-full rounded-xl border-2 border-dashed border-[#3B6C4F]/40 hover:border-[#3B6C4F]/70 hover:bg-[#3B6C4F]/8 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Rút {usd.format(overflowCurrent)} về mốc {usd.format(currentAnchor)}
           </button>
 
           <button
