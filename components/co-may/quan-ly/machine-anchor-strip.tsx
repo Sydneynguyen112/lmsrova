@@ -35,10 +35,8 @@ export function MachineAnchorStrip({
   readOnly,
   tradeCount,
 }: Props) {
-  // Dismissed-at cho overflow (lãi). Khi overflow tăng vượt → re-show.
-  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
-  // Dismissed cho underflow (lỗ) — track underflow value đã dismiss.
-  const [dismissedLossAt, setDismissedLossAt] = useState<number | null>(null);
+  // Mỗi lệnh = 1 hành động. Sau khi user rút / hạ neo / giữ vốn → ẩn panel cho tới lệnh tiếp theo.
+  const [dismissed, setDismissed] = useState(false);
 
   const sorted = milestones && milestones.length > 0 ? [...milestones].sort((a, b) => b - a) : [];
   const hasMilestones = sorted.length > 0;
@@ -64,24 +62,23 @@ export function MachineAnchorStrip({
   const canWithdrawToLower = nextLowerMilestone !== null && balance > nextLowerMilestone;
   const withdrawToLowerAmount = canWithdrawToLower && nextLowerMilestone !== null ? balance - nextLowerMilestone : 0;
 
-  const showPanel =
-    !readOnly && overflowCurrent > 0 && (dismissedAt === null || overflowCurrent > dismissedAt);
-  const showLossPanel =
-    !readOnly && underflow > 0 && (dismissedLossAt === null || underflow > dismissedLossAt);
+  const showPanel = !readOnly && !dismissed && overflowCurrent > 0;
+  const showLossPanel = !readOnly && !dismissed && underflow > 0;
 
+  // Mỗi lệnh trade mới → reset dismiss để panel xuất hiện lại
   useEffect(() => {
-    if (dismissedAt !== null && overflowCurrent > dismissedAt) setDismissedAt(null);
-  }, [overflowCurrent, dismissedAt]);
-
-  useEffect(() => {
-    if (dismissedLossAt !== null && underflow > dismissedLossAt) setDismissedLossAt(null);
-  }, [underflow, dismissedLossAt]);
-
-  // Mỗi lệnh trade mới → reset dismiss state để panel luôn xuất hiện
-  useEffect(() => {
-    setDismissedAt(null);
-    setDismissedLossAt(null);
+    setDismissed(false);
   }, [tradeCount]);
+
+  // Wrap action handlers — set dismissed=true sau mỗi lần user act
+  function actAndDismiss<T extends unknown[]>(fn?: (...args: T) => void) {
+    return (...args: T) => {
+      fn?.(...args);
+      setDismissed(true);
+    };
+  }
+  const actWithdraw = actAndDismiss(onWithdraw);
+  const actLowerAnchor = actAndDismiss(onLowerAnchor);
 
   return (
     <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
@@ -116,7 +113,7 @@ export function MachineAnchorStrip({
           <button
             type="button"
             onClick={() =>
-              onLowerAnchor?.(
+              actLowerAnchor(
                 canWithdrawToLower && nextLowerMilestone !== null ? nextLowerMilestone : balance,
               )
             }
@@ -146,7 +143,7 @@ export function MachineAnchorStrip({
           {prevMilestone !== null && overflowPrev > 0 && (
             <button
               type="button"
-              onClick={() => onWithdraw?.(overflowPrev, prevMilestone)}
+              onClick={() => actWithdraw(overflowPrev, prevMilestone)}
               className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
             >
               <Sparkles className="h-4 w-4" />
@@ -157,7 +154,7 @@ export function MachineAnchorStrip({
           {/* Rút tiền hằng ngày — primary action, custom amount */}
           <button
             type="button"
-            onClick={() => onWithdraw?.(0, currentAnchor)}
+            onClick={() => actWithdraw(0, currentAnchor)}
             className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
           >
             <Sparkles className="h-4 w-4" />
@@ -167,7 +164,7 @@ export function MachineAnchorStrip({
           {/* Rút phần dư về mốc — secondary, dashed */}
           <button
             type="button"
-            onClick={() => onWithdraw?.(overflowCurrent, currentAnchor)}
+            onClick={() => actWithdraw(overflowCurrent, currentAnchor)}
             className="w-full rounded-xl border-2 border-dashed border-[#3B6C4F]/40 hover:border-[#3B6C4F]/70 hover:bg-[#3B6C4F]/8 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
           >
             <Sparkles className="h-4 w-4" />
@@ -176,7 +173,7 @@ export function MachineAnchorStrip({
 
           <button
             type="button"
-            onClick={() => setDismissedAt(overflowCurrent)}
+            onClick={() => setDismissed(true)}
             className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
           >
             <Target className="h-3.5 w-3.5 inline mr-1.5" />
