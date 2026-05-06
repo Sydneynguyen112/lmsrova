@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Anchor, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Machine, MachineTransaction } from "@/lib/co-may/types";
 
@@ -90,52 +90,54 @@ export function MachineCard({
           value={`${pnl >= 0 ? "+" : ""}${usd.format(pnl)}`}
           tone={pnl > 0 ? "profit" : pnl < 0 ? "loss" : undefined}
         />
-        <Row label="Đã rút" value={usd.format(withdrawnAbs)} />
-        <Row label="Số dư hiện tại" value={usd.format(balance)} bold />
+        <Row label="Đã rút" value={usd.format(withdrawnAbs)} tone="gold" />
+        <Row label="Số dư hiện tại" value={usd.format(balance)} />
       </div>
 
       {/* Mốc neo strip */}
       {milestones.length > 0 && (
-        <div className="rounded-lg bg-muted/30 px-3 py-2.5 space-y-2">
+        <div className="rounded-lg bg-muted/30 px-3 py-3 space-y-3">
           <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Anchor className="h-3 w-3 text-primary" />
-              Mốc neo
-            </span>
+            <span>Mốc neo</span>
             <span className="tabular-nums">
               Hiện tại: <strong className="text-foreground">{usd.format(machine.current_anchor)}</strong>{" "}
               · Số dư: <strong className="text-foreground">{usd.format(balance)}</strong>
             </span>
           </div>
-          <div className="relative h-5">
-            {/* Axis line */}
+          <div className="relative h-2 mx-1">
             <div className="absolute top-1/2 left-0 right-0 h-px bg-border -translate-y-1/2" />
-            {/* Milestone marks */}
             {milestones.map((m) => {
               const pct = ((m - minM) / range) * 100;
               return (
                 <div
                   key={m}
-                  className="absolute top-0 bottom-0 -translate-x-1/2 flex flex-col items-center justify-between"
+                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-2 w-px bg-muted-foreground/40"
                   style={{ left: `${pct}%` }}
-                >
-                  <div className="h-1.5 w-px bg-muted-foreground/40" />
-                  <div className="text-[9px] tabular-nums text-muted-foreground/80">
-                    {usd.format(m)}
-                  </div>
-                </div>
+                />
               );
             })}
-            {/* Anchor marker */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-px bg-primary"
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-0.5 bg-primary"
               style={{ left: `${anchorPct}%` }}
             />
-            {/* Balance marker */}
             <div
               className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-2.5 w-2.5 rounded-full bg-[#3B6C4F] dark:bg-[#5C9C75] ring-2 ring-card"
               style={{ left: `${balancePct}%` }}
             />
+          </div>
+          <div className="relative h-3 mx-1">
+            {milestones.map((m) => {
+              const pct = ((m - minM) / range) * 100;
+              return (
+                <span
+                  key={m}
+                  className="absolute -translate-x-1/2 text-[10px] tabular-nums text-muted-foreground"
+                  style={{ left: `${pct}%` }}
+                >
+                  {usd.format(m)}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
@@ -147,22 +149,20 @@ function Row({
   label,
   value,
   tone,
-  bold,
 }: {
   label: string;
   value: string;
-  tone?: "profit" | "loss";
-  bold?: boolean;
+  tone?: "profit" | "loss" | "gold";
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</span>
       <span
         className={cn(
-          "tabular-nums",
-          bold ? "text-base font-bold" : "text-sm font-semibold",
+          "tabular-nums text-sm font-semibold",
           tone === "profit" && "text-[#3B6C4F] dark:text-[#5C9C75]",
           tone === "loss" && "text-foreground",
+          tone === "gold" && "text-primary",
           !tone && "text-foreground",
         )}
       >
