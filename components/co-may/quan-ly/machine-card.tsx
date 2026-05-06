@@ -46,15 +46,29 @@ export function MachineCard({
   const balancePct = ((Math.max(minM, Math.min(maxM, balance)) - minM) / range) * 100;
   const anchorPct = ((Math.max(minM, Math.min(maxM, machine.current_anchor)) - minM) / range) * 100;
 
+  const isClosed = machine.status === "closed";
+
   return (
     <Link
       href={detailHref}
-      className="group block rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-sm transition-all p-5 space-y-4"
+      className={cn(
+        "group block rounded-2xl border bg-card hover:shadow-sm transition-all p-5 space-y-4",
+        isClosed
+          ? "border-dashed border-border/60 opacity-90 hover:border-foreground/40"
+          : "border-border hover:border-primary/40",
+      )}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-foreground text-base group-hover:text-primary transition-colors flex items-center gap-2 flex-wrap">
+          <h3
+            className={cn(
+              "font-semibold text-base transition-colors flex items-center gap-2 flex-wrap",
+              isClosed
+                ? "text-muted-foreground group-hover:text-foreground"
+                : "text-foreground group-hover:text-primary",
+            )}
+          >
             <span className="truncate">{machine.name}</span>
             {machine.capital > 0 && (
               <span
@@ -77,8 +91,15 @@ export function MachineCard({
             {machine.method ?? "—"} · {SIGNAL_LABEL[machine.signal_source ?? "self"] ?? "—"}
           </p>
         </div>
-        <span className="rounded-md bg-foreground text-background px-2 py-0.5 text-[11px] font-semibold tabular-nums uppercase tracking-widest whitespace-nowrap">
-          {days} ngày
+        <span
+          className={cn(
+            "rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums uppercase tracking-widest whitespace-nowrap",
+            isClosed
+              ? "border border-border text-muted-foreground"
+              : "bg-foreground text-background",
+          )}
+        >
+          {isClosed ? "Đã đóng" : `${days} ngày`}
         </span>
       </div>
 

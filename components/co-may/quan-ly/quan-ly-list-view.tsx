@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useCurrentUser } from "@/lib/auth";
 import {
   getMachinesByUser,
+  getReportsByUser,
   getTxByUser,
   getUserScope,
 } from "@/lib/co-may/mock-data";
 import { getSetup } from "@/lib/co-may/setup-store";
-import type { Machine, MachineTransaction } from "@/lib/co-may/types";
+import type { CycleReport, Machine, MachineTransaction } from "@/lib/co-may/types";
 import { MachineCard } from "./machine-card";
 import { CreateMachineDialog } from "./create-machine-dialog";
 
@@ -24,6 +25,7 @@ export function QuanLyListView({ role }: { role: RoleSlug }) {
   const user = useCurrentUser(role);
   const [machineMap, setMachineMap] = useState<{ ownerId: string; m: Machine }[]>([]);
   const [tx, setTx] = useState<MachineTransaction[]>([]);
+  const [reports, setReports] = useState<CycleReport[]>([]);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -31,12 +33,15 @@ export function QuanLyListView({ role }: { role: RoleSlug }) {
     const userIds = getUserScope(user.role ?? role, user.id);
     const allMachines: { ownerId: string; m: Machine }[] = [];
     const allTx: MachineTransaction[] = [];
+    const allReports: CycleReport[] = [];
     for (const id of userIds) {
       for (const m of getMachinesByUser(id)) allMachines.push({ ownerId: id, m });
       allTx.push(...getTxByUser(id));
+      allReports.push(...getReportsByUser(id));
     }
     setMachineMap(allMachines);
     setTx(allTx);
+    setReports(allReports);
   }, [user, role, tick]);
 
   if (!user) {
@@ -90,17 +95,68 @@ export function QuanLyListView({ role }: { role: RoleSlug }) {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {machineMap.map(({ ownerId, m }) => (
-            <MachineCard
-              key={m.id}
-              machine={m}
-              tx={tx.filter((t) => t.machine_id === m.id)}
-              detailHref={`/${role}/co-may/quan-ly/${m.id}?owner=${ownerId}`}
-              role={role}
-            />
-          ))}
-        </div>
+        (() => {
+          const active = machineMap.filter(({ m }) => m.status !== "closed");
+          const closed = machineMap.filter(({ m }) => m.status === "closed");
+          const reportByMachineId = new Map<string, CycleReport>();
+          for (const r of reports) {
+            const prev = reportByMachineId.get(r.machine_id);
+            if (!prev || r.created_at > prev.created_at) {
+              reportByMachineId.set(r.machine_id, r);
+            }
+          }
+          return (
+            <div className="space-y-8">
+              <section>
+                <h3 className="text-sm uppercase tracking-widest text-muted-foreground mb-3">
+                  Đang hoạt động · {active.length}
+                </h3>
+                {active.length === 0 ? (
+                  <p className="text-sm italic text-muted-foreground py-4">
+                    Không có cỗ máy nào đang hoạt động.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {active.map(({ ownerId, m }) => (
+                      <MachineCard
+                        key={m.id}
+                        machine={m}
+                        tx={tx.filter((t) => t.machine_id === m.id)}
+                        detailHref={`/${role}/co-may/quan-ly/${m.id}?owner=${ownerId}`}
+                        role={role}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {closed.length > 0 && (
+                <section>
+                  <h3 className="text-sm uppercase tracking-widest text-muted-foreground mb-3">
+                    Đã đóng · {closed.length}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {closed.map(({ ownerId, m }) => {
+                      const report = reportByMachineId.get(m.id);
+                      const href = report
+                        ? `/${role}/co-may/bao-cao/${report.id}?owner=${ownerId}`
+                        : `/${role}/co-may/quan-ly/${m.id}?owner=${ownerId}`;
+                      return (
+                        <MachineCard
+                          key={m.id}
+                          machine={m}
+                          tx={tx.filter((t) => t.machine_id === m.id)}
+                          detailHref={href}
+                          role={role}
+                        />
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+            </div>
+          );
+        })()
       )}
     </div>
   );
