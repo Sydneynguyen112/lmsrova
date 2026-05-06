@@ -22,6 +22,8 @@ interface Props {
   onLiftAnchor?: (amount: number, toAnchor: number) => void;
   /** Hạ neo về newAnchor (= balance khi user chấp nhận lỗ). */
   onLowerAnchor?: (newAnchor: number) => void;
+  /** User chọn giữ vốn (không rút) — trigger khích lệ kỷ luật. */
+  onHold?: (overflow: number, targetAnchor: number) => void;
   readOnly?: boolean;
   /** Số lệnh trade — mỗi lệnh mới sẽ reset dismiss state để panel rút luôn xuất hiện. */
   tradeCount?: number;
@@ -35,6 +37,7 @@ export function MachineAnchorStrip({
   onWithdraw,
   onLiftAnchor,
   onLowerAnchor,
+  onHold,
   readOnly,
   tradeCount,
 }: Props) {
@@ -207,7 +210,10 @@ export function MachineAnchorStrip({
               </button>
               <button
                 type="button"
-                onClick={() => setDismissed(true)}
+                onClick={() => {
+                  onHold?.(overflowCurrent, prevMilestone);
+                  setDismissed(true);
+                }}
                 className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
               >
                 <Target className="h-3.5 w-3.5 inline mr-1.5" />

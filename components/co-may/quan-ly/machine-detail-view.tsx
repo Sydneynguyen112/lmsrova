@@ -80,9 +80,18 @@ export function MachineDetailView({
     toAnchor: number;
   } | null>(null);
   const liftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hold-capital celebration (Giữ vốn — kỷ luật chờ)
+  const [holdCelebrate, setHoldCelebrate] = useState<{
+    overflow: number;
+    target: number;
+  } | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     return () => {
       if (liftTimerRef.current) clearTimeout(liftTimerRef.current);
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
     };
   }, []);
 
@@ -264,6 +273,14 @@ export function MachineDetailView({
           });
           refresh();
         }}
+        onHold={(overflow, target) => {
+          setHoldCelebrate({ overflow, target });
+          if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+          holdTimerRef.current = setTimeout(() => {
+            setHoldCelebrate(null);
+            holdTimerRef.current = null;
+          }, 4000);
+        }}
       />
 
       {/* Equity curve + Balance breakdown */}
@@ -304,6 +321,38 @@ export function MachineDetailView({
         currentAnchor={withdrawPreset.anchor || machine.current_anchor}
         onSuccess={refresh}
       />
+
+      {/* GIỮ VỐN encouragement popup */}
+      <AnimatePresence>
+        {holdCelebrate && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ type: "spring", duration: 0.4 }}
+            className="fixed inset-x-0 bottom-8 z-[55] flex items-center justify-center pointer-events-none px-4"
+          >
+            <div className="bg-card border-2 border-dashed border-primary/60 rounded-2xl px-6 py-4 shadow-xl text-center space-y-1.5 max-w-md">
+              <div className="text-[11px] font-bold uppercase tracking-[0.25em] text-primary">
+                Giữ vốn · kỷ luật chờ
+              </div>
+              <p className="text-base md:text-lg font-bold text-foreground">
+                Để dành{" "}
+                <span className="text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums">
+                  {usd.format(holdCelebrate.overflow)}
+                </span>{" "}
+                — nhắm mốc{" "}
+                <span className="text-primary tabular-nums">
+                  {usd.format(holdCelebrate.target)}
+                </span>
+              </p>
+              <p className="text-sm italic text-muted-foreground/90">
+                &ldquo;Người giàu kiên nhẫn hơn thị trường.&rdquo;
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* NÂNG NEO grand celebration */}
       <AnimatePresence>

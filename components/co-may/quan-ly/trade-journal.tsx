@@ -71,13 +71,16 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const pnlNum = Number(form.pnl);
-    if (!Number.isFinite(pnlNum) || pnlNum === 0) {
-      return setError("PNL phải là số ≠ 0");
+    if (!form.symbol.trim()) {
+      return setError("Cặp / Mã không được để trống");
     }
     const volNum = Number(form.volume);
     if (!Number.isFinite(volNum) || volNum <= 0) {
       return setError("Khối lượng phải > 0");
+    }
+    const pnlNum = Number(form.pnl);
+    if (!Number.isFinite(pnlNum) || pnlNum === 0) {
+      return setError("PNL phải là số ≠ 0");
     }
     recordTransaction(ownerId, machineId, {
       type: pnlNum > 0 ? "trade_win" : "trade_loss",
@@ -196,13 +199,13 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
           <DialogHeader>
             <DialogTitle>Ghi nhận lệnh mới</DialogTitle>
             <DialogDescription>
-              Điền đầy đủ thông tin lệnh — hướng, cặp, khối lượng, PNL, lý do, cảm xúc.
+              <span className="text-destructive">*</span> bắt buộc · còn lại là tùy chọn (lý do, cảm xúc)
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Field label="Hướng">
+              <Field label="Hướng" required>
                 <select
                   value={form.direction}
                   onChange={(e) => update("direction", e.target.value as TradeDirection)}
@@ -212,15 +215,16 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                   <option value="short">Short</option>
                 </select>
               </Field>
-              <Field label="Cặp / Mã">
+              <Field label="Cặp / Mã" required>
                 <Input
                   value={form.symbol}
                   onChange={(e) => update("symbol", e.target.value)}
                   placeholder="EURUSD, BTC..."
                   className="h-11 text-base"
+                  required
                 />
               </Field>
-              <Field label="Khối lượng">
+              <Field label="Khối lượng" required>
                 <Input
                   type="number"
                   step="0.01"
@@ -228,9 +232,10 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                   onChange={(e) => update("volume", e.target.value)}
                   placeholder="0.05"
                   className="h-11 text-base"
+                  required
                 />
               </Field>
-              <Field label="PNL ($)">
+              <Field label="PNL ($)" required>
                 <Input
                   type="number"
                   step="0.01"
@@ -239,6 +244,7 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                   placeholder="+45 hoặc -32"
                   className="h-11 text-base"
                   autoFocus
+                  required
                 />
               </Field>
             </div>
@@ -248,7 +254,7 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                 <Input
                   value={form.entryReason}
                   onChange={(e) => update("entryReason", e.target.value)}
-                  placeholder="Setup pullback..."
+                  placeholder="Setup pullback... (tuỳ chọn)"
                   className="h-11 text-base"
                 />
               </Field>
@@ -256,7 +262,7 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                 <Input
                   value={form.exitReason}
                   onChange={(e) => update("exitReason", e.target.value)}
-                  placeholder="Hit TP / SL / kỷ luật"
+                  placeholder="Hit TP / SL / kỷ luật (tuỳ chọn)"
                   className="h-11 text-base"
                 />
               </Field>
@@ -264,7 +270,7 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                 <Input
                   value={form.emotion}
                   onChange={(e) => update("emotion", e.target.value)}
-                  placeholder="bình tĩnh, lo lắng..."
+                  placeholder="bình tĩnh, lo lắng... (tuỳ chọn)"
                   className="h-11 text-base"
                 />
               </Field>
@@ -337,11 +343,20 @@ function Td({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1">
       <label className="block text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
+        {required && <span className="text-destructive ml-0.5">*</span>}
       </label>
       {children}
     </div>
