@@ -326,29 +326,34 @@ export function MachineDetailView({
       <AnimatePresence>
         {holdCelebrate && (
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", duration: 0.4 }}
-            className="fixed inset-x-0 bottom-8 z-[55] flex items-center justify-center pointer-events-none px-4"
+            className="fixed inset-0 z-[55] flex items-center justify-center pointer-events-none px-4"
           >
-            <div className="bg-card border-2 border-dashed border-primary/60 rounded-2xl px-6 py-4 shadow-xl text-center space-y-1.5 max-w-md">
+            <div className="bg-card border-2 border-dashed border-primary/60 rounded-3xl px-10 py-7 shadow-2xl text-center space-y-3 max-w-md">
               <div className="text-[11px] font-bold uppercase tracking-[0.25em] text-primary">
                 Giữ vốn · kỷ luật chờ
               </div>
-              <p className="text-base md:text-lg font-bold text-foreground">
+              <h3 className="text-2xl md:text-3xl font-bold text-foreground leading-tight">
+                Chưa rút lúc này
+              </h3>
+              <p className="text-base md:text-lg text-foreground/85">
                 Để dành{" "}
-                <span className="text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums">
+                <span className="font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums">
                   {usd.format(holdCelebrate.overflow)}
                 </span>{" "}
                 — nhắm mốc{" "}
-                <span className="text-primary tabular-nums">
+                <span className="font-bold text-primary tabular-nums">
                   {usd.format(holdCelebrate.target)}
                 </span>
               </p>
-              <p className="text-sm italic text-muted-foreground/90">
-                &ldquo;Người giàu kiên nhẫn hơn thị trường.&rdquo;
-              </p>
+              <div className="border-t border-dashed border-border pt-3">
+                <p className="text-sm md:text-base italic text-foreground/80 leading-relaxed">
+                  &ldquo;Người giàu kiên nhẫn hơn thị trường.&rdquo;
+                </p>
+              </div>
             </div>
           </motion.div>
         )}
