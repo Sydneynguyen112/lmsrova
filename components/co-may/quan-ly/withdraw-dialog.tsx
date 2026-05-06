@@ -41,10 +41,16 @@ export function WithdrawDialog({
   currentAnchor,
   onSuccess,
 }: Props) {
+  const [amount, setAmount] = useState(presetAmount);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [celebrating, setCelebrating] = useState<{ amount: number; anchor: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset amount khi dialog mở lại với preset mới
+  useEffect(() => {
+    if (open) setAmount(presetAmount);
+  }, [open, presetAmount]);
 
   useEffect(() => {
     return () => {
@@ -54,13 +60,13 @@ export function WithdrawDialog({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting || presetAmount <= 0) return;
+    if (submitting || amount <= 0) return;
     setSubmitting(true);
     try {
       recordTransaction(ownerId, machineId, {
         type: "withdraw",
-        amount: -presetAmount,
-        note: note.trim() || `Rút ${usd.format(presetAmount)} về mốc ${usd.format(currentAnchor)}`,
+        amount: -amount,
+        note: note.trim() || `Rút ${usd.format(amount)} về mốc ${usd.format(currentAnchor)}`,
       });
     } catch (err) {
       setSubmitting(false);
@@ -71,7 +77,7 @@ export function WithdrawDialog({
     onOpenChange(false);
     setNote("");
     onSuccess();
-    setCelebrating({ amount: presetAmount, anchor: currentAnchor });
+    setCelebrating({ amount, anchor: currentAnchor });
     fireworks();
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
@@ -91,10 +97,18 @@ export function WithdrawDialog({
 
           <div className="rounded-2xl border-2 border-[#3B6C4F]/30 bg-[#3B6C4F]/5 p-5 text-center space-y-1.5 mt-1">
             <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Rút về mốc hiện tại
+              Số tiền rút
             </div>
-            <div className="text-4xl md:text-5xl font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums leading-none">
-              {usd.format(presetAmount)}
+            <div className="flex items-center justify-center gap-1 text-4xl md:text-5xl font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums leading-none">
+              <span>$</span>
+              <input
+                type="number"
+                min={0}
+                value={amount === 0 ? "" : amount}
+                onChange={(e) => setAmount(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                placeholder="0"
+                className="bg-transparent outline-none text-center w-[6ch] tabular-nums focus-visible:ring-2 focus-visible:ring-[#3B6C4F]/40 rounded-lg"
+              />
             </div>
             <div className="text-sm text-muted-foreground">
               về mốc <strong className="text-foreground">{usd.format(currentAnchor)}</strong>
@@ -121,7 +135,7 @@ export function WithdrawDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={submitting || presetAmount <= 0}
+                disabled={submitting || amount <= 0}
                 className="bg-[#3B6C4F] hover:bg-[#2F5840] text-white px-6"
               >
                 <Sparkles className="h-3.5 w-3.5" />

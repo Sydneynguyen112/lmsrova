@@ -113,43 +113,21 @@ export function MachineAnchorStrip({
             </div>
           </div>
 
-          {canWithdrawToLower && nextLowerMilestone !== null ? (
-            <>
-              <button
-                type="button"
-                onClick={() => onLowerAnchor?.(nextLowerMilestone!)}
-                className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-              >
-                <TrendingDown className="h-4 w-4" />
-                Hạ neo xuống {usd.format(nextLowerMilestone)}
-              </button>
-              <button
-                type="button"
-                onClick={() => onWithdraw?.(withdrawToLowerAmount, nextLowerMilestone!)}
-                className="w-full rounded-xl bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-              >
-                <Sparkles className="h-4 w-4" />
-                Rút {usd.format(withdrawToLowerAmount)} về mốc {usd.format(nextLowerMilestone)}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDismissedLossAt(underflow)}
-                className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
-              >
-                <Target className="h-3.5 w-3.5 inline mr-1.5" />
-                Giữ nguyên — quay về mốc {usd.format(currentAnchor)}
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onLowerAnchor?.(balance)}
-              className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-            >
-              <TrendingDown className="h-4 w-4" />
-              Hạ neo xuống {usd.format(balance)}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() =>
+              onLowerAnchor?.(
+                canWithdrawToLower && nextLowerMilestone !== null ? nextLowerMilestone : balance,
+              )
+            }
+            className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white py-3 text-sm font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+          >
+            <TrendingDown className="h-4 w-4" />
+            Hạ neo xuống{" "}
+            {usd.format(
+              canWithdrawToLower && nextLowerMilestone !== null ? nextLowerMilestone : balance,
+            )}
+          </button>
         </div>
       )}
 
@@ -186,12 +164,25 @@ export function MachineAnchorStrip({
             Rút {usd.format(overflowCurrent)} về mốc {usd.format(currentAnchor)}
           </button>
 
+          {/* Rút tiền hằng ngày — custom amount */}
+          <button
+            type="button"
+            onClick={() => onWithdraw?.(0, currentAnchor)}
+            className="w-full rounded-xl border-2 border-[#3B6C4F]/40 bg-card hover:bg-[#3B6C4F]/8 py-3 text-sm font-bold uppercase tracking-widest text-[#3B6C4F] dark:text-[#5C9C75] transition-colors flex items-center justify-center gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Rút tiền hằng ngày
+          </button>
+
           <button
             type="button"
             onClick={() => setDismissedAt(overflowCurrent)}
             className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
           >
-            Tôi ổn
+            <Target className="h-3.5 w-3.5 inline mr-1.5" />
+            {prevMilestone !== null
+              ? `Giữ vốn — quay về mốc ${usd.format(prevMilestone)}`
+              : "Giữ vốn — tích luỹ tiếp"}
           </button>
         </div>
       )}
