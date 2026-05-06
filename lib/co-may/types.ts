@@ -9,7 +9,7 @@ export type TransactionType =
   | "withdraw"
   | "anchor_change";
 
-export type CycleDecision = "reset" | "scale";
+export type CycleDecision = "reset" | "scale" | "close";
 
 export type SignalSource = "self" | "imported" | "both";
 
@@ -52,15 +52,39 @@ export interface MachineTransaction {
   emotion?: string;
 }
 
+export interface CycleScorecard {
+  ky_luat: number; // 0..10
+  thuc_thi: number;
+  rui_ro: number;
+  hoc_hoi: number;
+}
+
+export interface CycleReflection {
+  van_hanh_dung_thiet_ke?: string;
+  bai_hoc_lon_nhat?: string;
+  dieu_chinh_chu_ky_tiep?: string;
+}
+
 export interface CycleReport {
   id: string;
   machine_id: string;
   user_id: string;
+  machine_name?: string;
+  machine_method?: string;
   start_date: string;
   end_date: string;
   decision: CycleDecision;
   pnl: number;
   withdrawn: number;
+  starting_capital?: number;
+  ending_balance?: number;
+  peak_pnl?: number;
+  max_drawdown?: number;
+  trade_count?: number;
+  win_count?: number;
+  next_machine_id?: string;
+  scorecard?: CycleScorecard;
+  reflection?: CycleReflection;
   meta: { cycle_started_at: string } | null;
   created_at: string;
 }

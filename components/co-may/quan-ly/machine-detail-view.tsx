@@ -2,32 +2,28 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  PowerOff,
   Wallet,
   TrendingUp,
   Coins,
   Activity,
   ArrowUpRight,
+  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCurrentUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
-  closeMachine,
   getMachineById,
   getTxByMachine,
   getUserScope,
   recordTransaction,
   updateMachine,
 } from "@/lib/co-may/mock-data";
-import { adjustTotalCapital } from "@/lib/co-may/setup-store";
 import { fireworksGrand, FIREWORK_GRAND_DURATION } from "@/lib/co-may/celebrate";
 import { cn } from "@/lib/utils";
 import type { Machine, MachineTransaction } from "@/lib/co-may/types";
-import { CloseCycleDialog } from "./close-cycle-dialog";
 import { MachineAnchorStrip } from "./machine-anchor-strip";
 import { MachineBalanceBreakdown } from "./machine-balance-breakdown";
 import { MachineEquityCurve } from "./machine-equity-curve";
@@ -61,7 +57,6 @@ export function MachineDetailView({
   ownerId?: string;
 }) {
   const user = useCurrentUser(role);
-  const router = useRouter();
   const [tick, setTick] = useState(0);
   const refresh = () => setTick((n) => n + 1);
 
@@ -131,39 +126,15 @@ export function MachineDetailView({
 
   const { machine, tx, resolvedOwner } = resolved;
   const cycleStartTs = new Date(machine.cycle_started_at ?? machine.created_at).getTime();
-  const cycleTx = tx.filter((t) => new Date(t.created_at).getTime() >= cycleStartTs);
-  const cycleTrades = cycleTx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
-  const cyclePnl = cycleTrades.reduce((s, t) => s + t.amount, 0);
 
-  // Stats over ALL tx of this machine (not cycle-bounded)
   const allTrades = tx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
   const totalPnl = allTrades.reduce((s, t) => s + t.amount, 0);
   const allWithdraws = tx.filter((t) => t.type === "withdraw");
-  const withdrawnAbs = -allWithdraws.reduce((s, t) => s + t.amount, 0); // positive
+  const withdrawnAbs = -allWithdraws.reduce((s, t) => s + t.amount, 0);
   const balance = machine.capital + totalPnl - withdrawnAbs;
   const wins = allTrades.filter((t) => t.type === "trade_win").length;
   const wr = allTrades.length > 0 ? Math.round((wins / allTrades.length) * 100) : 0;
   const days = Math.max(1, Math.floor((Date.now() - cycleStartTs) / DAY_MS));
-
-  const closePreview = {
-    capital: machine.capital,
-    balance,
-    delta: balance - machine.capital,
-  };
-
-  function handleCloseMachine() {
-    if (typeof window === "undefined") return;
-    const msg =
-      `Xoá / đóng cỗ máy này?\n\n` +
-      `• Vốn ban đầu: ${usd.format(closePreview.capital)}\n` +
-      `• Số dư cuối: ${usd.format(closePreview.balance)}\n` +
-      `• Chênh lệch: ${closePreview.delta >= 0 ? "+" : ""}${usd.format(closePreview.delta)}\n\n` +
-      `Số dư cuối sẽ được cộng vào tổng vốn doanh chủ. Hành động không thể hoàn tác.`;
-    if (!window.confirm(msg)) return;
-    const result = closeMachine(resolvedOwner, machineId);
-    adjustTotalCapital(resolvedOwner, result.delta);
-    router.push(`/${role}/co-may/quan-ly`);
-  }
 
   const readOnly = role !== "student" || resolvedOwner !== user.id;
 
@@ -213,22 +184,14 @@ export function MachineDetailView({
 
           {!readOnly && machine.status !== "closed" && (
             <div className="flex flex-wrap items-center gap-2">
-              <CloseCycleDialog
-                ownerId={resolvedOwner}
-                machineId={machineId}
-                cyclePnl={cyclePnl}
-                onChange={refresh}
-                role={role}
-              />
-              <Button
-                variant="outline"
-                size="default"
-                onClick={handleCloseMachine}
-                className="border-destructive/40 text-destructive hover:bg-destructive/10"
+              <Link
+                href={`/${role}/co-may/quan-ly/${machineId}/dong-chu-ky?owner=${resolvedOwner}`}
               >
-                <PowerOff className="h-3.5 w-3.5" />
-                Xoá cỗ máy
-              </Button>
+                <Button variant="anchor" size="default">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Đóng chu kỳ và lập báo cáo
+                </Button>
+              </Link>
             </div>
           )}
         </div>

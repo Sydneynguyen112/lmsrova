@@ -355,6 +355,134 @@ export function closeMachine(
   return { balance, capital: m.capital, delta: balance - m.capital };
 }
 
+export function finalizeCycle(
+  userId: string,
+  machineId: string,
+  input: {
+    decision: CycleDecision;
+    /** Cho scale: vốn của cỗ máy mới (= capital + scaleAmount). */
+    nextCapital?: number;
+    scorecard?: import("./types").CycleScorecard;
+    reflection?: import("./types").CycleReflection;
+  },
+): { report: CycleReport; nextMachineId: string | null } {
+  assertOwnership(userId, machineId);
+  const data = getDataFor(userId);
+  const machineIdx = data.machines.findIndex((m) => m.id === machineId);
+  if (machineIdx === -1) throw new Error(`Machine ${machineId} not found`);
+  const machine = data.machines[machineIdx];
+
+  const cycleStart = machine.cycle_started_at ?? machine.created_at;
+  const machineTx = data.tx
+    .filter(
+      (t) =>
+        t.machine_id === machineId &&
+        new Date(t.created_at) >= new Date(cycleStart),
+    )
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+  const trades = machineTx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
+  const pnl = trades.reduce((s, t) => s + t.amount, 0);
+  const withdrawnNeg = machineTx
+    .filter((t) => t.type === "withdraw")
+    .reduce((s, t) => s + t.amount, 0);
+  const withdrawn = -withdrawnNeg;
+  const winCount = trades.filter((t) => t.amount > 0).length;
+  const tradeCount = trades.length;
+
+  // Peak PnL + Max drawdown từ trades chronological
+  let runPnl = 0;
+  let peakPnl = 0;
+  let maxDD = 0;
+  for (const t of trades) {
+    runPnl += t.amount;
+    if (runPnl > peakPnl) peakPnl = runPnl;
+    const dd = runPnl - peakPnl;
+    if (dd < maxDD) maxDD = dd;
+  }
+
+  const endingBalance = machine.capital + pnl - withdrawn;
+  const now = new Date().toISOString();
+
+  // Tạo cỗ máy mới (cho scale + reset). Đóng → không tạo.
+  let nextMachine: Machine | null = null;
+  if (input.decision === "scale" || input.decision === "reset") {
+    const newCapital =
+      input.decision === "scale" && input.nextCapital !== undefined && input.nextCapital > 0
+        ? input.nextCapital
+        : machine.capital;
+    const newAnchor = newCapital;
+    // Re-sinh milestones theo công thức 100/80/64/51.2/41 nếu có config cũ.
+    const oldMilestones = machine.anchor_milestones;
+    let newMilestones: number[] | undefined = undefined;
+    if (oldMilestones && oldMilestones.length > 0) {
+      newMilestones = [];
+      let v = newCapital;
+      for (let i = 0; i < oldMilestones.length; i++) {
+        newMilestones.push(Math.round(v));
+        v *= 0.8;
+      }
+    }
+    nextMachine = {
+      id: nextId("mach-new"),
+      user_id: userId,
+      name: machine.name,
+      capital: newCapital,
+      current_anchor: newAnchor,
+      cycle_started_at: now,
+      status: "active",
+      created_at: now,
+      updated_at: now,
+      method: machine.method,
+      signal_source: machine.signal_source,
+      risk_per_trade_pct: machine.risk_per_trade_pct,
+      max_drawdown_pct: machine.max_drawdown_pct,
+      target_withdraw_count: machine.target_withdraw_count,
+      target_profit: machine.target_profit,
+      anchor_milestones: newMilestones,
+    };
+    data.machines.unshift(nextMachine);
+  }
+
+  // Đóng cỗ máy hiện tại
+  data.machines[machineIdx] = {
+    ...machine,
+    status: "closed",
+    updated_at: now,
+  };
+
+  const report: CycleReport = {
+    id: nextId("rep-new"),
+    machine_id: machineId,
+    user_id: userId,
+    machine_name: machine.name,
+    machine_method: machine.method,
+    start_date: cycleStart,
+    end_date: now,
+    decision: input.decision,
+    pnl,
+    withdrawn,
+    starting_capital: machine.capital,
+    ending_balance: endingBalance,
+    peak_pnl: peakPnl,
+    max_drawdown: maxDD,
+    trade_count: tradeCount,
+    win_count: winCount,
+    next_machine_id: nextMachine?.id,
+    scorecard: input.scorecard,
+    reflection: input.reflection,
+    meta: { cycle_started_at: now },
+    created_at: now,
+  };
+  data.reports.unshift(report);
+  persistDataFor(userId);
+  return { report, nextMachineId: nextMachine?.id ?? null };
+}
+
+export function getReportById(userId: string, reportId: string): CycleReport | null {
+  return getDataFor(userId).reports.find((r) => r.id === reportId) ?? null;
+}
+
 export function closeCycleMock(
   userId: string,
   machineId: string,
