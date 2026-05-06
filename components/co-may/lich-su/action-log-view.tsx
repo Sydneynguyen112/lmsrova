@@ -132,7 +132,7 @@ export function ActionLogView({
         machineId: m.id,
         machineName: m.name,
         type: "close",
-        description: `Quyết định: ${decisionLabel}`,
+        description: `Quyết định: ${decisionLabel} · Số dư hiện tại: ${usd.format(ending)}`,
         endingBalance: ending,
         elapsedMs: Math.max(0, new Date(ts).getTime() - cycleStart),
       });
@@ -180,7 +180,6 @@ export function ActionLogView({
       filtered.map((a) => ({
         Ngày: formatDateOnly(a.timestamp),
         Giờ: formatHM(a.timestamp),
-        Thời_gian_hoạt_động: a.elapsedMs !== undefined ? formatElapsed(a.elapsedMs) : "",
         Cỗ_máy: a.machineName,
         Loại: ACTION_META[a.type].label,
         Mô_tả: a.description,
@@ -223,7 +222,6 @@ export function ActionLogView({
                 <tr className="text-left uppercase tracking-wider text-muted-foreground text-[11px]">
                   <Th>Ngày</Th>
                   <Th>Giờ</Th>
-                  <Th>T.g hoạt động</Th>
                   <Th>Loại</Th>
                   <Th>Cỗ máy</Th>
                   <Th>Mô tả</Th>
@@ -244,9 +242,6 @@ export function ActionLogView({
                       </Td>
                       <Td className="text-muted-foreground tabular-nums whitespace-nowrap">
                         {formatHM(a.timestamp)}
-                      </Td>
-                      <Td className="text-muted-foreground tabular-nums whitespace-nowrap">
-                        {a.elapsedMs !== undefined ? formatElapsed(a.elapsedMs) : "—"}
                       </Td>
                       <Td className="whitespace-nowrap">
                         <span
@@ -361,18 +356,6 @@ function formatHM(iso: string) {
   const pad = (n: number) => n.toString().padStart(2, "0");
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-function formatElapsed(ms: number): string {
-  if (ms < 60_000) return "0p";
-  const min = Math.floor(ms / 60_000);
-  if (min < 60) return `${min}p`;
-  const hour = Math.floor(min / 60);
-  const rmin = min % 60;
-  if (hour < 24) return rmin > 0 ? `${hour}h ${rmin}p` : `${hour}h`;
-  const day = Math.floor(hour / 24);
-  const rhour = hour % 24;
-  return rhour > 0 ? `${day}n ${rhour}h` : `${day}n`;
-}
-
 function extractNewAnchor(note: string | null): number | undefined {
   if (!note) return undefined;
   // Match cuối: "Hạ neo từ $A xuống $B" → B; "Nâng neo lên $X" → X

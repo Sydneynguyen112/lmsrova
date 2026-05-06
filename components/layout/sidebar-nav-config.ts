@@ -44,7 +44,7 @@ function coMayChildren(roleSlug: "student" | "mentor" | "admin"): NavItem[] {
     },
     {
       href: `/${roleSlug}/co-may/lich-su`,
-      label: "Báo cáo & Nhật ký",
+      label: "Nhật ký hoạt động",
       icon: FileBarChart,
     },
   ];
