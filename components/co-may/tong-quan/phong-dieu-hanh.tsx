@@ -101,9 +101,9 @@ export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, o
         />
       </div>
 
-      {/* 3 secondary KPI on dashed line */}
+      {/* 3 secondary KPI on dashed line — invariant: tổng vốn = phân bổ + dự trữ */}
       <div className="rounded-2xl border-2 border-dashed border-border px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
-        <SecondaryStat label="Tổng vốn doanh chủ" value={usd.format(totalCapitalSetup)} senior={senior} />
+        <SecondaryStat label="Tổng vốn doanh chủ" value={usd.format(Math.max(totalCapitalSetup, totalAllocated + reserve))} senior={senior} />
         <SecondaryStat label="Đang phân bổ" value={usd.format(totalAllocated)} senior={senior} />
         <SecondaryStat label="Vốn dự trữ" value={usd.format(reserve)} senior={senior} />
         {role === "student" && (

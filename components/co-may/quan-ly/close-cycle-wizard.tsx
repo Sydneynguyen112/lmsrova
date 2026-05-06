@@ -8,6 +8,7 @@ import { useCurrentUser } from "@/lib/auth";
 import {
   finalizeCycle,
   getMachineById,
+  getMachinesByUser,
   getTxByMachine,
   getUserScope,
 } from "@/lib/co-may/mock-data";
@@ -143,24 +144,42 @@ export function CloseCycleWizard({
     if (!decision || submitting) return;
     setSubmitting(true);
     const nextCapital = decision === "scale" ? computedScaleCapital : undefined;
+
+    // Snapshot pre-close state để tính total cap đúng (cả khi invariant trước đó bị lệch).
+    const setupBefore = getSetup(resolvedOwner);
+    const totalAllocatedBefore = getMachinesByUser(resolvedOwner)
+      .filter((m) => m.status !== "closed")
+      .reduce((s, m) => s + m.capital, 0);
+    const reserveBefore = setupBefore
+      ? Math.max(0, setupBefore.totalCapital - totalAllocatedBefore)
+      : 0;
+    const otherActiveAllocated = totalAllocatedBefore - machine.capital;
+
     const result = finalizeCycle(resolvedOwner, machineId, {
       decision,
       nextCapital,
       scorecard,
       reflection,
     });
-    // Maintain invariant: totalCap = allocated + reserve.
-    // - Close: profit/loss của cycle dồn về totalCap (delta = balance - capital).
-    // - Scale/Reset: cần inject thêm nếu newCap > balance (user bỏ tiền external vào)
-    //   hoặc surplus rơi về reserve nếu balance > newCap.
-    const delta = endingBalance - machine.capital;
-    let totalCapDelta = delta;
-    if (decision !== "close") {
+
+    // Force invariant: totalCap = allocated_after + reserve_after.
+    // Pool sau khi đóng cỗ máy = reserve cũ + ending balance.
+    //  - Close: không tạo máy mới → reserve_after = pool, allocated_after = otherActive.
+    //  - Reset/Scale: máy mới lấy từ pool. Nếu pool < newCap, user inject (newCap-pool) từ external
+    //    → reserve_after = 0. Nếu pool ≥ newCap, surplus = pool - newCap rơi vào reserve.
+    const poolAfterClose = reserveBefore + endingBalance;
+    let targetTotal: number;
+    if (decision === "close") {
+      targetTotal = otherActiveAllocated + poolAfterClose;
+    } else {
       const newCap = nextCapital ?? machine.capital;
-      const injection = Math.max(0, newCap - endingBalance);
-      totalCapDelta = delta + injection;
+      const reserveAfter = Math.max(0, poolAfterClose - newCap);
+      targetTotal = otherActiveAllocated + newCap + reserveAfter;
     }
-    if (totalCapDelta !== 0) adjustTotalCapital(resolvedOwner, totalCapDelta);
+    const currentTotal = setupBefore?.totalCapital ?? 0;
+    const adjustment = targetTotal - currentTotal;
+    if (adjustment !== 0) adjustTotalCapital(resolvedOwner, adjustment);
+
     router.push(`/${role}/co-may/bao-cao/${result.report.id}?owner=${resolvedOwner}`);
   }
 
