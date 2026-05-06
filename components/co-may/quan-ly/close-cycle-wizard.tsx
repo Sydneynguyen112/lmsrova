@@ -149,10 +149,18 @@ export function CloseCycleWizard({
       scorecard,
       reflection,
     });
-    // Mỗi lần đóng (kể cả scale/reset/close) đều cộng delta (= balance - capital)
-    // vào tổng vốn doanh chủ. reservePool tự reflect khi machine cũ chuyển sang closed.
+    // Maintain invariant: totalCap = allocated + reserve.
+    // - Close: profit/loss của cycle dồn về totalCap (delta = balance - capital).
+    // - Scale/Reset: cần inject thêm nếu newCap > balance (user bỏ tiền external vào)
+    //   hoặc surplus rơi về reserve nếu balance > newCap.
     const delta = endingBalance - machine.capital;
-    if (delta !== 0) adjustTotalCapital(resolvedOwner, delta);
+    let totalCapDelta = delta;
+    if (decision !== "close") {
+      const newCap = nextCapital ?? machine.capital;
+      const injection = Math.max(0, newCap - endingBalance);
+      totalCapDelta = delta + injection;
+    }
+    if (totalCapDelta !== 0) adjustTotalCapital(resolvedOwner, totalCapDelta);
     router.push(`/${role}/co-may/bao-cao/${result.report.id}?owner=${resolvedOwner}`);
   }
 

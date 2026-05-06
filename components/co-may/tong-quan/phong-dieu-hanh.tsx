@@ -53,11 +53,6 @@ export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, o
     onReset?.();
   }
 
-  // Recent activity (latest 6 withdraws/trades)
-  const recent = [...tx]
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, 6);
-
   const featured = [...activeMachines]
     .sort((a, b) => {
       const pnlA = pnlForMachine(a, tx);
@@ -148,22 +143,6 @@ export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, o
         )}
       </div>
 
-      {/* § 02 Recent activity */}
-      <div className="space-y-3">
-        <SubSectionHeader number="02" label="Hoạt động gần nhất" actionHref={`/${role}/co-may/lich-su`} actionText="Toàn bộ" senior={senior} />
-
-        {recent.length === 0 ? (
-          <div className={cn("rounded-2xl border border-border bg-muted/30 text-center text-muted-foreground", senior ? "px-6 py-8 text-base italic" : "px-6 py-6 text-sm italic")}>
-            Chưa có lần rút nào. Mốc neo đầu tiên đang chờ bạn.
-          </div>
-        ) : (
-          <ul className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden">
-            {recent.map((t) => (
-              <ActivityRow key={t.id} tx={t} machines={machines} senior={senior} />
-            ))}
-          </ul>
-        )}
-      </div>
     </section>
   );
 }
