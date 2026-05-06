@@ -97,11 +97,25 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
 
   return (
     <section className="rounded-2xl border border-border bg-card overflow-hidden">
-      <header className="px-5 py-3.5 border-b border-border flex items-center justify-between flex-wrap gap-2">
-        <h3 className="text-base md:text-lg font-semibold text-foreground">Nhật ký giao dịch</h3>
-        <span className="text-xs uppercase tracking-widest text-muted-foreground tabular-nums">
-          {trades.length} lệnh · WR {wr}% · R:R {rrAvg.toFixed(2)}
-        </span>
+      <header className="px-5 py-3.5 border-b border-border flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h3 className="text-base md:text-lg font-semibold text-foreground">Nhật ký giao dịch</h3>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground tabular-nums">
+            {trades.length} lệnh · WR {wr}% · R:R {rrAvg.toFixed(2)}
+          </span>
+        </div>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="anchor"
+            size="sm"
+            onClick={() => setOpen(true)}
+            className="shrink-0"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Ghi nhận lệnh mới
+          </Button>
+        )}
       </header>
 
       <div className="overflow-x-auto">
@@ -167,19 +181,6 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
           </tbody>
         </table>
       </div>
-
-      {!readOnly && (
-        <div className="border-t border-border p-3">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="w-full rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors py-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground hover:text-primary"
-          >
-            <Plus className="h-3.5 w-3.5 inline mr-1.5" />
-            Ghi nhận lệnh mới
-          </button>
-        </div>
-      )}
 
       <Dialog
         open={open}
