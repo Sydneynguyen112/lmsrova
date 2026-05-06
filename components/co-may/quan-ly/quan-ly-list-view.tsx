@@ -11,6 +11,7 @@ import {
 import { getSetup } from "@/lib/co-may/setup-store";
 import type { CycleReport, Machine, MachineTransaction } from "@/lib/co-may/types";
 import { MachineCard } from "./machine-card";
+import { ClosedMachineCard } from "./closed-machine-card";
 import { CreateMachineDialog } from "./create-machine-dialog";
 
 type RoleSlug = "student" | "mentor" | "admin";
@@ -138,15 +139,22 @@ export function QuanLyListView({ role }: { role: RoleSlug }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {closed.map(({ ownerId, m }) => {
                       const report = reportByMachineId.get(m.id);
-                      const href = report
-                        ? `/${role}/co-may/bao-cao/${report.id}?owner=${ownerId}`
-                        : `/${role}/co-may/quan-ly/${m.id}?owner=${ownerId}`;
+                      if (report) {
+                        return (
+                          <ClosedMachineCard
+                            key={m.id}
+                            report={report}
+                            detailHref={`/${role}/co-may/bao-cao/${report.id}?owner=${ownerId}`}
+                          />
+                        );
+                      }
+                      // Fallback: cỗ máy đóng nhưng không có report (data legacy) → dùng MachineCard
                       return (
                         <MachineCard
                           key={m.id}
                           machine={m}
                           tx={tx.filter((t) => t.machine_id === m.id)}
-                          detailHref={href}
+                          detailHref={`/${role}/co-may/quan-ly/${m.id}?owner=${ownerId}`}
                           role={role}
                         />
                       );
