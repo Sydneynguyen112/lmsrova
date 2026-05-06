@@ -7,14 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
+  addInjectedFromWithdrawn,
   adjustTotalCapital,
+  getSetup,
   QUICK_CAPITAL_CHIPS,
   saveSetup,
   STRATEGIES,
   type StrategyId,
 } from "@/lib/co-may/setup-store";
 import Link from "next/link";
-import { deleteMachine, getMachinesByUser } from "@/lib/co-may/mock-data";
+import { deleteMachine, getMachinesByUser, getTxByUser } from "@/lib/co-may/mock-data";
 import type { Machine } from "@/lib/co-may/types";
 import { CreateMachineDialog } from "@/components/co-may/quan-ly/create-machine-dialog";
 
@@ -96,6 +98,16 @@ export function SetupWizard({
         return;
       }
       if (addedCapital > 0) {
+        // Ưu tiên lấy từ dòng tiền đã rút (đã có sẵn ngoài hệ thống)
+        const setup = getSetup(userId);
+        const userTx = getTxByUser(userId);
+        const withdrawnRaw = -userTx
+          .filter((t) => t.type === "withdraw")
+          .reduce((s, t) => s + t.amount, 0);
+        const alreadyInjected = setup?.injectedFromWithdrawn ?? 0;
+        const poolAvailable = Math.max(0, withdrawnRaw - alreadyInjected);
+        const fromPool = Math.min(addedCapital, poolAvailable);
+        if (fromPool > 0) addInjectedFromWithdrawn(userId, fromPool);
         adjustTotalCapital(userId, addedCapital);
       }
       router.replace(`/${role}/co-may/tong-quan`);

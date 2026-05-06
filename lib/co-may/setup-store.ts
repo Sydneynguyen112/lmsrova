@@ -11,6 +11,8 @@ export interface SetupConfig {
   strategy: StrategyId;
   allocations: { name: string; capital: number }[];
   completedAt: string;
+  /** Tổng tiền đã nạp lại từ dòng tiền đã rút — trừ vào khi hiển thị `Dòng tiền đã rút`. */
+  injectedFromWithdrawn?: number;
 }
 
 const STORAGE_KEY = "rova_comay_setup_v1";
@@ -98,6 +100,22 @@ export function adjustTotalCapital(userId: string, delta: number): void {
   const current = all[userId];
   if (!current) return;
   const updated: SetupConfig = { ...current, totalCapital: current.totalCapital + delta };
+  all[userId] = updated;
+  persistAll(all);
+  cache.set(userId, updated);
+  notify();
+}
+
+/** Ghi nhận tiền nạp lại từ dòng tiền đã rút — giảm display `Dòng tiền đã rút`. */
+export function addInjectedFromWithdrawn(userId: string, amount: number): void {
+  if (amount <= 0) return;
+  const all = loadAll();
+  const current = all[userId];
+  if (!current) return;
+  const updated: SetupConfig = {
+    ...current,
+    injectedFromWithdrawn: (current.injectedFromWithdrawn ?? 0) + amount,
+  };
   all[userId] = updated;
   persistAll(all);
   cache.set(userId, updated);

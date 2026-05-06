@@ -30,7 +30,8 @@ export function TongQuanView({ role }: { role: RoleSlug }) {
       setup?.totalCapital ??
       // Mentor/admin không có setup riêng — fallback sum machines.capital
       machines.reduce((s, m) => s + m.capital, 0);
-    return { userIds, machines, tx, totalCapitalSetup };
+    const injectedFromWithdrawn = setup?.injectedFromWithdrawn ?? 0;
+    return { userIds, machines, tx, totalCapitalSetup, injectedFromWithdrawn };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, role, tick]);
 
@@ -42,13 +43,14 @@ export function TongQuanView({ role }: { role: RoleSlug }) {
     );
   }
 
-  const { machines, tx, totalCapitalSetup } = data;
+  const { machines, tx, totalCapitalSetup, injectedFromWithdrawn } = data;
 
   return (
     <PhongDieuHanh
       role={role}
       userId={user.id}
       totalCapitalSetup={totalCapitalSetup}
+      injectedFromWithdrawn={injectedFromWithdrawn}
       machines={machines}
       tx={tx}
       onReset={() => router.push(`/${role}/co-may/setup?mode=allocate`)}

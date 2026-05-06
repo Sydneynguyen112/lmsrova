@@ -28,12 +28,22 @@ interface Props {
   role: "student" | "mentor" | "admin";
   userId: string;
   totalCapitalSetup: number;
+  /** Tiền đã nạp lại từ pool đã rút — trừ vào display "Dòng tiền đã rút". */
+  injectedFromWithdrawn?: number;
   machines: Machine[];
   tx: MachineTransaction[];
   onReset?: () => void;
 }
 
-export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, onReset }: Props) {
+export function PhongDieuHanh({
+  role,
+  userId,
+  totalCapitalSetup,
+  injectedFromWithdrawn = 0,
+  machines,
+  tx,
+  onReset,
+}: Props) {
   void userId;
   const senior = isSeniorMode(role);
 
@@ -43,9 +53,10 @@ export function PhongDieuHanh({ role, userId, totalCapitalSetup, machines, tx, o
   const reserve = Math.max(0, totalCapitalSetup - totalAllocated);
   const trades = tx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
   const openPnl = trades.reduce((s, t) => s + t.amount, 0);
-  const withdrawn = -tx
+  const withdrawnRaw = -tx
     .filter((t) => t.type === "withdraw")
     .reduce((s, t) => s + t.amount, 0);
+  const withdrawn = Math.max(0, withdrawnRaw - injectedFromWithdrawn);
   const activeCount = activeMachines.filter((m) => m.status === "active").length;
   const totalCapitalRunning = totalAllocated;
 
