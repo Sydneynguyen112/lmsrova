@@ -292,13 +292,7 @@ export function MachineDetailView({
       />
 
       {/* Withdraw journal */}
-      <WithdrawJournal
-        tx={tx}
-        currentAnchor={machine.current_anchor}
-        balance={balance}
-        readOnly={readOnly}
-        onRequestWithdraw={openWithdraw}
-      />
+      <WithdrawJournal tx={tx} />
 
       {/* Shared withdraw dialog (with fireworks) */}
       <WithdrawDialog

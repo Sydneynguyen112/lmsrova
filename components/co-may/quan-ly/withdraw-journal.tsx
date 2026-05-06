@@ -1,6 +1,5 @@
 "use client";
 
-import { Plus } from "lucide-react";
 import type { MachineTransaction } from "@/lib/co-may/types";
 
 const usd = new Intl.NumberFormat("en-US", {
@@ -11,23 +10,9 @@ const usd = new Intl.NumberFormat("en-US", {
 
 interface Props {
   tx: MachineTransaction[];
-  /** Mốc neo hiện tại — dùng để compute overflow + disable button. */
-  currentAnchor: number;
-  balance: number;
-  onRequestWithdraw: (amount: number, toAnchor: number) => void;
-  readOnly?: boolean;
 }
 
-export function WithdrawJournal({
-  tx,
-  currentAnchor,
-  balance,
-  onRequestWithdraw,
-  readOnly,
-}: Props) {
-  const overflow = Math.max(0, balance - currentAnchor);
-  const canWithdraw = !readOnly && overflow > 0;
-
+export function WithdrawJournal({ tx }: Props) {
   const withdraws = tx
     .filter((t) => t.type === "withdraw")
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -36,28 +21,15 @@ export function WithdrawJournal({
     <section className="rounded-2xl border border-border bg-card overflow-hidden">
       <header className="px-5 py-3.5 border-b border-border flex items-center justify-between">
         <h3 className="text-lg md:text-xl font-bold text-foreground">Nhật ký rút tiền</h3>
-        {!readOnly && (
-          <button
-            type="button"
-            onClick={() => canWithdraw && onRequestWithdraw(overflow, currentAnchor)}
-            disabled={!canWithdraw}
-            title={
-              canWithdraw
-                ? `Rút ${usd.format(overflow)} về mốc ${usd.format(currentAnchor)}`
-                : "Chưa có phần dư trên mốc neo"
-            }
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 hover:bg-primary/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Plus className="h-3 w-3" />
-            Ghi nhận rút
-          </button>
-        )}
+        <span className="text-xs uppercase tracking-widest text-muted-foreground tabular-nums">
+          {withdraws.length} lần · {usd.format(withdraws.reduce((s, w) => s + -w.amount, 0))}
+        </span>
       </header>
 
       <ul className="divide-y divide-border/60">
         {withdraws.length === 0 ? (
           <li className="px-5 py-8 text-center text-sm italic text-muted-foreground">
-            Chưa có lần rút nào. Bấm &quot;Ghi nhận rút&quot; khi balance vượt mốc neo.
+            Chưa có lần rút nào — rút tiền từ bảng Mốc neo phía trên khi đã vượt mốc.
           </li>
         ) : (
           withdraws.map((w) => (
