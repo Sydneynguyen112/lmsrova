@@ -186,6 +186,16 @@ export function MachineAnchorStrip({
                 <Sparkles className="h-4 w-4" />
                 Rút {usd.format(overflowCurrent)} về mốc {usd.format(currentAnchor)}
               </button>
+              <button
+                type="button"
+                onClick={() => setDismissed(true)}
+                className="w-full rounded-xl border-2 border-dashed border-border hover:border-foreground/40 hover:bg-muted/50 py-2 text-xs font-bold uppercase tracking-widest text-muted-foreground transition-colors"
+              >
+                <Target className="h-3.5 w-3.5 inline mr-1.5" />
+                {prevMilestone !== null
+                  ? `Giữ vốn — quay về mốc ${usd.format(prevMilestone)}`
+                  : "Giữ vốn — tích luỹ tiếp"}
+              </button>
             </>
           )}
         </div>
