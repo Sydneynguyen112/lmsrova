@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Pause, Play, ChevronRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Anchor, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Machine, MachineTransaction } from "@/lib/co-may/types";
-import { isSeniorMode, seniorCx } from "@/lib/co-may/senior-ui";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -15,97 +13,161 @@ const usd = new Intl.NumberFormat("en-US", {
 
 const DAY_MS = 86400_000;
 
+const SIGNAL_LABEL: Record<string, string> = {
+  self: "Tự sản xuất",
+  imported: "Nhập tín hiệu",
+  both: "Cả hai",
+};
+
 export function MachineCard({
   machine,
   tx,
   detailHref,
-  role,
 }: {
   machine: Machine;
   tx: MachineTransaction[];
   detailHref: string;
   role?: string | null;
 }) {
-  const senior = isSeniorMode(role);
-  const cycleStart = machine.cycle_started_at ?? machine.created_at;
-  const cycleStartTs = new Date(cycleStart).getTime();
-  const cycleTx = tx.filter((t) => new Date(t.created_at).getTime() >= cycleStartTs);
-  const trades = cycleTx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
+  const cycleStart = new Date(machine.cycle_started_at ?? machine.created_at).getTime();
+  const trades = tx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
   const pnl = trades.reduce((s, t) => s + t.amount, 0);
-  const days = Math.max(0, Math.floor((Date.now() - cycleStartTs) / DAY_MS));
-  const isActive = machine.status === "active";
+  const withdrawnAbs = -tx
+    .filter((t) => t.type === "withdraw")
+    .reduce((s, t) => s + t.amount, 0);
+  const balance = machine.capital + pnl - withdrawnAbs;
+  const days = Math.max(0, Math.floor((Date.now() - cycleStart) / DAY_MS));
+  const pnlPct = machine.capital > 0 ? (pnl / machine.capital) * 100 : 0;
 
-  const labelCls = senior
-    ? "text-xs uppercase tracking-wider text-muted-foreground"
-    : "text-[10px] uppercase tracking-wider text-muted-foreground/70";
-  const metricCls = senior
-    ? "text-base md:text-lg font-semibold mt-1 tabular-nums"
-    : "text-sm font-semibold mt-0.5 tabular-nums";
+  const milestones = (machine.anchor_milestones ?? []).slice().sort((a, b) => a - b);
+  const minM = milestones[0] ?? 0;
+  const maxM = milestones[milestones.length - 1] ?? Math.max(machine.capital, balance, 1);
+  const range = Math.max(1, maxM - minM);
+  const balancePct = ((Math.max(minM, Math.min(maxM, balance)) - minM) / range) * 100;
+  const anchorPct = ((Math.max(minM, Math.min(maxM, machine.current_anchor)) - minM) / range) * 100;
 
   return (
     <Link
       href={detailHref}
-      className={cn(
-        "group block rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-sm transition-all space-y-4",
-        senior ? "p-6" : "p-5",
-      )}
+      className="group block rounded-2xl border border-border bg-card hover:border-primary/40 hover:shadow-sm transition-all p-5 space-y-4"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3
-            className={cn(
-              "font-semibold text-foreground group-hover:text-primary transition-colors",
-              senior ? "text-lg leading-snug" : "truncate",
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-foreground text-base group-hover:text-primary transition-colors flex items-center gap-2 flex-wrap">
+            <span className="truncate">{machine.name}</span>
+            {machine.capital > 0 && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-0.5 text-xs font-bold tabular-nums",
+                  pnlPct > 0
+                    ? "text-[#3B6C4F] dark:text-[#5C9C75]"
+                    : pnlPct < 0
+                      ? "text-foreground"
+                      : "text-muted-foreground",
+                )}
+              >
+                <TrendingUp className={cn("h-3 w-3", pnlPct < 0 && "rotate-180")} />
+                {pnlPct > 0 ? "+" : ""}
+                {pnlPct.toFixed(1)}%
+              </span>
             )}
-          >
-            {machine.name}
           </h3>
-          <p className={cn("mt-1", senior ? "text-sm text-muted-foreground" : "text-xs text-muted-foreground")}>
-            Vốn ban đầu: {usd.format(machine.capital)}
+          <p className="text-[11px] text-muted-foreground mt-0.5 uppercase tracking-wider">
+            {machine.method ?? "—"} · {SIGNAL_LABEL[machine.signal_source ?? "self"] ?? "—"}
           </p>
         </div>
-        <Badge variant={isActive ? "default" : "secondary"} className="gap-1 shrink-0">
-          {isActive ? <Play className="h-2.5 w-2.5" /> : <Pause className="h-2.5 w-2.5" />}
-          {isActive ? "Active" : "Paused"}
-        </Badge>
+        <span className="rounded-md bg-foreground text-background px-2 py-0.5 text-[11px] font-semibold tabular-nums uppercase tracking-widest whitespace-nowrap">
+          {days} ngày
+        </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
-        <div>
-          <div className={labelCls}>Anchor</div>
-          <div className={cn(metricCls, "text-primary")}>{usd.format(machine.current_anchor)}</div>
-        </div>
-        <div>
-          <div className={labelCls}>P&L</div>
-          <div
-            className={cn(
-              metricCls,
-              pnl > 0
-                ? "text-[#3B6C4F] dark:text-[#5C9C75]"
-                : pnl < 0
-                  ? "text-foreground"
-                  : "text-muted-foreground",
-            )}
-          >
-            {pnl > 0 ? "+" : ""}
-            {usd.format(pnl)}
+      {/* Stats */}
+      <div className="border-t border-dashed border-border pt-3 space-y-1.5 text-sm">
+        <Row label="Vốn gốc" value={usd.format(machine.capital)} />
+        <Row
+          label="PNL"
+          value={`${pnl >= 0 ? "+" : ""}${usd.format(pnl)}`}
+          tone={pnl > 0 ? "profit" : pnl < 0 ? "loss" : undefined}
+        />
+        <Row label="Đã rút" value={usd.format(withdrawnAbs)} />
+        <Row label="Số dư hiện tại" value={usd.format(balance)} bold />
+      </div>
+
+      {/* Mốc neo strip */}
+      {milestones.length > 0 && (
+        <div className="rounded-lg bg-muted/30 px-3 py-2.5 space-y-2">
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Anchor className="h-3 w-3 text-primary" />
+              Mốc neo
+            </span>
+            <span className="tabular-nums">
+              Hiện tại: <strong className="text-foreground">{usd.format(machine.current_anchor)}</strong>{" "}
+              · Số dư: <strong className="text-foreground">{usd.format(balance)}</strong>
+            </span>
+          </div>
+          <div className="relative h-5">
+            {/* Axis line */}
+            <div className="absolute top-1/2 left-0 right-0 h-px bg-border -translate-y-1/2" />
+            {/* Milestone marks */}
+            {milestones.map((m) => {
+              const pct = ((m - minM) / range) * 100;
+              return (
+                <div
+                  key={m}
+                  className="absolute top-0 bottom-0 -translate-x-1/2 flex flex-col items-center justify-between"
+                  style={{ left: `${pct}%` }}
+                >
+                  <div className="h-1.5 w-px bg-muted-foreground/40" />
+                  <div className="text-[9px] tabular-nums text-muted-foreground/80">
+                    {usd.format(m)}
+                  </div>
+                </div>
+              );
+            })}
+            {/* Anchor marker */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-px bg-primary"
+              style={{ left: `${anchorPct}%` }}
+            />
+            {/* Balance marker */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-2.5 w-2.5 rounded-full bg-[#3B6C4F] dark:bg-[#5C9C75] ring-2 ring-card"
+              style={{ left: `${balancePct}%` }}
+            />
           </div>
         </div>
-        <div>
-          <div className={labelCls}>Days</div>
-          <div className={cn(metricCls, "text-foreground")}>{days}</div>
-        </div>
-      </div>
+      )}
+    </Link>
+  );
+}
 
-      <div
+function Row({
+  label,
+  value,
+  tone,
+  bold,
+}: {
+  label: string;
+  value: string;
+  tone?: "profit" | "loss";
+  bold?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span
         className={cn(
-          "flex items-center justify-end text-muted-foreground group-hover:text-primary transition-colors",
-          senior ? "text-sm font-medium" : "text-xs",
+          "tabular-nums",
+          bold ? "text-base font-bold" : "text-sm font-semibold",
+          tone === "profit" && "text-[#3B6C4F] dark:text-[#5C9C75]",
+          tone === "loss" && "text-foreground",
+          !tone && "text-foreground",
         )}
       >
-        Xem chi tiết
-        <ChevronRight className={senior ? "h-4 w-4 ml-1" : "h-3.5 w-3.5 ml-0.5"} />
-      </div>
-    </Link>
+        {value}
+      </span>
+    </div>
   );
 }
