@@ -15,6 +15,7 @@ import {
 import { cn, formatDate } from "@/lib/utils";
 import { recordTransaction } from "@/lib/co-may/mock-data";
 import type { MachineTransaction, TradeDirection } from "@/lib/co-may/types";
+import { SymbolCombobox } from "./symbol-combobox";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -216,11 +217,10 @@ export function TradeJournal({ ownerId, machineId, tx, onChange, readOnly }: Pro
                 </select>
               </Field>
               <Field label="Cặp / Mã" required>
-                <Input
+                <SymbolCombobox
                   value={form.symbol}
-                  onChange={(e) => update("symbol", e.target.value)}
+                  onChange={(v) => update("symbol", v)}
                   placeholder="EURUSD, BTC..."
-                  className="h-11 text-base"
                   required
                 />
               </Field>
