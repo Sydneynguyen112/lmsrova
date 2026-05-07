@@ -207,9 +207,18 @@ export function useCurrentUser(fallbackRole: string | null = null): Profile | nu
       load();
     });
 
+    // Listen for profile-updated event (vd: avatar đổi từ ProfileEditor)
+    const onProfileUpdate = () => load();
+    if (typeof window !== "undefined") {
+      window.addEventListener("rova:profile-updated", onProfileUpdate);
+    }
+
     return () => {
       cancelled = true;
       subscription.unsubscribe();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("rova:profile-updated", onProfileUpdate);
+      }
     };
   }, [fallbackRole]);
 

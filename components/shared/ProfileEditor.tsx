@@ -109,6 +109,9 @@ export function ProfileEditor({ user, mentorName }: ProfileEditorProps) {
 
       if (!error) {
         setAvatarUrl(dataUrl);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("rova:profile-updated"));
+        }
       }
     } catch (err) {
       console.error("Failed to upload avatar:", err);
@@ -130,6 +133,9 @@ export function ProfileEditor({ user, mentorName }: ProfileEditorProps) {
     setSaving(false);
     setSaved(true);
     setEditing(false);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("rova:profile-updated"));
+    }
     setTimeout(() => setSaved(false), 3000);
   }
 

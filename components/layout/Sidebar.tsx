@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser, signOut } from "@/lib/auth";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { hasMoneyMachineAccess } from "@/lib/co-may/mock-data";
 import { getNavConfig, type NavItem } from "./sidebar-nav-config";
@@ -238,6 +238,7 @@ export function Sidebar() {
         {currentUser && !collapsed && (
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-sidebar-accent">
             <Avatar className="w-8 h-8 border border-gold/30 shrink-0">
+              {currentUser.avatar_url && <AvatarImage src={currentUser.avatar_url} alt={currentUser.full_name} />}
               <AvatarFallback className="bg-gold/15 text-gold text-xs font-semibold">
                 {initials}
               </AvatarFallback>
@@ -254,6 +255,7 @@ export function Sidebar() {
         )}
         {currentUser && collapsed && (
           <Avatar className="w-8 h-8 mx-auto border border-gold/30">
+            {currentUser.avatar_url && <AvatarImage src={currentUser.avatar_url} alt={currentUser.full_name} />}
             <AvatarFallback className="bg-gold/15 text-gold text-xs font-semibold">
               {initials}
             </AvatarFallback>
