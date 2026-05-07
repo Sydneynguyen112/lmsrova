@@ -5,12 +5,6 @@ import { Sparkles, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Machine, MachineTransaction } from "@/lib/co-may/types";
 
-export interface QuickWithdrawArgs {
-  machine: Machine;
-  amount: number;
-  toAnchor: number;
-}
-
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -29,13 +23,11 @@ export function MachineCard({
   machine,
   tx,
   detailHref,
-  onQuickWithdraw,
 }: {
   machine: Machine;
   tx: MachineTransaction[];
   detailHref: string;
   role?: string | null;
-  onQuickWithdraw?: (args: QuickWithdrawArgs) => void;
 }) {
   const cycleStart = new Date(machine.cycle_started_at ?? machine.created_at).getTime();
   const trades = tx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
@@ -180,37 +172,17 @@ export function MachineCard({
       )}
 
       {showOverflowCta && (
-        <div className="rounded-xl border-2 border-[#3B6C4F] bg-[#3B6C4F]/10 p-3 space-y-2">
-          <div className="flex items-start gap-2">
-            <Sparkles className="h-4 w-4 text-[#3B6C4F] dark:text-[#5C9C75] shrink-0 mt-0.5" />
-            <p className="text-sm leading-relaxed">
-              PnL đang{" "}
-              <span className="font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums">
-                +{usd.format(overflow)}
-              </span>
-              , vượt mốc neo{" "}
-              <span className="font-bold tabular-nums">{usd.format(machine.current_anchor)}</span>
-              . Rút ngay để giữ kỷ luật.
-            </p>
-          </div>
-          {onQuickWithdraw && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onQuickWithdraw({
-                  machine,
-                  amount: overflow,
-                  toAnchor: machine.current_anchor,
-                });
-              }}
-              className="w-full rounded-lg bg-[#3B6C4F] hover:bg-[#2F5840] text-white py-2 text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Rút {usd.format(overflow)} ngay
-            </button>
-          )}
+        <div className="rounded-xl border-2 border-[#3B6C4F] bg-[#3B6C4F]/10 p-3 flex items-start gap-2">
+          <Sparkles className="h-4 w-4 text-[#3B6C4F] dark:text-[#5C9C75] shrink-0 mt-0.5" />
+          <p className="text-sm leading-relaxed">
+            PnL đang{" "}
+            <span className="font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums">
+              +{usd.format(overflow)}
+            </span>
+            , vượt mốc neo{" "}
+            <span className="font-bold tabular-nums">{usd.format(machine.current_anchor)}</span>
+            . Rút ngay để giữ kỷ luật.
+          </p>
         </div>
       )}
 

@@ -211,7 +211,6 @@ export function PhongDieuHanh({
                 tx={tx.filter((t) => t.machine_id === m.id)}
                 detailHref={`/${role}/co-may/quan-ly/${m.id}?owner=${m.user_id}`}
                 role={role}
-                onQuickWithdraw={role === "student" ? handleQuickWithdraw : undefined}
               />
             ))}
           </div>
