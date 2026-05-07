@@ -11,11 +11,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   FEATURES,
-  getUserFeatures,
   setFeature,
   subscribe,
   type FeatureId,
 } from "@/lib/feature-flags/store";
+import { supabase } from "@/lib/supabase";
 
 const vnd = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -32,9 +32,19 @@ interface Props {
 export function FeatureAccessMenu({ userId, compact }: Props) {
   const [enabled, setEnabled] = useState<FeatureId[]>([]);
 
+  // Load thẳng từ Supabase (không dùng localStorage admin's view của target user)
+  async function refresh() {
+    const { data } = await supabase
+      .from("user_features")
+      .select("feature")
+      .eq("user_id", userId);
+    setEnabled(((data ?? []) as { feature: string }[]).map((d) => d.feature as FeatureId));
+  }
+
   useEffect(() => {
-    setEnabled(getUserFeatures(userId));
-    return subscribe(() => setEnabled(getUserFeatures(userId)));
+    refresh();
+    return subscribe(() => refresh());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const activeCount = enabled.length;

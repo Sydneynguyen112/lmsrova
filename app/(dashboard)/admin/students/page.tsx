@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Unlock, BookOpen, CheckCircle2, UserCog, Users } from "lucide-react";
+import { Search, Unlock, BookOpen, CheckCircle2, UserCog, Users, Coins } from "lucide-react";
+import { setFeature } from "@/lib/feature-flags/store";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/auth";
@@ -83,7 +84,7 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
-type DialogTab = "enroll" | "mentor";
+type DialogTab = "enroll" | "mentor" | "comay";
 
 export default function AdminStudentsPage() {
   const [search, setSearch] = useState("");
@@ -101,6 +102,8 @@ export default function AdminStudentsPage() {
   const [enrollSuccess, setEnrollSuccess] = useState<string | null>(null);
   const [savingMentor, setSavingMentor] = useState(false);
   const [mentorSuccess, setMentorSuccess] = useState(false);
+  const [comayEnabled, setComayEnabled] = useState(false);
+  const [savingComay, setSavingComay] = useState(false);
 
   async function loadData() {
     const [{ data: s }, { data: m }, { data: c }, { data: e }] = await Promise.all([
@@ -125,12 +128,27 @@ export default function AdminStudentsPage() {
   const enrolledCourseIds = new Set(studentEnrollments.map((e) => e.course_id));
   const availableCourses = courses.filter((c) => !enrolledCourseIds.has(c.id));
 
-  function openDialog(student: Profile, tab: DialogTab) {
+  async function openDialog(student: Profile, tab: DialogTab) {
     setSelectedStudent(student);
     setDialogTab(tab);
     setEnrollSuccess(null);
     setMentorSuccess(false);
     setDialogOpen(true);
+    // Load comay feature state for this student
+    const { data } = await supabase
+      .from("user_features")
+      .select("feature")
+      .eq("user_id", student.id)
+      .eq("feature", "money_machine");
+    setComayEnabled((data ?? []).length > 0);
+  }
+
+  async function handleToggleComay(next: boolean) {
+    if (!selectedStudent) return;
+    setSavingComay(true);
+    setFeature(selectedStudent.id, "money_machine", next);
+    setComayEnabled(next);
+    setSavingComay(false);
   }
 
   async function handleEnroll(courseId: string) {
@@ -147,6 +165,27 @@ export default function AdminStudentsPage() {
     if (!error) {
       const course = courses.find((c) => c.id === courseId);
       setEnrollSuccess(course?.title || courseId);
+      const { data: e } = await supabase.from("enrollments").select("*");
+      if (e) setEnrollments(e as EnrollmentItem[]);
+    }
+  }
+
+  async function handleToggleEnrollment(enrollmentId: string, currentStatus: string) {
+    const nextStatus = currentStatus === "active" ? "inactive" : "active";
+    const { error } = await supabase
+      .from("enrollments")
+      .update({ status: nextStatus })
+      .eq("id", enrollmentId);
+    if (!error) {
+      const { data: e } = await supabase.from("enrollments").select("*");
+      if (e) setEnrollments(e as EnrollmentItem[]);
+    }
+  }
+
+  async function handleRevokeEnrollment(enrollmentId: string) {
+    if (!window.confirm("Xoá enrollment này? Học viên sẽ mất quyền truy cập khoá học.")) return;
+    const { error } = await supabase.from("enrollments").delete().eq("id", enrollmentId);
+    if (!error) {
       const { data: e } = await supabase.from("enrollments").select("*");
       if (e) setEnrollments(e as EnrollmentItem[]);
     }
@@ -391,14 +430,34 @@ export default function AdminStudentsPage() {
               <UserCog className="h-3.5 w-3.5" />
               Mentor
             </button>
+            <button
+              onClick={() => { setDialogTab("comay"); setEnrollSuccess(null); setMentorSuccess(false); }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                dialogTab === "comay"
+                  ? "border-gold text-gold"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Coins className="h-3.5 w-3.5" />
+              Cỗ Máy
+            </button>
           </div>
 
           <DialogHeader>
             <DialogTitle>
-              {dialogTab === "enroll" ? "Mở khoá khoá học" : "Gán Mentor"}
+              {dialogTab === "enroll"
+                ? "Mở khoá khoá học"
+                : dialogTab === "mentor"
+                  ? "Gán Mentor"
+                  : "Quyền Cỗ Máy In Tiền"}
             </DialogTitle>
             <DialogDescription>
-              {dialogTab === "enroll" ? "Chọn khoá học để mở cho " : "Chọn mentor phụ trách "}
+              {dialogTab === "enroll"
+                ? "Chọn khoá học để mở cho "
+                : dialogTab === "mentor"
+                  ? "Chọn mentor phụ trách "
+                  : "Bật/tắt quyền truy cập Cỗ Máy In Tiền cho "}
               <span className="font-semibold text-foreground">
                 {selectedStudent?.full_name}
               </span>
@@ -415,18 +474,45 @@ export default function AdminStudentsPage() {
                   </p>
                   {studentEnrollments.map((enrollment) => {
                     const course = courses.find((c) => c.id === enrollment.course_id);
+                    const isActive = enrollment.status === "active";
                     return (
                       <div
                         key={enrollment.id}
-                        className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3"
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg border p-3",
+                          isActive
+                            ? "border-emerald-500/30 bg-emerald-500/5"
+                            : "border-border bg-muted/30",
+                        )}
                       >
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                        <CheckCircle2
+                          className={cn(
+                            "h-4 w-4 shrink-0",
+                            isActive ? "text-emerald-500" : "text-muted-foreground/50",
+                          )}
+                        />
                         <span className="text-sm font-medium text-foreground flex-1">
                           {course?.title || enrollment.course_id}
                         </span>
                         <Badge variant="outline" className="text-xs capitalize">
                           {enrollment.status}
                         </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs"
+                          onClick={() => handleToggleEnrollment(enrollment.id, enrollment.status)}
+                        >
+                          {isActive ? "Tạm khoá" : "Bật lại"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs text-destructive border-destructive/40 hover:bg-destructive/10"
+                          onClick={() => handleRevokeEnrollment(enrollment.id)}
+                        >
+                          Xoá
+                        </Button>
                       </div>
                     );
                   })}
@@ -477,6 +563,49 @@ export default function AdminStudentsPage() {
                     Đã mở khoá <strong>{enrollSuccess}</strong> thành công!
                   </span>
                 </motion.div>
+              )}
+            </div>
+          )}
+
+          {/* ── Tab: Cỗ Máy In Tiền ── */}
+          {dialogTab === "comay" && (
+            <div className="py-2">
+              <div
+                className={cn(
+                  "flex items-start gap-3 rounded-xl border p-4",
+                  comayEnabled ? "border-emerald-500/40 bg-emerald-500/5" : "border-border bg-muted/30",
+                )}
+              >
+                <Coins
+                  className={cn(
+                    "h-5 w-5 mt-0.5 shrink-0",
+                    comayEnabled ? "text-emerald-500" : "text-muted-foreground",
+                  )}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground">Cỗ Máy In Tiền</div>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    Module quản trị kỷ luật rút tiền — KPI, anchor, withdraw celebration, báo cáo chu kỳ.
+                  </p>
+                  <p className="text-[11px] text-primary mt-1.5 font-medium">1.990.000đ/tháng</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={comayEnabled ? "outline" : "default"}
+                  disabled={savingComay}
+                  className={cn(
+                    !comayEnabled && "bg-gold hover:bg-gold/90 text-black",
+                    comayEnabled && "border-destructive/40 text-destructive hover:bg-destructive/10",
+                  )}
+                  onClick={() => handleToggleComay(!comayEnabled)}
+                >
+                  {savingComay ? "..." : comayEnabled ? "Khoá" : "Mở quyền"}
+                </Button>
+              </div>
+              {comayEnabled && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-3 text-center">
+                  ✓ Học viên có thể truy cập Cỗ Máy In Tiền
+                </p>
               )}
             </div>
           )}
