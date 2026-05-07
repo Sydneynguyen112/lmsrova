@@ -172,7 +172,7 @@ export function PhongDieuHanh({
                   <span className="font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums">
                     +{usd.format(topOverflow.overflow)}
                   </span>{" "}
-                  vượt mốc — chốt ngay để giữ kỷ luật.
+                  vượt mốc hiện tại, doanh chủ cần quyết định ngay để giữ kỷ luật.
                 </p>
               </div>
             </div>
