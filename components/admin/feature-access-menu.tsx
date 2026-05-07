@@ -89,7 +89,7 @@ export function FeatureAccessMenu({ userId, compact }: Props) {
         })}
         <DropdownMenuSeparator />
         <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
-          Lưu local (mock). Sẽ wire Supabase ở plan kế tiếp.
+          Đồng bộ Supabase · áp dụng ngay khi học viên reload
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
