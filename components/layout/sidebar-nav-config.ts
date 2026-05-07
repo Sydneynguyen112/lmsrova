@@ -38,11 +38,6 @@ function coMayChildren(roleSlug: "student" | "mentor" | "admin"): NavItem[] {
       icon: Settings,
     },
     {
-      href: `/${roleSlug}/co-may/hieu-suat`,
-      label: "Hiệu suất",
-      icon: LineChart,
-    },
-    {
       href: `/${roleSlug}/co-may/lich-su`,
       label: "Nhật ký hoạt động",
       icon: FileBarChart,

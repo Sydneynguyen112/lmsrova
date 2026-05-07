@@ -21,6 +21,7 @@ import { recordTransaction } from "@/lib/co-may/mock-data";
 import { Sparkles, Target } from "lucide-react";
 import { useState } from "react";
 import { WithdrawDialog } from "@/components/co-may/quan-ly/withdraw-dialog";
+import { HieuSuatSection } from "./hieu-suat-section";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -322,6 +323,12 @@ export function PhongDieuHanh({
             ))}
           </div>
         )}
+      </div>
+
+      {/* § 02 Hiệu suất — gộp từ tab riêng vào tổng quan */}
+      <div className="space-y-3">
+        <SubSectionHeader number="02" label="Hiệu suất" senior={senior} />
+        <HieuSuatSection role={role} machines={machines} tx={tx} />
       </div>
 
       {/* Daily withdraw dialog — fired từ banner */}

@@ -17,7 +17,6 @@ interface SubNavTab {
 const TABS: SubNavTab[] = [
   { segment: "tong-quan", label: "Tổng quan", icon: LayoutDashboard },
   { segment: "quan-ly", label: "Cỗ Máy Chi Tiết", icon: Settings },
-  { segment: "hieu-suat", label: "Hiệu suất", icon: LineChart },
   { segment: "lich-su", label: "Nhật ký hoạt động", icon: FileBarChart },
 ];
 
