@@ -23,46 +23,8 @@ interface Props {
 export function HieuSuatSection({ role, machines, tx }: Props) {
   const senior = isSeniorMode(role);
 
-  // Month KPIs
-  const now = new Date();
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
-  const withdrawsThisMonth = tx
-    .filter((t) => t.type === "withdraw" && new Date(t.created_at).getTime() >= thisMonthStart)
-    .reduce((s, t) => s + -t.amount, 0);
-
-  const totalWithdraws = tx.filter((t) => t.type === "withdraw").reduce((s, t) => s + -t.amount, 0);
-  const activeMachines = machines.filter((m) => m.status === "active").length;
-  const tradesThisMonth = tx.filter(
-    (t) =>
-      (t.type === "trade_win" || t.type === "trade_loss") &&
-      new Date(t.created_at).getTime() >= thisMonthStart,
-  ).length;
-
   return (
     <section className="space-y-6">
-      <SectionHeader
-        eyebrow="§ Phân tích danh mục"
-        title="Hiệu suất"
-        subtitle="Đọc pattern dài hạn. Đây là nơi doanh chủ nhìn thấy thói quen thật của mình."
-        senior={senior}
-      />
-
-      {/* 4 month KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
-        <KpiTile
-          dark
-          label="Dòng tiền tháng này"
-          value={usd.format(withdrawsThisMonth)}
-          hint={`Tiền đã rút tháng ${now.getMonth() + 1}`}
-          icon={Wallet}
-          senior={senior}
-        />
-        <KpiTile label="Tổng dòng tiền" value={usd.format(totalWithdraws)} icon={TrendingUp} senior={senior} />
-        <KpiTile label="Cỗ máy hoạt động" value={`${activeMachines}`} icon={Coins} senior={senior} />
-        <KpiTile label="Tổng lệnh tháng này" value={`${tradesThisMonth}`} icon={Activity} senior={senior} />
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <CashflowBarChart tx={tx} senior={senior} />

@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Anchor,
   ChevronRight,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatRelativeTime } from "@/lib/utils";
@@ -77,6 +78,21 @@ export function PhongDieuHanh({
       .reduce((acc, t) => acc + t.amount, 0);
     return s + (m.capital + mPnl - mWithdrawn);
   }, 0);
+
+  // Month-level KPIs (gộp từ Hiệu suất section)
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const withdrawsThisMonth = tx
+    .filter((t) => t.type === "withdraw" && new Date(t.created_at).getTime() >= thisMonthStart)
+    .reduce((s, t) => s + -t.amount, 0);
+  const totalWithdraws = tx
+    .filter((t) => t.type === "withdraw")
+    .reduce((s, t) => s + -t.amount, 0);
+  const tradesThisMonth = tx.filter(
+    (t) =>
+      (t.type === "trade_win" || t.type === "trade_loss") &&
+      new Date(t.created_at).getTime() >= thisMonthStart,
+  ).length;
 
   function handleReset() {
     onReset?.();
@@ -281,6 +297,36 @@ export function PhongDieuHanh({
           label="Cỗ máy active"
           value={`${activeCount}`}
           icon={Coins}
+          senior={senior}
+        />
+      </div>
+
+      {/* 4 month KPIs — gộp từ Hiệu suất */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
+        <KpiTile
+          dark
+          label="Dòng tiền tháng này"
+          value={usd.format(withdrawsThisMonth)}
+          hint={`Tiền đã rút tháng ${now.getMonth() + 1}`}
+          icon={Wallet}
+          senior={senior}
+        />
+        <KpiTile
+          label="Tổng dòng tiền"
+          value={usd.format(totalWithdraws)}
+          icon={TrendingUp}
+          senior={senior}
+        />
+        <KpiTile
+          label="Cỗ máy hoạt động"
+          value={`${activeCount}`}
+          icon={Coins}
+          senior={senior}
+        />
+        <KpiTile
+          label="Tổng lệnh tháng này"
+          value={`${tradesThisMonth}`}
+          icon={Activity}
           senior={senior}
         />
       </div>
