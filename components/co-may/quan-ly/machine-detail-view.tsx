@@ -235,7 +235,13 @@ export function MachineDetailView({
           recordTransaction(resolvedOwner, machineId, {
             type: "withdraw",
             amount: -amount,
-            note: `Rút ${usd.format(amount)} về mốc ${usd.format(toAnchor)} — nâng neo`,
+            note: `Rút ${usd.format(amount)} về mốc ${usd.format(toAnchor)}`,
+          });
+          // Tách hoạt động nâng neo thành tx riêng để filter "Hạ/Nâng neo" truy xuất được.
+          recordTransaction(resolvedOwner, machineId, {
+            type: "anchor_change",
+            amount: toAnchor - fromAnchor,
+            note: `Nâng neo từ ${usd.format(fromAnchor)} lên ${usd.format(toAnchor)}`,
           });
           updateMachine(resolvedOwner, machineId, { current_anchor: toAnchor });
           refresh();
