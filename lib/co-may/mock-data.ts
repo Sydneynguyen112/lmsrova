@@ -185,6 +185,15 @@ function getDataFor(userId: string): UserData {
     return persisted[userId];
   }
 
+  // Chỉ seed mock data cho demo users (u-student-XXX, u-mentor-XXX, u-admin-XXX).
+  // User thật (UUID từ Supabase) → bắt đầu empty, đi qua setup wizard.
+  const isDemoUser = /^u-(student|mentor|admin)-\d+$/.test(userId);
+  if (!isDemoUser) {
+    const data: UserData = { machines: [], tx: [], reports: [] };
+    cache.set(userId, data);
+    return data;
+  }
+
   // Seed deterministic
   const rand = mulberry32(hash(userId));
   const machines = genMachines(userId, rand);
