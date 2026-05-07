@@ -82,17 +82,49 @@ export function PhongDieuHanh({
   // Month-level KPIs (gộp từ Hiệu suất section)
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+  const lastMonthEnd = thisMonthStart;
+  // "Cùng kỳ tháng trước" = từ đầu tháng trước → ngày tương ứng (cùng số ngày từ đầu tháng tới giờ)
+  const dayOfMonth = now.getDate();
+  const lastMonthSameRangeEnd = new Date(now.getFullYear(), now.getMonth() - 1, dayOfMonth, 23, 59, 59).getTime();
+
   const withdrawsThisMonth = tx
     .filter((t) => t.type === "withdraw" && new Date(t.created_at).getTime() >= thisMonthStart)
     .reduce((s, t) => s + -t.amount, 0);
-  const totalWithdraws = tx
-    .filter((t) => t.type === "withdraw")
+  const withdrawsLastMonthSameRange = tx
+    .filter(
+      (t) =>
+        t.type === "withdraw" &&
+        new Date(t.created_at).getTime() >= lastMonthStart &&
+        new Date(t.created_at).getTime() <= lastMonthSameRangeEnd &&
+        new Date(t.created_at).getTime() < lastMonthEnd,
+    )
     .reduce((s, t) => s + -t.amount, 0);
-  const tradesThisMonth = tx.filter(
-    (t) =>
-      (t.type === "trade_win" || t.type === "trade_loss") &&
-      new Date(t.created_at).getTime() >= thisMonthStart,
-  ).length;
+  const withdrawGrowthPct =
+    withdrawsLastMonthSameRange > 0
+      ? ((withdrawsThisMonth - withdrawsLastMonthSameRange) / withdrawsLastMonthSameRange) * 100
+      : withdrawsThisMonth > 0
+        ? 100
+        : 0;
+
+  // ROI tháng này = PnL tháng / vốn đang vận hành
+  const pnlThisMonth = tx
+    .filter(
+      (t) =>
+        (t.type === "trade_win" || t.type === "trade_loss") &&
+        new Date(t.created_at).getTime() >= thisMonthStart,
+    )
+    .reduce((s, t) => s + t.amount, 0);
+  const roiThisMonthPct = totalAllocated > 0 ? (pnlThisMonth / totalAllocated) * 100 : 0;
+
+  // Số ngày có rút tiền / tổng ngày trong tháng
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const withdrawDaysSet = new Set(
+    tx
+      .filter((t) => t.type === "withdraw" && new Date(t.created_at).getTime() >= thisMonthStart)
+      .map((t) => new Date(t.created_at).toISOString().slice(0, 10)),
+  );
+  const withdrawDaysCount = withdrawDaysSet.size;
 
   function handleReset() {
     onReset?.();
@@ -270,11 +302,11 @@ export function PhongDieuHanh({
         );
       })()}
 
-      {/* 4 KPI primary — first one highlighted dark */}
+      {/* Row 1: 4 KPI tổng — dòng tiền đã rút (dark) + vốn vận hành + PnL hiện tại + cỗ máy active */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
         <KpiTile
           dark
-          label="Dòng tiền đã rút"
+          label="Tổng dòng tiền đã rút"
           value={usd.format(withdrawn)}
           hint="Tiền thật về tài khoản"
           icon={Wallet}
@@ -287,45 +319,50 @@ export function PhongDieuHanh({
           senior={senior}
         />
         <KpiTile
-          label="PnL mở"
+          label="PNL hiện tại"
           value={`${openPnl >= 0 ? "+" : ""}${usd.format(openPnl)}`}
           tone={openPnl > 0 ? "profit" : openPnl < 0 ? "loss" : "neutral"}
           icon={openPnl >= 0 ? TrendingUp : TrendingDown}
           senior={senior}
         />
         <KpiTile
-          label="Cỗ máy active"
+          label="Cỗ máy đang hoạt động"
           value={`${activeCount}`}
           icon={Coins}
           senior={senior}
         />
       </div>
 
-      {/* 4 month KPIs — gộp từ Hiệu suất */}
+      {/* Row 2: 4 KPI tháng — dòng tiền tháng + ROI + tăng trưởng vs cùng kỳ + ngày có rút */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
         <KpiTile
           dark
-          label="Dòng tiền tháng này"
+          label="Dòng tiền rút tháng này"
           value={usd.format(withdrawsThisMonth)}
-          hint={`Tiền đã rút tháng ${now.getMonth() + 1}`}
+          hint={`Tháng ${now.getMonth() + 1}`}
           icon={Wallet}
           senior={senior}
         />
         <KpiTile
-          label="Tổng dòng tiền"
-          value={usd.format(totalWithdraws)}
-          icon={TrendingUp}
+          label="ROI tháng này"
+          value={`${roiThisMonthPct >= 0 ? "+" : ""}${roiThisMonthPct.toFixed(1)}%`}
+          hint={`PnL ${pnlThisMonth >= 0 ? "+" : ""}${usd.format(pnlThisMonth)} / vốn ${usd.format(totalAllocated)}`}
+          tone={roiThisMonthPct > 0 ? "profit" : roiThisMonthPct < 0 ? "loss" : "neutral"}
+          icon={roiThisMonthPct >= 0 ? TrendingUp : TrendingDown}
           senior={senior}
         />
         <KpiTile
-          label="Cỗ máy hoạt động"
-          value={`${activeCount}`}
-          icon={Coins}
+          label="Tăng trưởng vs cùng kỳ"
+          value={`${withdrawGrowthPct >= 0 ? "+" : ""}${withdrawGrowthPct.toFixed(1)}%`}
+          hint={`Tháng trước: ${usd.format(withdrawsLastMonthSameRange)}`}
+          tone={withdrawGrowthPct > 0 ? "profit" : withdrawGrowthPct < 0 ? "loss" : "neutral"}
+          icon={withdrawGrowthPct >= 0 ? TrendingUp : TrendingDown}
           senior={senior}
         />
         <KpiTile
-          label="Tổng lệnh tháng này"
-          value={`${tradesThisMonth}`}
+          label="Ngày có rút / Tổng ngày"
+          value={`${withdrawDaysCount} / ${daysInMonth}`}
+          hint={`${Math.round((withdrawDaysCount / daysInMonth) * 100)}% ngày trong tháng`}
           icon={Activity}
           senior={senior}
         />
