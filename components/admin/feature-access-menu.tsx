@@ -6,7 +6,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -16,12 +15,6 @@ import {
   type FeatureId,
 } from "@/lib/feature-flags/store";
 import { supabase } from "@/lib/supabase";
-
-const vnd = new Intl.NumberFormat("vi-VN", {
-  style: "currency",
-  currency: "VND",
-  maximumFractionDigits: 0,
-});
 
 interface Props {
   userId: string;
@@ -57,11 +50,7 @@ export function FeatureAccessMenu({ userId, compact }: Props) {
         {compact ? `${activeCount}/${totalCount}` : `Quyền (${activeCount}/${totalCount})`}
         <ChevronDown className="h-3 w-3 opacity-60" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
-        <div className="px-1.5 py-1 text-xs font-medium text-muted-foreground">
-          Bật/tắt chức năng cho học viên
-        </div>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="end" className="w-56">
         {FEATURES.map((f) => {
           const isOn = enabled.includes(f.id);
           const Icon = f.icon;
@@ -70,27 +59,13 @@ export function FeatureAccessMenu({ userId, compact }: Props) {
               key={f.id}
               checked={isOn}
               onCheckedChange={(next) => setFeature(userId, f.id, !!next)}
-              className="items-start gap-2 py-2.5"
+              className="gap-2"
             >
-              <Icon className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-foreground">{f.label}</div>
-                <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                  {f.description}
-                </div>
-                {f.priceVndMonthly !== undefined && (
-                  <div className="text-[11px] text-primary/80 mt-1 font-medium">
-                    {vnd.format(f.priceVndMonthly)}/tháng
-                  </div>
-                )}
-              </div>
+              <Icon className="h-4 w-4 text-primary shrink-0" />
+              <span className="font-medium text-foreground">{f.label}</span>
             </DropdownMenuCheckboxItem>
           );
         })}
-        <DropdownMenuSeparator />
-        <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
-          Đồng bộ Supabase · áp dụng ngay khi học viên reload
-        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
