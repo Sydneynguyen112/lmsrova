@@ -62,10 +62,12 @@ export function PhongDieuHanh({
   const reserve = Math.max(0, totalCapitalSetup - totalAllocated);
   const trades = tx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
   const openPnl = trades.reduce((s, t) => s + t.amount, 0);
-  const withdrawnRaw = -tx
+  // Tổng dòng tiền đã rút = lifetime gross — KHÔNG trừ injection (đó là metric khác,
+  // phản ánh trong totalCapital tăng khi re-allocate). Giữ historical record nguyên.
+  const withdrawn = -tx
     .filter((t) => t.type === "withdraw")
     .reduce((s, t) => s + t.amount, 0);
-  const withdrawn = Math.max(0, withdrawnRaw - injectedFromWithdrawn);
+  void injectedFromWithdrawn;
   const activeCount = activeMachines.filter((m) => m.status === "active").length;
   // Vốn đang vận hành = tổng số dư hiện tại các cỗ máy active (capital + pnl - đã rút).
   const totalRunningBalance = activeMachines.reduce((s, m) => {
