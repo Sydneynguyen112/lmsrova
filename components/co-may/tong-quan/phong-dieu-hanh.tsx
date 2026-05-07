@@ -65,7 +65,17 @@ export function PhongDieuHanh({
     .reduce((s, t) => s + t.amount, 0);
   const withdrawn = Math.max(0, withdrawnRaw - injectedFromWithdrawn);
   const activeCount = activeMachines.filter((m) => m.status === "active").length;
-  const totalCapitalRunning = totalAllocated;
+  // Vốn đang vận hành = tổng số dư hiện tại các cỗ máy active (capital + pnl - đã rút).
+  const totalRunningBalance = activeMachines.reduce((s, m) => {
+    const mTx = tx.filter((t) => t.machine_id === m.id);
+    const mPnl = mTx
+      .filter((t) => t.type === "trade_win" || t.type === "trade_loss")
+      .reduce((acc, t) => acc + t.amount, 0);
+    const mWithdrawn = -mTx
+      .filter((t) => t.type === "withdraw")
+      .reduce((acc, t) => acc + t.amount, 0);
+    return s + (m.capital + mPnl - mWithdrawn);
+  }, 0);
 
   function handleReset() {
     onReset?.();
@@ -255,7 +265,7 @@ export function PhongDieuHanh({
         />
         <KpiTile
           label="Vốn đang vận hành"
-          value={usd.format(totalCapitalRunning)}
+          value={usd.format(totalRunningBalance)}
           icon={Coins}
           senior={senior}
         />
@@ -277,7 +287,7 @@ export function PhongDieuHanh({
       {/* 3 secondary KPI on dashed line — invariant: tổng vốn = phân bổ + dự trữ */}
       <div className="rounded-2xl border-2 border-dashed border-border px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center">
         <SecondaryStat label="Tổng vốn doanh chủ" value={usd.format(Math.max(totalCapitalSetup, totalAllocated + reserve))} senior={senior} />
-        <SecondaryStat label="Đang phân bổ" value={usd.format(totalAllocated)} senior={senior} />
+        <SecondaryStat label="Vốn đã phân bổ" value={usd.format(totalAllocated)} senior={senior} />
         <SecondaryStat label="Vốn dự trữ" value={usd.format(reserve)} senior={senior} />
         {role === "student" && (
           <div className="flex md:justify-end">
