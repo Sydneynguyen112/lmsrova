@@ -79,7 +79,13 @@ export function PhongDieuHanh({
     })
     .slice(0, 2);
 
-  // Tính alert: cỗ máy có overflow lớn nhất → ưu tiên 1 banner top.
+  function isMachineDismissed(machineId: string, tradeCount: number): boolean {
+    if (typeof window === "undefined") return false;
+    const stored = window.localStorage.getItem(`co-may-anchor-dismiss-${machineId}`);
+    return stored !== null && Number(stored) === tradeCount;
+  }
+
+  // Tính alert: cỗ máy có overflow lớn nhất, chưa dismiss → 1 banner top.
   const overflowAlerts = activeMachines
     .map((m) => {
       const mTx = tx.filter((t) => t.machine_id === m.id);
@@ -87,12 +93,22 @@ export function PhongDieuHanh({
       const mPnl = mTrades.reduce((s, t) => s + t.amount, 0);
       const mWithdrawn = -mTx.filter((t) => t.type === "withdraw").reduce((s, t) => s + t.amount, 0);
       const balance = m.capital + mPnl - mWithdrawn;
-      return { machine: m, balance, overflow: balance - m.current_anchor };
+      return {
+        machine: m,
+        balance,
+        overflow: balance - m.current_anchor,
+        tradeCount: mTrades.length,
+      };
     })
-    .filter((a) => a.overflow > 0)
+    .filter((a) => a.overflow > 0 && !isMachineDismissed(a.machine.id, a.tradeCount))
     .sort((a, b) => b.overflow - a.overflow);
 
   const topOverflow = overflowAlerts[0];
+
+  function dismissMachine(machineId: string, tradeCount: number) {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(`co-may-anchor-dismiss-${machineId}`, String(tradeCount));
+  }
 
   // Mốc nhắm tới = milestone cao hơn current anchor liền kề (theo sorted desc).
   function nextHigherMilestone(machine: Machine): number | null {
@@ -110,19 +126,30 @@ export function PhongDieuHanh({
       amount: -args.amount,
       note: `Rút ${usd.format(args.amount)} về mốc ${usd.format(args.toAnchor)}`,
     });
+    // Sau khi rút, dismiss banner cho phiên trade hiện tại — không hiện lại đến khi có lệnh mới.
+    const machineTrades = tx
+      .filter((t) => t.machine_id === args.machine.id)
+      .filter((t) => t.type === "trade_win" || t.type === "trade_loss");
+    dismissMachine(args.machine.id, machineTrades.length);
     onChange?.();
   }
 
   function handleHold(machine: Machine, machineTx: MachineTransaction[]) {
-    if (typeof window === "undefined") return;
-    // Persist dismiss state cho machine theo trade count hiện tại — anchor strip sẽ ẩn.
     const tradeCount = machineTx.filter(
       (t) => t.type === "trade_win" || t.type === "trade_loss",
     ).length;
-    window.localStorage.setItem(
-      `co-may-anchor-dismiss-${machine.id}`,
-      String(tradeCount),
-    );
+    dismissMachine(machine.id, tradeCount);
+    onChange?.();
+  }
+
+  function handleDailyWithdrawSuccess() {
+    // Dismiss banner cho machine vừa rút — kể cả rút partial.
+    if (dailyMachine) {
+      const machineTrades = tx
+        .filter((t) => t.machine_id === dailyMachine.id)
+        .filter((t) => t.type === "trade_win" || t.type === "trade_loss");
+      dismissMachine(dailyMachine.id, machineTrades.length);
+    }
     onChange?.();
   }
 
@@ -294,7 +321,7 @@ export function PhongDieuHanh({
           machineId={dailyMachine.id}
           presetAmount={0}
           currentAnchor={dailyMachine.current_anchor}
-          onSuccess={() => onChange?.()}
+          onSuccess={handleDailyWithdrawSuccess}
         />
       )}
     </section>
