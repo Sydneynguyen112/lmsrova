@@ -82,6 +82,32 @@ export function CloseCycleWizard({
   const [milestonesDirty, setMilestonesDirty] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Compute scale capital (cần cho useEffect bên dưới — chạy trước early return để tuân Rules of Hooks)
+  const machineCapital = resolved?.machine.capital ?? 0;
+  const computedScaleCapital =
+    scaleMode === "pct"
+      ? Math.round(machineCapital * (1 + scalePct / 100))
+      : Math.max(0, Math.round(Number(scaleCustom) || machineCapital));
+
+  function generateDefaultMilestones(cap: number): string[] {
+    const ratio = 0.8;
+    const out: string[] = [];
+    let v = cap;
+    for (let i = 0; i < 5; i++) {
+      out.push(String(Math.max(1, Math.round(v))));
+      v *= ratio;
+    }
+    return out;
+  }
+
+  // Auto-regen milestones khi newCap đổi (trừ khi user đã chỉnh tay).
+  // PHẢI gọi trước mọi early return để giữ thứ tự hook.
+  useEffect(() => {
+    if (decision !== "scale") return;
+    if (milestonesDirty) return;
+    setMilestonesDraft(generateDefaultMilestones(computedScaleCapital));
+  }, [decision, computedScaleCapital, milestonesDirty]);
+
   if (!user) return <div className="text-sm text-muted-foreground">Đang tải...</div>;
   if (!resolved) {
     return (
@@ -130,29 +156,6 @@ export function CloseCycleWizard({
   const setup = getSetup(resolvedOwner);
   const reservePool = setup ? setup.totalCapital - machine.capital : 0;
   const scaleBudget = Math.max(0, withdrawn + reservePool);
-
-  const computedScaleCapital =
-    scaleMode === "pct"
-      ? Math.round(machine.capital * (1 + scalePct / 100))
-      : Math.max(0, Math.round(Number(scaleCustom) || machine.capital));
-
-  function generateDefaultMilestones(cap: number): string[] {
-    const ratio = 0.8;
-    const out: string[] = [];
-    let v = cap;
-    for (let i = 0; i < 5; i++) {
-      out.push(String(Math.max(1, Math.round(v))));
-      v *= ratio;
-    }
-    return out;
-  }
-
-  // Auto-regen milestones khi newCap đổi (trừ khi user đã chỉnh tay)
-  useEffect(() => {
-    if (decision !== "scale") return;
-    if (milestonesDirty) return;
-    setMilestonesDraft(generateDefaultMilestones(computedScaleCapital));
-  }, [decision, computedScaleCapital, milestonesDirty]);
 
   function next() {
     setStep((s) => Math.min(4, s + 1));
