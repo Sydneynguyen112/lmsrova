@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Sparkles, X, ArrowUp } from "lucide-react";
@@ -77,6 +77,9 @@ export function CloseCycleWizard({
   const [scaleMode, setScaleMode] = useState<"pct" | "custom">("pct");
   const [scalePct, setScalePct] = useState(50);
   const [scaleCustom, setScaleCustom] = useState("");
+  // Milestones cho cỗ máy mới (chỉ áp dụng khi scale). Auto theo newCap, user có thể edit từng giá trị.
+  const [milestonesDraft, setMilestonesDraft] = useState<string[] | null>(null);
+  const [milestonesDirty, setMilestonesDirty] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   if (!user) return <div className="text-sm text-muted-foreground">Đang tải...</div>;
@@ -133,6 +136,24 @@ export function CloseCycleWizard({
       ? Math.round(machine.capital * (1 + scalePct / 100))
       : Math.max(0, Math.round(Number(scaleCustom) || machine.capital));
 
+  function generateDefaultMilestones(cap: number): string[] {
+    const ratio = 0.8;
+    const out: string[] = [];
+    let v = cap;
+    for (let i = 0; i < 5; i++) {
+      out.push(String(Math.max(1, Math.round(v))));
+      v *= ratio;
+    }
+    return out;
+  }
+
+  // Auto-regen milestones khi newCap đổi (trừ khi user đã chỉnh tay)
+  useEffect(() => {
+    if (decision !== "scale") return;
+    if (milestonesDirty) return;
+    setMilestonesDraft(generateDefaultMilestones(computedScaleCapital));
+  }, [decision, computedScaleCapital, milestonesDirty]);
+
   function next() {
     setStep((s) => Math.min(4, s + 1));
   }
@@ -155,9 +176,16 @@ export function CloseCycleWizard({
       : 0;
     const otherActiveAllocated = totalAllocatedBefore - machine.capital;
 
+    const nextMilestones =
+      decision === "scale" && milestonesDraft
+        ? milestonesDraft
+            .map((s) => Number(s))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        : undefined;
     const result = finalizeCycle(resolvedOwner, machineId, {
       decision,
       nextCapital,
+      nextMilestones,
       scorecard,
       reflection,
     });
@@ -386,84 +414,129 @@ export function CloseCycleWizard({
             </div>
 
             {decision === "scale" && (
-              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h4 className="text-sm font-bold uppercase tracking-widest text-foreground">
-                    Vốn cho cỗ máy mới
-                  </h4>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    Ngân sách khả dụng:{" "}
-                    <strong className="text-foreground">{usd.format(scaleBudget)}</strong>{" "}
-                    (đã rút + dự trữ)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setScaleMode("pct")}
-                    className={cn(
-                      "px-3 py-1.5 rounded-md border-2 font-bold uppercase tracking-widest transition-colors",
-                      scaleMode === "pct"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    %
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScaleMode("custom")}
-                    className={cn(
-                      "px-3 py-1.5 rounded-md border-2 font-bold uppercase tracking-widest transition-colors",
-                      scaleMode === "custom"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    Tự điền $
-                  </button>
-                </div>
-                {scaleMode === "pct" ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Tăng vốn</span>
-                      <span className="font-bold text-primary tabular-nums">+{scalePct}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={200}
-                      step={5}
-                      value={scalePct}
-                      onChange={(e) => setScalePct(Number(e.target.value))}
-                      className="w-full accent-primary"
-                    />
-                    <div className="text-xs text-muted-foreground tabular-nums">
-                      Vốn mới ={" "}
-                      <strong className="text-foreground">
-                        {usd.format(computedScaleCapital)}
-                      </strong>{" "}
-                      (cũ {usd.format(machine.capital)} + {usd.format(computedScaleCapital - machine.capital)})
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h4 className="text-sm font-bold uppercase tracking-widest text-foreground">
+                      Vốn cho cỗ máy mới
+                    </h4>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
+                      Khả dụng:{" "}
+                      <strong className="text-foreground">{usd.format(scaleBudget)}</strong>
+                    </span>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <input
-                      type="number"
-                      min={0}
-                      value={scaleCustom}
-                      onChange={(e) => setScaleCustom(e.target.value)}
-                      placeholder={String(machine.capital)}
-                      className="h-11 w-full rounded-lg border border-input bg-card px-3 text-base tabular-nums focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 outline-none"
-                    />
-                    <div className="text-xs text-muted-foreground tabular-nums">
-                      Vốn mới ={" "}
-                      <strong className="text-foreground">
-                        {usd.format(computedScaleCapital)}
-                      </strong>
-                    </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setScaleMode("pct")}
+                      className={cn(
+                        "px-3 py-1.5 rounded-md border-2 font-bold uppercase tracking-widest transition-colors",
+                        scaleMode === "pct"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScaleMode("custom")}
+                      className={cn(
+                        "px-3 py-1.5 rounded-md border-2 font-bold uppercase tracking-widest transition-colors",
+                        scaleMode === "custom"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      Tự điền $
+                    </button>
                   </div>
-                )}
+                  {scaleMode === "pct" ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Tăng vốn</span>
+                        <span className="font-bold text-primary tabular-nums">+{scalePct}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={200}
+                        step={5}
+                        value={scalePct}
+                        onChange={(e) => setScalePct(Number(e.target.value))}
+                        className="w-full accent-primary"
+                      />
+                      <div className="text-xs text-muted-foreground tabular-nums">
+                        Vốn mới ={" "}
+                        <strong className="text-foreground">
+                          {usd.format(computedScaleCapital)}
+                        </strong>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={scaleCustom}
+                        onChange={(e) => setScaleCustom(e.target.value)}
+                        placeholder={String(machine.capital)}
+                        className="h-11 w-full rounded-lg border border-input bg-card px-3 text-base tabular-nums focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 outline-none"
+                      />
+                      <div className="text-xs text-muted-foreground tabular-nums">
+                        Vốn mới ={" "}
+                        <strong className="text-foreground">
+                          {usd.format(computedScaleCapital)}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h4 className="text-sm font-bold uppercase tracking-widest text-foreground">
+                      Mốc neo cỗ máy mới
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMilestonesDraft(generateDefaultMilestones(computedScaleCapital));
+                        setMilestonesDirty(false);
+                      }}
+                      className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      Reset auto
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {(milestonesDraft ?? generateDefaultMilestones(computedScaleCapital)).map(
+                      (v, i) => (
+                        <div key={i} className="space-y-1">
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center">
+                            M{i + 1}
+                          </div>
+                          <input
+                            type="number"
+                            min={0}
+                            value={v}
+                            onChange={(e) => {
+                              setMilestonesDirty(true);
+                              setMilestonesDraft((prev) => {
+                                const base = prev ?? generateDefaultMilestones(computedScaleCapital);
+                                return base.map((x, j) => (j === i ? e.target.value : x));
+                              });
+                            }}
+                            className="w-full rounded-md border border-input bg-card px-1 py-1.5 text-center text-xs font-bold tabular-nums focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 outline-none"
+                          />
+                        </div>
+                      ),
+                    )}
+                  </div>
+                  <p className="text-[11px] italic text-muted-foreground/80">
+                    Mặc định 100/80/64/51.2/41% vốn mới. Có thể chỉnh tay từng mốc.
+                  </p>
+                </div>
               </div>
             )}
 

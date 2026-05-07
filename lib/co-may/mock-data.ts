@@ -362,6 +362,8 @@ export function finalizeCycle(
     decision: CycleDecision;
     /** Cho scale: vốn của cỗ máy mới (= capital + scaleAmount). */
     nextCapital?: number;
+    /** Cho scale/reset: milestones tự cấu hình. Nếu không truyền → auto-sinh 100/80/64/51.2/41%. */
+    nextMilestones?: number[];
     scorecard?: import("./types").CycleScorecard;
     reflection?: import("./types").CycleReflection;
   },
@@ -419,13 +421,16 @@ export function finalizeCycle(
         ? input.nextCapital
         : machine.capital;
     const newAnchor = newCapital;
-    // Re-sinh milestones theo công thức 100/80/64/51.2/41 nếu có config cũ.
-    const oldMilestones = machine.anchor_milestones;
+    // Milestones: ưu tiên user-input (nếu có), fallback auto-sinh từ formula 100/80/64/51.2/41.
     let newMilestones: number[] | undefined = undefined;
-    if (oldMilestones && oldMilestones.length > 0) {
+    if (input.nextMilestones && input.nextMilestones.length > 0) {
+      newMilestones = input.nextMilestones
+        .filter((m) => Number.isFinite(m) && m > 0)
+        .sort((a, b) => b - a);
+    } else if (machine.anchor_milestones && machine.anchor_milestones.length > 0) {
       newMilestones = [];
       let v = newCapital;
-      for (let i = 0; i < oldMilestones.length; i++) {
+      for (let i = 0; i < machine.anchor_milestones.length; i++) {
         newMilestones.push(Math.round(v));
         v *= 0.8;
       }
