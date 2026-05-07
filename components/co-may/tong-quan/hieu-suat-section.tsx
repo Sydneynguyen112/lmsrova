@@ -34,7 +34,7 @@ export function HieuSuatSection({ role, machines, tx }: Props) {
         </div>
       </div>
 
-      <WithdrawHeatmap tx={tx} senior={senior} />
+      <WithdrawHeatmap tx={tx} machines={machines} senior={senior} />
     </section>
   );
 }
@@ -217,13 +217,24 @@ function Badge({ label, tone }: { label: string; tone: "primary" | "success" }) 
   );
 }
 
-function WithdrawHeatmap({ tx, senior }: { tx: MachineTransaction[]; senior: boolean }) {
+function WithdrawHeatmap({
+  tx,
+  machines,
+  senior,
+}: {
+  tx: MachineTransaction[];
+  machines: Machine[];
+  senior: boolean;
+}) {
   const now = new Date();
   const month = now.getMonth();
   const year = now.getFullYear();
 
-  // Aggregate withdraws per day in current month
-  const byDay = new Map<number, number>();
+  const machineNameById = new Map(machines.map((m) => [m.id, m.name]));
+
+  // Aggregate withdraws per day per machine in current month
+  // Map<day, Map<machineId, amount>>
+  const byDay = new Map<number, Map<string, number>>();
   let totalDays = 0;
   let totalAmount = 0;
   for (const t of tx) {
@@ -231,10 +242,31 @@ function WithdrawHeatmap({ tx, senior }: { tx: MachineTransaction[]; senior: boo
     const d = new Date(t.created_at);
     if (d.getFullYear() !== year || d.getMonth() !== month) continue;
     const day = d.getDate();
-    const v = byDay.get(day) ?? 0;
-    if (v === 0) totalDays++;
-    byDay.set(day, v + -t.amount);
+    if (!byDay.has(day)) {
+      byDay.set(day, new Map());
+      totalDays++;
+    }
+    const dayMap = byDay.get(day)!;
+    dayMap.set(t.machine_id, (dayMap.get(t.machine_id) ?? 0) + -t.amount);
     totalAmount += -t.amount;
+  }
+
+  function dayTotal(day: number): number {
+    const m = byDay.get(day);
+    if (!m) return 0;
+    let s = 0;
+    for (const v of m.values()) s += v;
+    return s;
+  }
+
+  function dayBreakdown(day: number): string {
+    const m = byDay.get(day);
+    if (!m || m.size === 0) return `Ngày ${day} - không rút`;
+    const lines = [`Ngày ${day}/${month + 1}: ${usd.format(dayTotal(day))}`];
+    for (const [mid, amt] of m.entries()) {
+      lines.push(`• ${machineNameById.get(mid) ?? mid}: ${usd.format(amt)}`);
+    }
+    return lines.join("\n");
   }
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -242,11 +274,21 @@ function WithdrawHeatmap({ tx, senior }: { tx: MachineTransaction[]; senior: boo
   // Convert to Mon-first index: T2=0...CN=6
   const startCol = firstWeekday === 0 ? 6 : firstWeekday - 1;
 
-  const cells: { day: number | null; amount: number }[] = [];
-  for (let i = 0; i < startCol; i++) cells.push({ day: null, amount: 0 });
-  for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, amount: byDay.get(d) ?? 0 });
+  const cells: { day: number | null; amount: number; breakdown: { machineId: string; name: string; amount: number }[] }[] = [];
+  for (let i = 0; i < startCol; i++) cells.push({ day: null, amount: 0, breakdown: [] });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayMap = byDay.get(d);
+    const breakdown = dayMap
+      ? Array.from(dayMap.entries()).map(([mid, amt]) => ({
+          machineId: mid,
+          name: machineNameById.get(mid) ?? mid,
+          amount: amt,
+        }))
+      : [];
+    cells.push({ day: d, amount: dayTotal(d), breakdown });
+  }
 
-  const maxAmount = Math.max(0, ...byDay.values());
+  const maxAmount = Math.max(0, ...Array.from(byDay.keys()).map((d) => dayTotal(d)));
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 md:p-6 space-y-4">
@@ -272,21 +314,48 @@ function WithdrawHeatmap({ tx, senior }: { tx: MachineTransaction[]; senior: boo
           {cells.map((c, i) => {
             if (c.day === null) return <div key={i} />;
             const intensity = maxAmount > 0 ? c.amount / maxAmount : 0;
+            const hasData = c.amount > 0;
             return (
               <div
                 key={i}
                 className={cn(
-                  "aspect-square rounded-md border border-border/60 flex items-start p-1.5 text-[10px] tabular-nums transition-colors",
-                  intensity === 0 ? "bg-muted/20 text-muted-foreground/60" : "text-foreground",
+                  "aspect-square rounded-md border border-border/60 flex flex-col p-1.5 text-[10px] tabular-nums transition-colors overflow-hidden",
+                  !hasData && "bg-muted/20 text-muted-foreground/60",
+                  hasData && "text-foreground",
                 )}
                 style={
-                  intensity > 0
+                  hasData
                     ? { backgroundColor: `rgba(205, 156, 32, ${0.18 + intensity * 0.55})` }
                     : undefined
                 }
-                title={c.amount > 0 ? `${usd.format(c.amount)} ngày ${c.day}/${month + 1}` : `Ngày ${c.day} - không rút`}
+                title={dayBreakdown(c.day)}
               >
-                {c.day}
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="font-semibold">{c.day}</span>
+                  {hasData && (
+                    <span className="font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums">
+                      {usd.format(c.amount)}
+                    </span>
+                  )}
+                </div>
+                {hasData && (
+                  <div className="mt-1 space-y-0.5 overflow-hidden">
+                    {c.breakdown.slice(0, 3).map((b) => (
+                      <div
+                        key={b.machineId}
+                        className="text-[9px] truncate text-foreground/80 leading-tight"
+                        title={b.name}
+                      >
+                        {b.name}: {usd.format(b.amount)}
+                      </div>
+                    ))}
+                    {c.breakdown.length > 3 && (
+                      <div className="text-[9px] text-muted-foreground italic">
+                        +{c.breakdown.length - 3} cỗ máy
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
