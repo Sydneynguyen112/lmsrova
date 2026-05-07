@@ -350,30 +350,12 @@ export function PhongDieuHanh({
         )}
       </div>
 
-      {/* § 01 Active machines */}
-      <div className="space-y-3">
-        <SubSectionHeader number="01" label="Cỗ máy đang hoạt động" actionHref={`/${role}/co-may/quan-ly`} actionText="Xem tất cả" senior={senior} />
+      {/* Empty state khi chưa có cỗ máy nào — giữ lại để onboarding học viên mới */}
+      {featured.length === 0 && <EmptyMachineState role={role} senior={senior} />}
 
-        {featured.length === 0 ? (
-          <EmptyMachineState role={role} senior={senior} />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {featured.map((m) => (
-              <MachineCard
-                key={m.id}
-                machine={m}
-                tx={tx.filter((t) => t.machine_id === m.id)}
-                detailHref={`/${role}/co-may/quan-ly/${m.id}?owner=${m.user_id}`}
-                role={role}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* § 02 Hiệu suất — gộp từ tab riêng vào tổng quan */}
+      {/* § 01 Hiệu suất — gộp từ tab riêng vào tổng quan */}
       <div className="space-y-3">
-        <SubSectionHeader number="02" label="Hiệu suất" senior={senior} />
+        <SubSectionHeader number="01" label="Hiệu suất" senior={senior} />
         <HieuSuatSection role={role} machines={machines} tx={tx} />
       </div>
 
