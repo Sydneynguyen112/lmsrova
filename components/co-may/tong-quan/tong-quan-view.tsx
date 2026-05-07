@@ -54,6 +54,7 @@ export function TongQuanView({ role }: { role: RoleSlug }) {
       machines={machines}
       tx={tx}
       onReset={() => router.push(`/${role}/co-may/setup?mode=allocate`)}
+      onChange={() => setTick((n) => n + 1)}
     />
   );
 }

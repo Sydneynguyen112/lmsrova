@@ -17,6 +17,8 @@ import { cn, formatRelativeTime } from "@/lib/utils";
 import type { Machine, MachineTransaction, TransactionType } from "@/lib/co-may/types";
 import { isSeniorMode } from "@/lib/co-may/senior-ui";
 import { MachineCard } from "@/components/co-may/quan-ly/machine-card";
+import { recordTransaction } from "@/lib/co-may/mock-data";
+import { Sparkles } from "lucide-react";
 
 const usd = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -33,6 +35,8 @@ interface Props {
   machines: Machine[];
   tx: MachineTransaction[];
   onReset?: () => void;
+  /** Trigger khi action commit (rút nhanh) → parent bump tick re-render. */
+  onChange?: () => void;
 }
 
 export function PhongDieuHanh({
@@ -43,6 +47,7 @@ export function PhongDieuHanh({
   machines,
   tx,
   onReset,
+  onChange,
 }: Props) {
   void userId;
   const senior = isSeniorMode(role);
@@ -72,6 +77,31 @@ export function PhongDieuHanh({
     })
     .slice(0, 2);
 
+  // Tính alert: cỗ máy có overflow lớn nhất → ưu tiên 1 banner top.
+  const overflowAlerts = activeMachines
+    .map((m) => {
+      const mTx = tx.filter((t) => t.machine_id === m.id);
+      const mTrades = mTx.filter((t) => t.type === "trade_win" || t.type === "trade_loss");
+      const mPnl = mTrades.reduce((s, t) => s + t.amount, 0);
+      const mWithdrawn = -mTx.filter((t) => t.type === "withdraw").reduce((s, t) => s + t.amount, 0);
+      const balance = m.capital + mPnl - mWithdrawn;
+      return { machine: m, balance, overflow: balance - m.current_anchor };
+    })
+    .filter((a) => a.overflow > 0)
+    .sort((a, b) => b.overflow - a.overflow);
+
+  const topOverflow = overflowAlerts[0];
+
+  function handleQuickWithdraw(args: { machine: Machine; amount: number; toAnchor: number }) {
+    if (args.amount <= 0) return;
+    recordTransaction(args.machine.user_id, args.machine.id, {
+      type: "withdraw",
+      amount: -args.amount,
+      note: `Rút ${usd.format(args.amount)} về mốc ${usd.format(args.toAnchor)}`,
+    });
+    onChange?.();
+  }
+
   return (
     <section className="space-y-6">
       <SectionHeader
@@ -80,6 +110,41 @@ export function PhongDieuHanh({
         subtitle="Toàn cảnh danh mục cỗ máy và dòng tiền đã rút về đời thực."
         senior={senior}
       />
+
+      {/* Banner: top overflow alert — kêu user act ngay */}
+      {topOverflow && (
+        <div className="rounded-2xl border-2 border-[#3B6C4F] bg-[#3B6C4F]/8 px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="rounded-full bg-[#3B6C4F]/20 p-2 shrink-0">
+              <Sparkles className="h-4 w-4 text-[#3B6C4F] dark:text-[#5C9C75]" />
+            </div>
+            <p className="text-sm md:text-base leading-relaxed">
+              Có{" "}
+              <span className="font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums">
+                {usd.format(topOverflow.overflow)}
+              </span>{" "}
+              chờ rút từ{" "}
+              <strong className="text-foreground">&ldquo;{topOverflow.machine.name}&rdquo;</strong>
+              . Kiếm được tiền mà không rút — sớm muộn cũng trả lại.
+            </p>
+          </div>
+          <Button
+            variant="anchor"
+            size={senior ? "default" : "sm"}
+            onClick={() =>
+              handleQuickWithdraw({
+                machine: topOverflow.machine,
+                amount: topOverflow.overflow,
+                toAnchor: topOverflow.machine.current_anchor,
+              })
+            }
+            className="shrink-0"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Rút {usd.format(topOverflow.overflow)}
+          </Button>
+        </div>
+      )}
 
       {/* 4 KPI primary — first one highlighted dark */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
@@ -146,6 +211,7 @@ export function PhongDieuHanh({
                 tx={tx.filter((t) => t.machine_id === m.id)}
                 detailHref={`/${role}/co-may/quan-ly/${m.id}?owner=${m.user_id}`}
                 role={role}
+                onQuickWithdraw={role === "student" ? handleQuickWithdraw : undefined}
               />
             ))}
           </div>
