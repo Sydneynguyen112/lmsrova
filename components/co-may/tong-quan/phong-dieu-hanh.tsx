@@ -204,24 +204,26 @@ export function PhongDieuHanh({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size={senior ? "default" : "sm"}
-                onClick={() => handleHold(topOverflow.machine, machineTx)}
-              >
-                <Target className="h-3.5 w-3.5" />
-                {target !== null
-                  ? `Giữ vốn — quay về mốc ${usd.format(target)}`
-                  : "Giữ vốn"}
-              </Button>
-              <Button
-                variant="outline"
-                size={senior ? "default" : "sm"}
-                onClick={() => openDailyWithdraw(topOverflow.machine)}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Rút tiền hằng ngày
-              </Button>
+              {target !== null && (
+                <>
+                  <Button
+                    variant="outline"
+                    size={senior ? "default" : "sm"}
+                    onClick={() => handleHold(topOverflow.machine, machineTx)}
+                  >
+                    <Target className="h-3.5 w-3.5" />
+                    Giữ vốn — quay về mốc {usd.format(target)}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size={senior ? "default" : "sm"}
+                    onClick={() => openDailyWithdraw(topOverflow.machine)}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Rút tiền hằng ngày
+                  </Button>
+                </>
+              )}
               <Button
                 variant="anchor"
                 size={senior ? "default" : "sm"}
