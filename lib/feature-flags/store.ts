@@ -90,6 +90,10 @@ export function setFeature(userId: string, feature: FeatureId, enabled: boolean)
   if (current.size === 0) delete store[userId];
   else store[userId] = [...current];
   persist();
+  // Cloud push (fire-and-forget)
+  void import("@/lib/co-may/cloud-sync").then(({ cloudPush }) =>
+    cloudPush.feature(userId, feature, enabled),
+  );
   notify();
 }
 

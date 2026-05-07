@@ -6,6 +6,7 @@ import type {
   KpiSnapshot,
   TransactionType,
 } from "./types";
+import { cloudPush } from "./cloud-sync";
 
 // ── Deterministic PRNG (mulberry32) seeded by userId ──
 function hash(str: string): number {
@@ -147,6 +148,11 @@ interface UserData {
 const STORAGE_KEY = "rova_comay_data_v1";
 const cache = new Map<string, UserData>();
 
+/** Clear in-memory cache cho 1 user — gọi sau khi hydrateFromCloud() ghi localStorage mới. */
+export function invalidateLocalCache(userId: string): void {
+  cache.delete(userId);
+}
+
 function isBrowser() {
   return typeof window !== "undefined";
 }
@@ -251,6 +257,7 @@ export function addMachine(
   };
   data.machines.unshift(m);
   persistDataFor(userId);
+  cloudPush.machine(userId, m);
   return m;
 }
 
@@ -285,6 +292,7 @@ export function updateMachine(
     updated_at: new Date().toISOString(),
   };
   persistDataFor(userId);
+  cloudPush.machine(userId, data.machines[idx]);
   return data.machines[idx];
 }
 
@@ -295,6 +303,7 @@ export function deleteMachine(userId: string, machineId: string): void {
   data.tx = data.tx.filter((t) => t.machine_id !== machineId);
   data.reports = data.reports.filter((r) => r.machine_id !== machineId);
   persistDataFor(userId);
+  cloudPush.deleteMachine(userId, machineId);
 }
 
 export function recordTransaction(
@@ -331,6 +340,7 @@ export function recordTransaction(
   };
   data.tx.unshift(tx);
   persistDataFor(userId);
+  cloudPush.tx(userId, tx);
   return tx;
 }
 
@@ -361,6 +371,7 @@ export function closeMachine(
     updated_at: new Date().toISOString(),
   };
   persistDataFor(userId);
+  cloudPush.machine(userId, data.machines[idx]);
   return { balance, capital: m.capital, delta: balance - m.capital };
 }
 
@@ -490,6 +501,10 @@ export function finalizeCycle(
   };
   data.reports.unshift(report);
   persistDataFor(userId);
+  // Cloud push: closed machine + new machine + report
+  cloudPush.machine(userId, data.machines[machineIdx]);
+  if (nextMachine) cloudPush.machine(userId, nextMachine);
+  cloudPush.report(userId, report);
   return { report, nextMachineId: nextMachine?.id ?? null };
 }
 

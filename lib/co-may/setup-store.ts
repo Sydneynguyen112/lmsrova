@@ -3,6 +3,7 @@
 // `user_setup` table khi wire backend.
 
 import { addMachine } from "./mock-data";
+import { cloudPush } from "./cloud-sync";
 
 export type StrategyId = "concentrated" | "balanced" | "diversified" | "later";
 
@@ -73,7 +74,7 @@ export function saveSetup(
   cache.set(userId, full);
 
   // Sinh machines theo phân bổ — chỉ tạo nếu user chưa có (tránh duplicate khi
-  // user reset setup nhiều lần).
+  // user reset setup nhiều lần). addMachine tự gọi cloudPush.
   for (const a of config.allocations) {
     addMachine(userId, {
       name: a.name,
@@ -83,6 +84,7 @@ export function saveSetup(
     });
   }
 
+  cloudPush.setup(userId, full);
   notify();
   return full;
 }
@@ -104,6 +106,7 @@ export function adjustTotalCapital(userId: string, delta: number): void {
   all[userId] = updated;
   persistAll(all);
   cache.set(userId, updated);
+  cloudPush.setup(userId, updated);
   notify();
 }
 
@@ -120,6 +123,7 @@ export function addInjectedFromWithdrawn(userId: string, amount: number): void {
   all[userId] = updated;
   persistAll(all);
   cache.set(userId, updated);
+  cloudPush.setup(userId, updated);
   notify();
 }
 
