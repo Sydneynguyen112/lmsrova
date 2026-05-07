@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { TrendingUp } from "lucide-react";
+import { Sparkles, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Machine, MachineTransaction } from "@/lib/co-may/types";
 
@@ -47,6 +47,10 @@ export function MachineCard({
   const anchorPct = ((Math.max(minM, Math.min(maxM, machine.current_anchor)) - minM) / range) * 100;
 
   const isClosed = machine.status === "closed";
+  const overflow = balance - machine.current_anchor;
+  const underflow = -overflow;
+  const showOverflowCta = !isClosed && overflow > 0;
+  const showUnderflowCta = !isClosed && underflow > 0;
 
   return (
     <Link
@@ -163,6 +167,30 @@ export function MachineCard({
                 </span>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {showOverflowCta && (
+        <div className="rounded-lg border-l-4 border-[#3B6C4F] bg-[#3B6C4F]/10 px-3 py-2 flex items-start gap-2">
+          <Sparkles className="h-4 w-4 text-[#3B6C4F] dark:text-[#5C9C75] shrink-0 mt-0.5" />
+          <div className="text-xs leading-relaxed">
+            <span className="font-bold text-[#3B6C4F] dark:text-[#5C9C75] tabular-nums">
+              Vượt mốc neo +{usd.format(overflow)}
+            </span>
+            <span className="text-muted-foreground"> — vào cỗ máy để rút phần dư hoặc nâng neo.</span>
+          </div>
+        </div>
+      )}
+
+      {showUnderflowCta && (
+        <div className="rounded-lg border-l-4 border-primary bg-primary/10 px-3 py-2 flex items-start gap-2">
+          <TrendingDown className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+          <div className="text-xs leading-relaxed">
+            <span className="font-bold text-primary tabular-nums">
+              Dưới mốc neo −{usd.format(underflow)}
+            </span>
+            <span className="text-muted-foreground"> — vào cỗ máy để hạ neo hoặc giữ vốn.</span>
           </div>
         </div>
       )}
