@@ -9,7 +9,7 @@ export type StrategyId = "concentrated" | "balanced" | "diversified" | "later";
 export interface SetupConfig {
   totalCapital: number;
   strategy: StrategyId;
-  allocations: { name: string; capital: number }[];
+  allocations: { name: string; capital: number; anchor_milestones?: number[] }[];
   completedAt: string;
   /** Tổng tiền đã nạp lại từ dòng tiền đã rút — trừ vào khi hiển thị `Dòng tiền đã rút`. */
   injectedFromWithdrawn?: number;
@@ -79,6 +79,7 @@ export function saveSetup(
       name: a.name,
       capital: a.capital,
       current_anchor: a.capital, // anchor khởi đầu = vốn ban đầu
+      anchor_milestones: a.anchor_milestones,
     });
   }
 

@@ -46,7 +46,9 @@ export function SetupWizard({
   const [step, setStep] = useState<1 | 2 | 3>(mode === "allocate" ? 3 : 1);
   const [capital, setCapital] = useState<number>(mode === "allocate" ? reservePool : 1000);
   const [strategy, setStrategy] = useState<StrategyId>("concentrated");
-  const [allocations, setAllocations] = useState<{ name: string; capital: number }[]>(
+  const [allocations, setAllocations] = useState<
+    { name: string; capital: number; anchor_milestones?: number[]; milestonesDirty?: boolean }[]
+  >(
     mode === "allocate"
       ? [{ name: "Cỗ máy mới", capital: 0 }]
       : [],
@@ -244,24 +246,29 @@ export function SetupWizard({
   );
 }
 
-function defaultAllocations(strategy: StrategyId, total: number): { name: string; capital: number }[] {
+function defaultAllocations(
+  strategy: StrategyId,
+  total: number,
+): { name: string; capital: number; anchor_milestones: number[] }[] {
+  const withMilestones = (rows: { name: string; capital: number }[]) =>
+    rows.map((r) => ({ ...r, anchor_milestones: defaultMilestones(r.capital) }));
   switch (strategy) {
     case "concentrated":
-      return [{ name: "Cỗ máy chính", capital: total }];
+      return withMilestones([{ name: "Cỗ máy chính", capital: total }]);
     case "balanced":
-      return [
+      return withMilestones([
         { name: "Cỗ máy chính", capital: Math.round(total * 0.6) },
         { name: "Cỗ máy phụ", capital: total - Math.round(total * 0.6) },
-      ];
+      ]);
     case "diversified": {
       const a = Math.round(total * 0.5);
       const b = Math.round(total * 0.3);
       const c = total - a - b;
-      return [
+      return withMilestones([
         { name: "Cỗ máy chính", capital: a },
         { name: "Cỗ máy phụ", capital: b },
         { name: "Cỗ máy thử nghiệm", capital: c },
-      ];
+      ]);
     }
     default:
       return [];
@@ -418,6 +425,25 @@ function StepStrategy({
   );
 }
 
+type AllocRow = {
+  name: string;
+  capital: number;
+  anchor_milestones?: number[];
+  milestonesDirty?: boolean;
+};
+
+function defaultMilestones(cap: number): number[] {
+  if (!Number.isFinite(cap) || cap <= 0) return [];
+  const ratio = 0.8;
+  const out: number[] = [];
+  let v = cap;
+  for (let i = 0; i < 5; i++) {
+    out.push(Math.max(1, Math.round(v)));
+    v *= ratio;
+  }
+  return out;
+}
+
 function StepAllocation({
   allocations,
   onChange,
@@ -427,8 +453,8 @@ function StepAllocation({
   onAddRow,
   onRemoveRow,
 }: {
-  allocations: { name: string; capital: number }[];
-  onChange: (a: { name: string; capital: number }[]) => void;
+  allocations: AllocRow[];
+  onChange: (a: AllocRow[]) => void;
   total: number;
   machineCount: number;
   isAllocateMode?: boolean;
@@ -439,8 +465,39 @@ function StepAllocation({
   const reserve = total - sum;
   const overAllocated = reserve < -1;
 
-  function update(idx: number, patch: Partial<{ name: string; capital: number }>) {
-    const next = allocations.map((a, i) => (i === idx ? { ...a, ...patch } : a));
+  function update(idx: number, patch: Partial<AllocRow>) {
+    const next = allocations.map((a, i) => {
+      if (i !== idx) return a;
+      const merged = { ...a, ...patch };
+      // Khi capital đổi và milestones chưa bị dirty → auto-sinh
+      if (
+        patch.capital !== undefined &&
+        patch.capital !== a.capital &&
+        !merged.milestonesDirty
+      ) {
+        merged.anchor_milestones = defaultMilestones(merged.capital);
+      }
+      return merged;
+    });
+    onChange(next);
+  }
+
+  function updateMilestone(idx: number, mIdx: number, value: number) {
+    const next = allocations.map((a, i) => {
+      if (i !== idx) return a;
+      const milestones = (a.anchor_milestones ?? defaultMilestones(a.capital)).slice();
+      milestones[mIdx] = Math.max(0, value);
+      return { ...a, anchor_milestones: milestones, milestonesDirty: true };
+    });
+    onChange(next);
+  }
+
+  function resetMilestones(idx: number) {
+    const next = allocations.map((a, i) =>
+      i === idx
+        ? { ...a, anchor_milestones: defaultMilestones(a.capital), milestonesDirty: false }
+        : a,
+    );
     onChange(next);
   }
 
@@ -496,6 +553,41 @@ function StepAllocation({
               placeholder="Vốn ($)"
               className="h-11 text-base"
             />
+            {a.capital > 0 && (
+              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Mốc neo
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => resetMilestones(i)}
+                    className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Reset auto
+                  </button>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {(a.anchor_milestones ?? defaultMilestones(a.capital)).map((m, mIdx) => (
+                    <div key={mIdx} className="space-y-1">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center">
+                        M{mIdx + 1}
+                      </div>
+                      <input
+                        type="number"
+                        min={0}
+                        value={m}
+                        onChange={(e) => updateMilestone(i, mIdx, Number(e.target.value) || 0)}
+                        className="w-full rounded-md border border-input bg-card px-1 py-1.5 text-center text-xs font-bold tabular-nums focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 outline-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] italic text-muted-foreground/80">
+                  Mặc định 100/80/64/51.2/41% vốn. Có thể chỉnh tay.
+                </p>
+              </div>
+            )}
           </div>
         ))}
       </div>
