@@ -17,8 +17,9 @@ import { supabase } from "@/lib/supabase";
 import { useCurrentUser, signOut } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { hasMoneyMachineAccess } from "@/lib/co-may/mock-data";
 import { getNavConfig, type NavItem } from "./sidebar-nav-config";
+
+
 
 function isItemActive(item: NavItem, pathname: string): boolean {
   // Dashboard root pages match exact only
@@ -41,7 +42,6 @@ export function Sidebar() {
   const { items, role, fallbackRole } = getNavConfig(pathname);
   const currentUser = useCurrentUser(fallbackRole);
   const [hasEnrollment, setHasEnrollment] = useState(true);
-  const [hasMmAccess, setHasMmAccess] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   // Auto-expand any branch whose descendant is active
@@ -73,14 +73,6 @@ export function Sidebar() {
     checkEnrollment();
   }, [currentUser, fallbackRole]);
 
-  useEffect(() => {
-    if (!currentUser) {
-      setHasMmAccess(false);
-      return;
-    }
-    setHasMmAccess(hasMoneyMachineAccess(currentUser.id, currentUser.role));
-  }, [currentUser]);
-
   const isStudent = fallbackRole === "student";
 
   const handleSignOut = () => {
@@ -110,9 +102,8 @@ export function Sidebar() {
 
   function renderNavItem(item: NavItem, depth = 0): React.ReactNode {
     const isLockedByEnrollment = isStudent && !hasEnrollment && item.requiresEnrollment;
-    const isLockedByMm = item.requiresMoneyMachineAccess && !hasMmAccess;
     const isLocked = isLockedByEnrollment;
-    const showLockBadge = isLockedByEnrollment || isLockedByMm;
+    const showLockBadge = isLockedByEnrollment;
     const active = isItemActive(item, pathname);
     const branchActive = isBranchActive(item, pathname);
     const hasChildren = !!item.children?.length;
