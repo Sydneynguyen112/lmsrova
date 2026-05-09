@@ -10,7 +10,7 @@ export interface Profile {
   full_name: string;
   email: string;
   phone: string | null;
-  role: "admin" | "mentor" | "student";
+  role: "admin" | "mentor" | "student" | "super_admin";
   mentor_id: string | null;
   avatar_url: string | null;
   classification: string | null;
@@ -19,13 +19,6 @@ export interface Profile {
   last_active_date: string;
   created_at: string;
 }
-
-// Default emails per role for dev fallback
-const DEFAULT_EMAIL_BY_ROLE: Record<string, string> = {
-  admin: "nguyennhunguyen112@gmail.com",
-  mentor: "nguyennhunguyen112@gmail.com",
-  student: "khangvyvy@gmail.com",
-};
 
 export function signIn(userId: string) {
   if (typeof window === "undefined") return;
@@ -142,16 +135,15 @@ export async function ensureProfile(): Promise<{ profile: Profile; isNewUser: bo
 
 /**
  * Hook to get the currently logged-in user from Supabase.
- * Checks: Supabase Auth session → localStorage → fallback role.
+ * Checks: Supabase Auth session → localStorage. Trả null nếu chưa đăng nhập.
  */
-export function useCurrentUser(fallbackRole: string | null = null): Profile | null {
+export function useCurrentUser(_fallbackRole: string | null = null): Profile | null {
   const [user, setUser] = useState<Profile | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      // 1. Check Supabase Auth session
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser?.email && !cancelled) {
         const { data } = await supabase
@@ -166,7 +158,6 @@ export function useCurrentUser(fallbackRole: string | null = null): Profile | nu
         }
       }
 
-      // 2. Try stored ID from localStorage
       const storedId = getStoredUserId();
       if (storedId) {
         const { data } = await supabase
@@ -178,23 +169,7 @@ export function useCurrentUser(fallbackRole: string | null = null): Profile | nu
           setUser(data as Profile);
           return;
         }
-      }
-
-      // 3. Fallback: load by default email for role (dev only)
-      if (fallbackRole) {
-        const email = DEFAULT_EMAIL_BY_ROLE[fallbackRole];
-        if (email) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("email", email)
-            .single();
-          if (!cancelled && data) {
-            localStorage.setItem(STORAGE_KEY, data.id);
-            setUser(data as Profile);
-            return;
-          }
-        }
+        localStorage.removeItem(STORAGE_KEY);
       }
 
       if (!cancelled) setUser(null);
@@ -220,7 +195,7 @@ export function useCurrentUser(fallbackRole: string | null = null): Profile | nu
         window.removeEventListener("rova:profile-updated", onProfileUpdate);
       }
     };
-  }, [fallbackRole]);
+  }, []);
 
   return user;
 }

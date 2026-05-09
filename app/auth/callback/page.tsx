@@ -24,7 +24,7 @@ export default function AuthCallbackPage() {
 
         if (isNewUser && profile.role === "student") {
           router.push("/onboarding");
-        } else if (profile.role === "admin") router.push("/admin");
+        } else if (profile.role === "admin" || profile.role === "super_admin") router.push("/admin");
         else if (profile.role === "mentor") router.push("/mentor");
         else router.push("/student");
       } catch {

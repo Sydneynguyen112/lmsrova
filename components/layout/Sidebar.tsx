@@ -17,7 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { useCurrentUser, signOut } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { getNavConfig, type NavItem } from "./sidebar-nav-config";
+import { getNavConfig, adminNav, type NavItem } from "./sidebar-nav-config";
 
 
 
@@ -39,8 +39,13 @@ export function Sidebar() {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { items, role, fallbackRole } = getNavConfig(pathname);
-  const currentUser = useCurrentUser(fallbackRole);
+  const navConfig = getNavConfig(pathname);
+  const currentUser = useCurrentUser(navConfig.fallbackRole);
+  // Admin/super_admin LUÔN giữ admin sidebar
+  const isAdminRole = currentUser?.role === "admin" || currentUser?.role === "super_admin";
+  const items = isAdminRole ? adminNav : navConfig.items;
+  const role = isAdminRole ? "Admin" : navConfig.role;
+  const fallbackRole = navConfig.fallbackRole;
   const [hasEnrollment, setHasEnrollment] = useState(true);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 

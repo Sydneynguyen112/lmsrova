@@ -31,7 +31,7 @@ export default function SignInPage() {
 
     setLoading(false);
 
-    if (profile.role === "admin") router.push("/admin");
+    if (profile.role === "admin" || profile.role === "super_admin") router.push("/admin");
     else if (profile.role === "mentor") router.push("/mentor");
     else router.push("/student");
   };
