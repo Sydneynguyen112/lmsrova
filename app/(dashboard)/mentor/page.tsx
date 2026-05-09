@@ -19,6 +19,7 @@ import Link from "next/link";
 import {
   users,
   assignments,
+  userNotes,
   getStudentsByMentor,
   getUngradedSubmissions,
   getAvgRating,
@@ -73,10 +74,19 @@ interface YesterdayStudentActivity {
   classification: string | null;
   riskTag: string | null;
   progressPct: number;
+  latestMentorNote: string | null;
+  lastInteractionAt: string | null;
   actions: { action: string; time: string }[];
 }
 
-function getYesterdayActivity(studentIds: Set<string>) {
+function getLatestNoteByMentor(studentId: string, mentorId: string) {
+  const note = userNotes
+    .filter((n) => n.user_id === studentId && n.author_id === mentorId)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  return note ? { content: note.content, created_at: note.created_at } : { content: null as string | null, created_at: null as string | null };
+}
+
+function getYesterdayActivity(studentIds: Set<string>, mentorId: string | null) {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yKey = yesterday.toISOString().split("T")[0];
@@ -92,6 +102,7 @@ function getYesterdayActivity(studentIds: Set<string>) {
     if (!studentMap.has(s.user_id)) {
       const student = users.find((u) => u.id === s.user_id);
       const enrollment = getEnrollmentsByUser(s.user_id).find((e) => e.status === "active");
+      const latestNote = mentorId ? getLatestNoteByMentor(s.user_id, mentorId) : { content: null, created_at: null };
       studentMap.set(s.user_id, {
         userId: s.user_id,
         name: student?.full_name || "Học viên",
@@ -100,6 +111,8 @@ function getYesterdayActivity(studentIds: Set<string>) {
         classification: student?.classification || null,
         riskTag: student?.risk_tag || null,
         progressPct: enrollment?.progress_pct || 0,
+        latestMentorNote: latestNote.content,
+        lastInteractionAt: latestNote.created_at,
         actions: [],
       });
     }
@@ -156,7 +169,7 @@ export default function MentorDashboardPage() {
   const watchCount = allStudents.filter((s) => s.risk_tag === "watch").length;
 
   // Yesterday activity
-  const { students: yesterdayStudents, activeCount: yesterdayActiveCount } = getYesterdayActivity(mentorStudentIds);
+  const { students: yesterdayStudents, activeCount: yesterdayActiveCount } = getYesterdayActivity(mentorStudentIds, mockMentorId);
 
   return (
     <PageTransition>
@@ -239,6 +252,8 @@ export default function MentorDashboardPage() {
                         <TableHead>Phân loại</TableHead>
                         <TableHead>Tiến độ</TableHead>
                         <TableHead>Trạng thái</TableHead>
+                        <TableHead>Ghi chú gần nhất</TableHead>
+                        <TableHead>Tương tác cuối</TableHead>
                         <TableHead>Hoạt động</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -279,6 +294,18 @@ export default function MentorDashboardPage() {
                             <Badge variant="outline" className={riskStyles[s.riskTag || "normal"]}>
                               {riskLabels[s.riskTag || "normal"]}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[260px]">
+                            {s.latestMentorNote ? (
+                              <p className="text-xs text-foreground line-clamp-2" title={s.latestMentorNote}>
+                                {s.latestMentorNote}
+                              </p>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground italic">Chưa có ghi chú</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-[11px] text-muted-foreground whitespace-nowrap">
+                            {s.lastInteractionAt ? formatRelativeTime(s.lastInteractionAt) : <span className="italic">—</span>}
                           </TableCell>
                           <TableCell>
                             <div className="space-y-1 min-w-[200px]">

@@ -18,6 +18,7 @@ import {
   users as mockUsers,
   courses as mockCourses,
   enrollments as mockEnrollments,
+  userNotes,
   getAtRiskStudents,
   getUngradedSubmissions,
   getRecentSubmissions,
@@ -67,7 +68,17 @@ interface YesterdayStudentActivity {
   classification: string | null;
   riskTag: string | null;
   progressPct: number;
+  latestMentorNote: string | null;
+  lastInteractionAt: string | null;
   actions: { action: string; time: string }[];
+}
+
+function getLatestMentorNote(studentId: string, mentorId: string | null) {
+  if (!mentorId) return { content: null as string | null, created_at: null as string | null };
+  const note = userNotes
+    .filter((n) => n.user_id === studentId && n.author_id === mentorId)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  return note ? { content: note.content, created_at: note.created_at } : { content: null, created_at: null };
 }
 
 function getYesterdayActivity() {
@@ -86,6 +97,7 @@ function getYesterdayActivity() {
       const student = mockUsers.find((u) => u.id === s.user_id);
       const mentor = student?.mentor_id ? mockUsers.find((u) => u.id === student.mentor_id) : null;
       const enrollment = getEnrollmentsByUser(s.user_id).find((e) => e.status === "active");
+      const latestNote = getLatestMentorNote(s.user_id, student?.mentor_id ?? null);
       studentMap.set(s.user_id, {
         userId: s.user_id,
         name: student?.full_name || "Học viên",
@@ -95,6 +107,8 @@ function getYesterdayActivity() {
         classification: student?.classification || null,
         riskTag: student?.risk_tag || null,
         progressPct: enrollment?.progress_pct || 0,
+        latestMentorNote: latestNote.content,
+        lastInteractionAt: latestNote.created_at,
         actions: [],
       });
     }
@@ -230,6 +244,8 @@ export default function AdminDashboardPage() {
                         <TableHead>Phân loại</TableHead>
                         <TableHead>Tiến độ</TableHead>
                         <TableHead>Trạng thái</TableHead>
+                        <TableHead>Ghi chú mentor</TableHead>
+                        <TableHead>Tương tác cuối</TableHead>
                         <TableHead>Hoạt động</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -270,6 +286,18 @@ export default function AdminDashboardPage() {
                             <Badge variant="outline" className={riskStyles[s.riskTag || "normal"]}>
                               {riskLabels[s.riskTag || "normal"]}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[260px]">
+                            {s.latestMentorNote ? (
+                              <p className="text-xs text-foreground line-clamp-2" title={s.latestMentorNote}>
+                                {s.latestMentorNote}
+                              </p>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground italic">Chưa có ghi chú</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-[11px] text-muted-foreground whitespace-nowrap">
+                            {s.lastInteractionAt ? formatRelativeTime(s.lastInteractionAt) : <span className="italic">—</span>}
                           </TableCell>
                           <TableCell>
                             <div className="space-y-1 min-w-[200px]">
