@@ -284,11 +284,8 @@ export default function MentorDashboardPage() {
                               {classificationLabels[s.classification || "newbie"]}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2 min-w-[100px]">
-                              <Progress value={s.progressPct} className="flex-1" />
-                              <span className="text-xs text-muted-foreground w-8 text-right">{s.progressPct}%</span>
-                            </div>
+                          <TableCell className="text-sm font-medium text-foreground tabular-nums whitespace-nowrap">
+                            {s.progressPct}%
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={riskStyles[s.riskTag || "normal"]}>
@@ -313,9 +310,6 @@ export default function MentorDashboardPage() {
                                 <div key={i} className="flex items-center gap-1.5">
                                   <FileText className="h-3 w-3 text-gold shrink-0" />
                                   <span className="text-xs text-foreground">{act.action}</span>
-                                  <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                                    {formatRelativeTime(act.time)}
-                                  </span>
                                 </div>
                               ))}
                             </div>
