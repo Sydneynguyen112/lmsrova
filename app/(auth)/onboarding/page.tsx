@@ -229,13 +229,31 @@ export default function OnboardingPage() {
     try {
       const userId = getStoredUserId();
       if (userId) {
+        // Build full survey object — scored q lưu {score, answer}, text q lưu string
+        const surveyAnswers: Record<string, { score: number; answer: string } | string> = {};
+        for (const q of questions) {
+          const v = answers[q.id];
+          if (q.type === "scored" && typeof v === "number") {
+            const opt = q.options.find((o) => o.score === v);
+            surveyAnswers[q.id] = { score: v, answer: opt?.label ?? "" };
+          } else if (q.type === "text" && typeof v === "string") {
+            surveyAnswers[q.id] = v;
+          }
+        }
+        const onboarding_survey = {
+          answers: surveyAnswers,
+          total_score: totalScore,
+          has_any_one: hasAnyOne,
+          classification,
+          completed_at: new Date().toISOString(),
+        };
         await supabase
           .from("profiles")
-          .update({ classification })
+          .update({ classification, onboarding_survey })
           .eq("id", userId);
       }
     } catch (err) {
-      console.error("Failed to save classification:", err);
+      console.error("Failed to save onboarding survey:", err);
     }
     router.push("/student");
   };

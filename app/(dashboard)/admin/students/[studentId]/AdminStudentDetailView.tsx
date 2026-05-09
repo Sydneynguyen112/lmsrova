@@ -112,7 +112,10 @@ export function AdminStudentDetailView({ studentId }: Props) {
   const enrollmentList = getEnrollmentsByUser(student.id);
   const submissionList = getSubmissionsByUser(student.id);
   const notes = getNotesByUser(student.id);
-  const survey = getOnboardingSurveyByUser(student.id);
+  // Mock student → đọc từ mock fixture; DB student → đọc từ profiles.onboarding_survey
+  const survey = mockStudent
+    ? getOnboardingSurveyByUser(student.id)
+    : dbStudent?.onboarding_survey ?? null;
   const initials = student.full_name.split(" ").map((n) => n[0]).join("").slice(-2);
 
   const handleAddNote = () => {

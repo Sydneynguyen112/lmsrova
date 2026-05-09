@@ -18,6 +18,15 @@ export interface Profile {
   discord_handle: string | null;
   last_active_date: string;
   created_at: string;
+  onboarding_survey?: OnboardingSurvey | null;
+}
+
+export interface OnboardingSurvey {
+  answers: Record<string, { score: number; answer: string } | string>;
+  total_score: number;
+  has_any_one: boolean;
+  classification: string;
+  completed_at: string;
 }
 
 export function signIn(userId: string) {

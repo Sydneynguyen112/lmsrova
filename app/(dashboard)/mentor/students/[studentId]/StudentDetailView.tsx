@@ -128,7 +128,9 @@ export function StudentDetailView({ studentId }: Props) {
   const enrollmentList = getEnrollmentsByUser(student.id);
   const submissionList = getSubmissionsByUser(student.id);
   const notes = getNotesByUser(student.id);
-  const survey = getOnboardingSurveyByUser(student.id);
+  const survey = mockStudent
+    ? getOnboardingSurveyByUser(student.id)
+    : dbStudent?.onboarding_survey ?? null;
   const initials = student.full_name
     .split(" ")
     .map((n) => n[0])
