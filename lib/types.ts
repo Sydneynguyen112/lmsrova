@@ -1,5 +1,5 @@
-// ===== ROVA LMS TypeScript Types =====
-// Derived from mock-data.ts schema
+﻿// ===== ROVA LMS TypeScript Types =====
+// Derived from Supabase schema (supabase-setup.sql)
 
 export type Role = "admin" | "mentor" | "student";
 export type Classification = "newbie" | "beginner" | "intermediate" | "advanced";

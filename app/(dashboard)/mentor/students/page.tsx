@@ -1,16 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
 import Link from "next/link";
-import {
-  getStudentsByMentor,
-  getEnrollmentsByUser,
-  getCourseById,
-} from "@/lib/mock-data";
+import { getStudentsByMentor } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { formatDate } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
+import type { Profile } from "@/lib/auth";
+import type { Course } from "@/lib/types";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -63,19 +62,48 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
+interface EnrollmentItem {
+  id: string;
+  user_id: string;
+  course_id: string;
+  status: string;
+  progress_pct: number;
+}
+
 export default function MentorStudentsPage() {
   const currentUser = useCurrentUser("mentor");
   const [search, setSearch] = useState("");
+  const [students, setStudents] = useState<Profile[]>([]);
+  const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!currentUser) {
+  useEffect(() => {
+    if (!currentUser) return;
+    async function load() {
+      const s = await getStudentsByMentor(currentUser!.id);
+      setStudents(s as Profile[]);
+      const ids = s.map((st) => st.id);
+      if (ids.length > 0) {
+        const [{ data: e }, { data: c }] = await Promise.all([
+          supabase.from("enrollments").select("*").in("user_id", ids),
+          supabase.from("courses").select("*"),
+        ]);
+        if (e) setEnrollments(e as EnrollmentItem[]);
+        if (c) setCourses(c as Course[]);
+      }
+      setLoading(false);
+    }
+    load();
+  }, [currentUser]);
+
+  if (!currentUser || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
       </div>
     );
   }
-
-  const students = getStudentsByMentor(currentUser.id);
 
   const filtered = students.filter((s) =>
     s.full_name.toLowerCase().includes(search.toLowerCase())
@@ -138,7 +166,7 @@ export default function MentorStudentsPage() {
                   </TableRow>
                 ) : (
                   filtered.map((student) => {
-                    const enrollmentList = getEnrollmentsByUser(student.id);
+                    const enrollmentList = enrollments.filter((e) => e.user_id === student.id);
                     const activeEnrollment = enrollmentList.find(
                       (e) => e.status === "active"
                     );
@@ -146,7 +174,7 @@ export default function MentorStudentsPage() {
                       ? activeEnrollment.progress_pct
                       : 0;
                     const course = activeEnrollment
-                      ? getCourseById(activeEnrollment.course_id)
+                      ? courses.find((c) => c.id === activeEnrollment.course_id)
                       : null;
                     const initials = student.full_name
                       .split(" ")

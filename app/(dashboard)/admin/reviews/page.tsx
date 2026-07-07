@@ -1,14 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star } from "lucide-react";
-import { users, mentorReviews, getAvgRating } from "@/lib/mock-data";
-import { formatDate } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import type { Profile } from "@/lib/auth";
+import { formatDate, cn } from "@/lib/utils";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+
+interface DbReview {
+  id: string;
+  mentor_id: string;
+  student_id: string;
+  rating: number;
+  feedback: string;
+  created_at: string;
+}
 
 const container = {
   hidden: { opacity: 0 },
@@ -47,15 +56,46 @@ function getInitials(name: string) {
 }
 
 export default function AdminReviewsPage() {
-  const mentors = users.filter((u) => u.role === "mentor");
+  const [users, setUsers] = useState<Profile[]>([]);
+  const [reviews, setReviews] = useState<DbReview[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedMentorId, setSelectedMentorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      const [{ data: usersData }, { data: reviewsData }] = await Promise.all([
+        supabase.from("profiles").select("*"),
+        supabase.from("mentor_reviews").select("*"),
+      ]);
+      if (usersData) setUsers(usersData as Profile[]);
+      if (reviewsData) setReviews(reviewsData as DbReview[]);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const mentors = users.filter((u) => u.role === "mentor");
+
+  function getAvgRating(mentorId: string) {
+    const list = reviews.filter((r) => r.mentor_id === mentorId);
+    if (list.length === 0) return 0;
+    return Math.round((list.reduce((sum, r) => sum + r.rating, 0) / list.length) * 10) / 10;
+  }
 
   const selectedMentor = mentors.find((m) => m.id === selectedMentorId);
   const filteredReviews = selectedMentorId
-    ? [...mentorReviews]
+    ? [...reviews]
         .filter((r) => r.mentor_id === selectedMentorId)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     : [];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-muted-foreground">Đang tải...</div>
+      </div>
+    );
+  }
 
   return (
     <PageTransition>
@@ -81,7 +121,7 @@ export default function AdminReviewsPage() {
         >
           {mentors.map((mentor) => {
             const avg = getAvgRating(mentor.id);
-            const count = mentorReviews.filter(
+            const count = reviews.filter(
               (r) => r.mentor_id === mentor.id
             ).length;
             const isSelected = selectedMentorId === mentor.id;

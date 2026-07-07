@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileCheck,
@@ -13,14 +13,20 @@ import {
   Circle,
 } from "lucide-react";
 import {
-  users,
   getStudentsByMentor,
   getUngradedSubmissions,
   getSubmissionsByUser,
   getAssignmentsByCourse,
-} from "@/lib/mock-data";
+  gradeSubmission,
+} from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
+import type { Profile } from "@/lib/auth";
+import type { Assignment as AssignmentBase, Submission } from "@/lib/types";
+
+// lib/types.ts Assignment thiếu order_index (cột thật trong DB) — bổ sung local
+type Assignment = AssignmentBase & { order_index: number };
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,8 +42,52 @@ export default function MentorSubmissionsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [feedbacks, setFeedbacks] = useState<Record<string, string>>({});
   const [gradedIds, setGradedIds] = useState<Set<string>>(new Set());
+  const [students, setStudents] = useState<Profile[]>([]);
+  const [proAssignments, setProAssignments] = useState<Assignment[]>([]);
+  const [mentorUngraded, setMentorUngraded] = useState<Submission[]>([]);
+  const [studentSubmissions, setStudentSubmissions] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!currentUser) {
+  useEffect(() => {
+    if (!currentUser) return;
+    async function load() {
+      const s = await getStudentsByMentor(currentUser!.id);
+      setStudents(s as Profile[]);
+
+      // Tìm khoá "PRO" theo title (không hardcode id mock)
+      const { data: proCourse } = await supabase
+        .from("courses")
+        .select("id")
+        .ilike("title", "%PRO%")
+        .limit(1)
+        .maybeSingle();
+      if (proCourse) {
+        const a = await getAssignmentsByCourse(proCourse.id);
+        setProAssignments(a as Assignment[]);
+      }
+
+      const allUngraded = await getUngradedSubmissions();
+      const mentorStudentIds = new Set(s.map((st) => st.id));
+      setMentorUngraded((allUngraded as Submission[]).filter((sub) => mentorStudentIds.has(sub.user_id)));
+
+      setLoading(false);
+    }
+    load();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!selectedStudentId) {
+      setStudentSubmissions([]);
+      return;
+    }
+    async function loadSubs() {
+      const subs = await getSubmissionsByUser(selectedStudentId!);
+      setStudentSubmissions(subs as Submission[]);
+    }
+    loadSubs();
+  }, [selectedStudentId]);
+
+  if (!currentUser || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
@@ -45,18 +95,11 @@ export default function MentorSubmissionsPage() {
     );
   }
 
-  const students = getStudentsByMentor(currentUser.id);
-  const proAssignments = getAssignmentsByCourse("c-pro");
-  const allUngraded = getUngradedSubmissions();
-  const mentorStudentIds = new Set(students.map((s) => s.id));
-  const mentorUngraded = allUngraded.filter((s) => mentorStudentIds.has(s.user_id));
-
   const studentsWithUngraded = students.filter((s) =>
     mentorUngraded.some((sub) => sub.user_id === s.id)
   );
 
   const selectedStudent = students.find((s) => s.id === selectedStudentId);
-  const studentSubmissions = selectedStudentId ? getSubmissionsByUser(selectedStudentId) : [];
 
   function getSubsForAssignment(assignmentId: string) {
     return studentSubmissions
@@ -64,17 +107,21 @@ export default function MentorSubmissionsPage() {
       .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
   }
 
-  function handleGradeOne(subId: string) {
+  async function handleGradeOne(subId: string) {
     const fb = feedbacks[subId];
     if (!fb?.trim()) return;
-    console.log("Grade:", { submission_id: subId, feedback: fb });
-    setGradedIds((prev) => new Set(prev).add(subId));
+    try {
+      await gradeSubmission(subId, fb);
+      setGradedIds((prev) => new Set(prev).add(subId));
+      setMentorUngraded((prev) => prev.filter((s) => s.id !== subId));
+    } catch (err) {
+      console.error("Grade submission failed:", err);
+    }
   }
 
-  function handleGradeAll() {
-    Object.entries(feedbacks)
-      .filter(([id, fb]) => fb.trim() && !gradedIds.has(id))
-      .forEach(([id]) => handleGradeOne(id));
+  async function handleGradeAll() {
+    const toGrade = Object.entries(feedbacks).filter(([id, fb]) => fb.trim() && !gradedIds.has(id));
+    await Promise.all(toGrade.map(([id]) => handleGradeOne(id)));
   }
 
   const pendingCount = Object.entries(feedbacks).filter(

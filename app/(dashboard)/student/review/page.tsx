@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Star, Send, CheckCircle2 } from "lucide-react";
-import { users, getReviewsByMentor } from "@/lib/mock-data";
+import { getReviewsByMentor, createReview } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { useCurrentUser } from "@/lib/auth";
+import { useCurrentUser, type Profile } from "@/lib/auth";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { LockedFeature } from "@/components/shared/LockedFeature";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,15 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
+interface MentorReviewRow {
+  id: string;
+  mentor_id: string;
+  student_id: string;
+  rating: number;
+  feedback: string;
+  created_at: string;
+}
+
 export default function StudentReviewPage() {
   const currentUser = useCurrentUser("student");
   const [rating, setRating] = useState(0);
@@ -30,6 +39,8 @@ export default function StudentReviewPage() {
   const [feedback, setFeedback] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [hasEnrollment, setHasEnrollment] = useState<boolean | null>(null);
+  const [mentor, setMentor] = useState<Profile | null>(null);
+  const [mentorReviews, setMentorReviews] = useState<MentorReviewRow[]>([]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -40,6 +51,15 @@ export default function StudentReviewPage() {
         .eq("user_id", currentUser!.id)
         .limit(1);
       setHasEnrollment((data ?? []).length > 0);
+
+      if (currentUser!.mentor_id) {
+        const [{ data: m }, reviews] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", currentUser!.mentor_id).single(),
+          getReviewsByMentor(currentUser!.mentor_id),
+        ]);
+        setMentor((m as Profile) ?? null);
+        setMentorReviews(reviews as MentorReviewRow[]);
+      }
     }
     check();
   }, [currentUser]);
@@ -61,27 +81,27 @@ export default function StudentReviewPage() {
     );
   }
 
-  const mentor = users.find((u) => u.id === currentUser.mentor_id);
   const mentorInitials = mentor
     ? mentor.full_name.split(" ").map((n) => n[0]).join("").slice(-2)
     : "?";
 
   // Check if student already reviewed this mentor
   const existingReviews = mentor
-    ? getReviewsByMentor(mentor.id).filter((r) => r.student_id === currentUser.id)
+    ? mentorReviews.filter((r) => r.student_id === currentUser.id)
     : [];
   const hasReviewed = existingReviews.length > 0;
   const lastReview = hasReviewed ? existingReviews[existingReviews.length - 1] : null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (rating === 0 || !feedback.trim()) return;
-    console.log("Submit review:", {
-      mentor_id: mentor?.id,
+    if (rating === 0 || !feedback.trim() || !mentor) return;
+    const review = await createReview({
+      mentor_id: mentor.id,
       student_id: currentUser.id,
       rating,
       feedback,
     });
+    setMentorReviews((prev) => [review as MentorReviewRow, ...prev]);
     setSubmitted(true);
   };
 

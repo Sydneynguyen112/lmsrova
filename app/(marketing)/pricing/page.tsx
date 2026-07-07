@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { Check, Star } from "lucide-react";
 import Link from "next/link";
-import { courses } from "@/lib/mock-data";
 import { formatPrice } from "@/lib/utils";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { staggerContainer, fadeInUp } from "@/components/shared/ScrollReveal";
@@ -15,6 +14,30 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+
+interface StaticCourse {
+  id: string;
+  title: string;
+  description: string;
+  price: number | string;
+}
+
+const STATIC_COURSES: Record<string, StaticCourse> = {
+  "c-pro": {
+    id: "c-pro",
+    title: "Khoá 3 Hộp PRO",
+    description:
+      "Khóa học nền tảng giúp bạn hiểu từ A-Z về giao dịch: từ cách đọc biểu đồ, vẽ trendline, xác định vùng cung cầu, đến quản lý rủi ro và tâm lý trading. 12 video ngắn gọn dưới 15 phút, dễ học mỗi ngày.",
+    price: 7990000,
+  },
+  "c-coaching": {
+    id: "c-coaching",
+    title: "Khoá Coaching Nâng Cao",
+    description:
+      "Dành cho học viên đã hoàn thành Khoá PRO. Đi sâu vào chiến lược giao dịch nâng cao, tối ưu hệ thống, quản trị danh mục và tâm lý giao dịch chuyên nghiệp. Được mentor 1:1 sửa bài hàng ngày.",
+    price: "Nhận tư vấn",
+  },
+};
 
 const plans = [
   {
@@ -96,7 +119,7 @@ export default function PricingPage() {
             className="grid md:grid-cols-2 gap-6 lg:gap-8"
           >
             {plans.map((plan) => {
-              const course = courses.find((c) => c.id === plan.courseId)!;
+              const course = STATIC_COURSES[plan.courseId];
               return (
                 <motion.div
                   key={plan.courseId}

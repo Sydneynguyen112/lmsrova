@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sprout,
@@ -12,9 +12,10 @@ import {
   Mic,
   BookOpen,
 } from "lucide-react";
-import { getPublishedPosts, getCommentsByPost, users } from "@/lib/mock-data";
+import { getPublishedPosts, getCommentsByPost, createComment } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
-import { useCurrentUser } from "@/lib/auth";
+import { useCurrentUser, type Profile } from "@/lib/auth";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,15 +32,95 @@ const item = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
+interface BlogPostRow {
+  id: string;
+  title: string;
+  type: string;
+  summary: string | null;
+  content: string | null;
+  cover_url: string | null;
+  author_id: string | null;
+  published: boolean;
+  likes: number;
+  created_at: string;
+}
+
+interface BlogCommentRow {
+  id: string;
+  post_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
 export default function StudentBlogPage() {
-  const posts = getPublishedPosts();
   const currentUser = useCurrentUser("student");
+  const [posts, setPosts] = useState<BlogPostRow[]>([]);
+  const [authors, setAuthors] = useState<Record<string, Profile>>({});
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [commentText, setCommentText] = useState("");
+  const [comments, setComments] = useState<BlogCommentRow[]>([]);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    async function load() {
+      const data = (await getPublishedPosts()) as BlogPostRow[];
+      setPosts(data);
+
+      const authorIds = Array.from(new Set(data.map((p) => p.author_id).filter(Boolean))) as string[];
+      if (authorIds.length > 0) {
+        const { data: profiles } = await supabase.from("profiles").select("*").in("id", authorIds);
+        if (profiles) {
+          const map: Record<string, Profile> = {};
+          for (const p of profiles as Profile[]) map[p.id] = p;
+          setAuthors(map);
+        }
+      }
+
+      if (data.length > 0) {
+        const { data: allComments } = await supabase
+          .from("blog_comments")
+          .select("post_id")
+          .in("post_id", data.map((p) => p.id));
+        const counts: Record<string, number> = {};
+        for (const c of allComments ?? []) {
+          counts[c.post_id] = (counts[c.post_id] ?? 0) + 1;
+        }
+        setCommentCounts(counts);
+      }
+    }
+    load();
+  }, []);
 
   const selectedPost = posts.find((p) => p.id === selectedPostId);
-  const comments = selectedPostId ? getCommentsByPost(selectedPostId) : [];
+
+  useEffect(() => {
+    if (!selectedPostId) {
+      setComments([]);
+      return;
+    }
+    async function loadComments() {
+      const data = (await getCommentsByPost(selectedPostId!)) as BlogCommentRow[];
+      setComments(data);
+
+      const commenterIds = Array.from(new Set(data.map((c) => c.user_id))).filter(
+        (id) => !authors[id]
+      );
+      if (commenterIds.length > 0) {
+        const { data: profiles } = await supabase.from("profiles").select("*").in("id", commenterIds);
+        if (profiles) {
+          setAuthors((prev) => {
+            const next = { ...prev };
+            for (const p of profiles as Profile[]) next[p.id] = p;
+            return next;
+          });
+        }
+      }
+    }
+    loadComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPostId]);
 
   const toggleLike = (postId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -51,10 +132,16 @@ export default function StudentBlogPage() {
     });
   };
 
-  const handleComment = (e: React.FormEvent) => {
+  const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
-    console.log("New comment:", { post_id: selectedPostId, content: commentText });
+    if (!commentText.trim() || !currentUser || !selectedPostId) return;
+    const created = await createComment({
+      post_id: selectedPostId,
+      user_id: currentUser.id,
+      content: commentText,
+    });
+    setComments((prev) => [...prev, created as BlogCommentRow]);
+    setCommentCounts((prev) => ({ ...prev, [selectedPostId]: (prev[selectedPostId] ?? 0) + 1 }));
     setCommentText("");
   };
 
@@ -97,7 +184,7 @@ export default function StudentBlogPage() {
               {/* Cover */}
               <div className="relative aspect-[2/1] rounded-xl overflow-hidden bg-muted">
                 <img
-                  src={selectedPost.cover_url}
+                  src={selectedPost.cover_url ?? ""}
                   alt={selectedPost.title}
                   className="w-full h-full object-cover"
                 />
@@ -129,7 +216,7 @@ export default function StudentBlogPage() {
                   <Calendar className="h-3.5 w-3.5" />
                   {formatDate(selectedPost.created_at)}
                   <span>•</span>
-                  {users.find((u) => u.id === selectedPost.author_id)?.full_name ?? "ROVA"}
+                  {(selectedPost.author_id && authors[selectedPost.author_id]?.full_name) ?? "ROVA"}
                 </div>
                 <button
                   onClick={(e) => toggleLike(selectedPost.id, e)}
@@ -168,7 +255,7 @@ export default function StudentBlogPage() {
                   {comments.length > 0 && (
                     <div className="space-y-3">
                       {comments.map((comment) => {
-                        const commenter = users.find((u) => u.id === comment.user_id);
+                        const commenter = authors[comment.user_id];
                         const initials = commenter
                           ? commenter.full_name.split(" ").map((n) => n[0]).join("").slice(-2)
                           : "?";
@@ -238,7 +325,7 @@ export default function StudentBlogPage() {
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
             >
               {posts.map((post) => {
-                const commentCount = getCommentsByPost(post.id).length;
+                const commentCount = commentCounts[post.id] ?? 0;
                 const isLiked = likedPosts.has(post.id);
 
                 return (
@@ -253,7 +340,7 @@ export default function StudentBlogPage() {
                       {/* Thumbnail */}
                       <div className="relative aspect-[3/2] overflow-hidden bg-muted">
                         <img
-                          src={post.cover_url}
+                          src={post.cover_url ?? undefined}
                           alt={post.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sprout,
@@ -16,13 +16,28 @@ import {
   MessageCircle,
   ImagePlus,
 } from "lucide-react";
-import { getAllPosts, getCommentsByPost, users } from "@/lib/mock-data";
+import { getAllPosts } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
+import type { Profile } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+interface BlogPost {
+  id: string;
+  title: string;
+  type: string;
+  summary: string;
+  content: string;
+  cover_url: string | null;
+  author_id: string;
+  published: boolean;
+  likes: number;
+  created_at: string;
+}
 
 const container = {
   hidden: { opacity: 0 },
@@ -35,7 +50,10 @@ const item = {
 };
 
 export default function AdminBlogPage() {
-  const posts = getAllPosts();
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [authors, setAuthors] = useState<Profile[]>([]);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -45,6 +63,36 @@ export default function AdminBlogPage() {
     cover_url: "",
   });
   const [imagePreview, setImagePreview] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      const postsData = (await getAllPosts()) as BlogPost[];
+      setPosts(postsData);
+
+      const authorIds = Array.from(new Set(postsData.map((p) => p.author_id).filter(Boolean)));
+      const postIds = postsData.map((p) => p.id);
+
+      const [{ data: authorsData }, { data: commentsData }] = await Promise.all([
+        authorIds.length > 0
+          ? supabase.from("profiles").select("*").in("id", authorIds)
+          : Promise.resolve({ data: [] as Profile[] }),
+        postIds.length > 0
+          ? supabase.from("blog_comments").select("post_id").in("post_id", postIds)
+          : Promise.resolve({ data: [] as { post_id: string }[] }),
+      ]);
+
+      if (authorsData) setAuthors(authorsData as Profile[]);
+      if (commentsData) {
+        const counts: Record<string, number> = {};
+        for (const c of commentsData) {
+          counts[c.post_id] = (counts[c.post_id] ?? 0) + 1;
+        }
+        setCommentCounts(counts);
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
 
   const publishedCount = posts.filter((p) => p.published).length;
   const draftCount = posts.filter((p) => !p.published).length;
@@ -62,6 +110,14 @@ export default function AdminBlogPage() {
     setForm({ ...form, cover_url: url });
     setImagePreview(url);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-muted-foreground">Đang tải...</div>
+      </div>
+    );
+  }
 
   return (
     <PageTransition>
@@ -261,8 +317,8 @@ export default function AdminBlogPage() {
         {/* Posts list */}
         <motion.div variants={item} className="space-y-3">
           {posts.map((post, i) => {
-            const author = users.find((u) => u.id === post.author_id);
-            const commentCount = getCommentsByPost(post.id).length;
+            const author = authors.find((u) => u.id === post.author_id);
+            const commentCount = commentCounts[post.id] ?? 0;
 
             return (
               <motion.div
@@ -277,7 +333,7 @@ export default function AdminBlogPage() {
                       {/* Thumbnail */}
                       <div className="w-20 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
                         <img
-                          src={post.cover_url}
+                          src={post.cover_url ?? undefined}
                           alt=""
                           className="w-full h-full object-cover"
                         />

@@ -14,16 +14,6 @@ import {
   FileText,
   AlertTriangle,
 } from "lucide-react";
-import {
-  users as mockUsers,
-  courses as mockCourses,
-  enrollments as mockEnrollments,
-  userNotes,
-  getAtRiskStudents,
-  getUngradedSubmissions,
-  getRecentSubmissions,
-  getEnrollmentsByUser,
-} from "@/lib/mock-data";
 import { cn, formatPrice, formatDate, formatRelativeTime } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/auth";
@@ -73,31 +63,58 @@ interface YesterdayStudentActivity {
   actions: { action: string; time: string }[];
 }
 
-function getLatestMentorNote(studentId: string, mentorId: string | null) {
-  if (!mentorId) return { content: null as string | null, created_at: null as string | null };
-  const note = userNotes
-    .filter((n) => n.user_id === studentId && n.author_id === mentorId)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-  return note ? { content: note.content, created_at: note.created_at } : { content: null, created_at: null };
+interface DbCourse {
+  id: string;
+  title: string;
+  price: number | string | null;
 }
 
-function getYesterdayActivity() {
+interface DbEnrollment {
+  id: string;
+  user_id: string;
+  course_id: string;
+  status: string;
+  progress_pct: number;
+}
+
+interface DbSubmission {
+  id: string;
+  user_id: string;
+  assignment_id: string;
+  submitted_at: string;
+}
+
+interface DbNote {
+  id: string;
+  user_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+}
+
+function buildYesterdayActivity(
+  submissions: DbSubmission[],
+  users: Profile[],
+  enrollments: DbEnrollment[],
+  notes: DbNote[]
+) {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yKey = yesterday.toISOString().split("T")[0];
 
   const studentMap = new Map<string, YesterdayStudentActivity>();
 
-  const recentSubs = getRecentSubmissions();
-  recentSubs.forEach((s) => {
+  submissions.forEach((s) => {
     const sKey = new Date(s.submitted_at).toISOString().split("T")[0];
     if (sKey !== yKey) return;
 
     if (!studentMap.has(s.user_id)) {
-      const student = mockUsers.find((u) => u.id === s.user_id);
-      const mentor = student?.mentor_id ? mockUsers.find((u) => u.id === student.mentor_id) : null;
-      const enrollment = getEnrollmentsByUser(s.user_id).find((e) => e.status === "active");
-      const latestNote = getLatestMentorNote(s.user_id, student?.mentor_id ?? null);
+      const student = users.find((u) => u.id === s.user_id);
+      const mentor = student?.mentor_id ? users.find((u) => u.id === student.mentor_id) : null;
+      const enrollment = enrollments.find((e) => e.user_id === s.user_id && e.status === "active");
+      const latestNote = notes
+        .filter((n) => n.user_id === s.user_id && n.author_id === student?.mentor_id)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
       studentMap.set(s.user_id, {
         userId: s.user_id,
         name: student?.full_name || "Học viên",
@@ -107,12 +124,12 @@ function getYesterdayActivity() {
         classification: student?.classification || null,
         riskTag: student?.risk_tag || null,
         progressPct: enrollment?.progress_pct || 0,
-        latestMentorNote: latestNote.content,
-        lastInteractionAt: latestNote.created_at,
+        latestMentorNote: latestNote?.content ?? null,
+        lastInteractionAt: latestNote?.created_at ?? null,
         actions: [],
       });
     }
-    studentMap.get(s.user_id)!.actions.push({ action: s.action, time: s.submitted_at });
+    studentMap.get(s.user_id)!.actions.push({ action: "Nộp bài tập", time: s.submitted_at });
   });
 
   return { students: Array.from(studentMap.values()), activeCount: studentMap.size };
@@ -120,22 +137,44 @@ function getYesterdayActivity() {
 
 export default function AdminDashboardPage() {
   const [dbUsers, setDbUsers] = useState<Profile[]>([]);
+  const [courses, setCourses] = useState<DbCourse[]>([]);
+  const [enrollments, setEnrollments] = useState<DbEnrollment[]>([]);
+  const [ungradedCount, setUngradedCount] = useState(0);
+  const [recentSubmissions, setRecentSubmissions] = useState<DbSubmission[]>([]);
+  const [notes, setNotes] = useState<DbNote[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (data) setDbUsers(data as Profile[]);
+      const [
+        { data: users },
+        { data: coursesData },
+        { data: enrollmentsData },
+        { data: ungraded },
+        { data: recentSubs },
+        { data: notesData },
+      ] = await Promise.all([
+        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+        supabase.from("courses").select("id, title, price"),
+        supabase.from("enrollments").select("*"),
+        supabase.from("submissions").select("id").is("graded_at", null),
+        supabase.from("submissions").select("id, user_id, assignment_id, submitted_at").order("submitted_at", { ascending: false }).limit(50),
+        supabase.from("user_notes").select("*").order("created_at", { ascending: false }),
+      ]);
+      if (users) setDbUsers(users as Profile[]);
+      if (coursesData) setCourses(coursesData as DbCourse[]);
+      if (enrollmentsData) setEnrollments(enrollmentsData as DbEnrollment[]);
+      setUngradedCount(ungraded?.length ?? 0);
+      if (recentSubs) setRecentSubmissions(recentSubs as DbSubmission[]);
+      if (notesData) setNotes(notesData as DbNote[]);
+      setLoading(false);
     }
     load();
   }, []);
 
   const allStudents = dbUsers.filter((u) => u.role === "student");
   const totalUsers = dbUsers.length;
-  const totalEnrollments = mockEnrollments.length;
-  const ungradedCount = getUngradedSubmissions().length;
+  const totalEnrollments = enrollments.length;
 
   // Risk stats
   const normalCount = allStudents.filter((s) => !s.risk_tag || s.risk_tag === "normal").length;
@@ -144,30 +183,33 @@ export default function AdminDashboardPage() {
 
   // Revenue
   const estimatedRevenue = useMemo(() => {
-    return mockCourses.reduce((total, course) => {
+    return courses.reduce((total, course) => {
       if (typeof course.price !== "number") return total;
-      const count = mockEnrollments.filter((e) => e.course_id === course.id).length;
+      const count = enrollments.filter((e) => e.course_id === course.id).length;
       return total + course.price * count;
     }, 0);
-  }, []);
+  }, [courses, enrollments]);
 
   // Enrollment distribution
   const enrollmentDistribution = useMemo(() => {
-    return mockCourses.map((course) => {
-      const count = mockEnrollments.filter((e) => e.course_id === course.id).length;
+    return courses.map((course) => {
+      const count = enrollments.filter((e) => e.course_id === course.id).length;
       return { title: course.title, count };
     });
-  }, []);
+  }, [courses, enrollments]);
   const maxEnrollment = Math.max(...enrollmentDistribution.map((d) => d.count), 1);
 
   // Recent users from Supabase
   const recentUsers = dbUsers.slice(0, 5);
 
-  // At risk from mock
-  const atRiskStudents = getAtRiskStudents();
+  // At risk from DB
+  const atRiskStudents = allStudents.filter((s) => s.risk_tag === "at_risk" || s.risk_tag === "watch");
 
   // Yesterday activity
-  const { students: yesterdayStudents, activeCount: yesterdayActiveCount } = getYesterdayActivity();
+  const { students: yesterdayStudents, activeCount: yesterdayActiveCount } = useMemo(
+    () => buildYesterdayActivity(recentSubmissions, dbUsers, enrollments, notes),
+    [recentSubmissions, dbUsers, enrollments, notes]
+  );
 
   const classificationLabels: Record<string, string> = { newbie: "Newbie", beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" };
   const classificationStyles: Record<string, string> = {
@@ -182,6 +224,14 @@ export default function AdminDashboardPage() {
     watch: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
   };
   const riskLabels: Record<string, string> = { normal: "Bình thường", at_risk: "Nguy cơ", watch: "Theo dõi" };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-muted-foreground">Đang tải...</div>
+      </div>
+    );
+  }
 
   return (
     <PageTransition>

@@ -199,3 +199,91 @@ export async function toggleLike(postId: string, userId: string) {
     return true;
   }
 }
+
+// ─── QUIZZES ───
+export async function getQuizByLesson(lessonId: string) {
+  const { data } = await supabase.from("quizzes").select("*").eq("lesson_id", lessonId).maybeSingle();
+  return data ?? null;
+}
+
+// ─── QUIZ ATTEMPTS ───
+export async function getQuizAttemptsByUser(userId: string) {
+  const { data } = await supabase.from("quiz_attempts").select("*").eq("user_id", userId).order("submitted_at", { ascending: false });
+  return data ?? [];
+}
+
+export async function createQuizAttempt(attempt: {
+  quiz_id: string;
+  user_id: string;
+  answers: number[];
+  score: number;
+  passed: boolean;
+}) {
+  const { data, error } = await supabase.from("quiz_attempts").insert(attempt).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// ─── USER NOTES ───
+export async function getNotesByUser(userId: string) {
+  const { data } = await supabase.from("user_notes").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+export async function createNote(note: { user_id: string; author_id: string; content: string }) {
+  const { data, error } = await supabase.from("user_notes").insert(note).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// ─── ONBOARDING SURVEY ───
+export async function getOnboardingSurveyByUser(userId: string) {
+  const { data } = await supabase.from("profiles").select("onboarding_survey").eq("id", userId).maybeSingle();
+  return data?.onboarding_survey ?? null;
+}
+
+// ─── SUBMISSIONS (extra) ───
+export async function getRecentSubmissions(limit = 10) {
+  const { data } = await supabase.from("submissions").select("*").order("submitted_at", { ascending: false }).limit(limit);
+  return data ?? [];
+}
+
+// ─── MENTOR REVIEWS (extra) ───
+export async function getReviewsPerDay(mentorId: string, days = 14) {
+  const since = new Date();
+  since.setDate(since.getDate() - (days - 1));
+  since.setHours(0, 0, 0, 0);
+
+  const { data } = await supabase
+    .from("mentor_reviews")
+    .select("created_at")
+    .eq("mentor_id", mentorId)
+    .gte("created_at", since.toISOString());
+
+  const counts = new Map<string, number>();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(since);
+    d.setDate(d.getDate() + i);
+    counts.set(d.toISOString().slice(0, 10), 0);
+  }
+
+  for (const row of data ?? []) {
+    const key = new Date(row.created_at).toISOString().slice(0, 10);
+    if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries()).map(([date, count]) => ({ date, count }));
+}
+
+export async function getTodayReviewCount(mentorId: string) {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const { count } = await supabase
+    .from("mentor_reviews")
+    .select("*", { count: "exact", head: true })
+    .eq("mentor_id", mentorId)
+    .gte("created_at", startOfDay.toISOString());
+
+  return count ?? 0;
+}

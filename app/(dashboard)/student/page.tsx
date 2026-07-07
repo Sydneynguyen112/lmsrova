@@ -21,8 +21,8 @@ import {
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { cn, formatPrice } from "@/lib/utils";
-import { useCurrentUser } from "@/lib/auth";
-import { users, getSubmissionsByUser, getReviewsByMentor } from "@/lib/mock-data";
+import { useCurrentUser, type Profile } from "@/lib/auth";
+import { getSubmissionsByUser, getReviewsByMentor } from "@/lib/api";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { LockedFeature } from "@/components/shared/LockedFeature";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -47,6 +47,25 @@ interface Enrollment {
   course_id: string;
   status: string;
   progress_pct: number;
+}
+
+interface SubmissionRow {
+  id: string;
+  assignment_id: string;
+  user_id: string;
+  annotated_image_urls: string[] | null;
+  mentor_feedback: string | null;
+  graded_at: string | null;
+  submitted_at: string;
+}
+
+interface MentorReviewRow {
+  id: string;
+  mentor_id: string;
+  student_id: string;
+  rating: number;
+  feedback: string;
+  created_at: string;
 }
 
 // ── Quotes động lực ──
@@ -77,6 +96,9 @@ export default function StudentDashboardPage() {
   const currentUser = useCurrentUser("student");
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [mentor, setMentor] = useState<Profile | null>(null);
+  const [mySubmissions, setMySubmissions] = useState<SubmissionRow[]>([]);
+  const [mentorReviews, setMentorReviews] = useState<MentorReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Mentor review state
@@ -89,12 +111,24 @@ export default function StudentDashboardPage() {
     if (!currentUser) return;
 
     async function load() {
-      const [{ data: c }, { data: e }] = await Promise.all([
+      const [{ data: c }, { data: e }, submissions] = await Promise.all([
         supabase.from("courses").select("*").order("created_at"),
         supabase.from("enrollments").select("*").eq("user_id", currentUser!.id),
+        getSubmissionsByUser(currentUser!.id),
       ]);
       setCourses((c || []) as Course[]);
       setEnrollments((e || []) as Enrollment[]);
+      setMySubmissions(submissions as SubmissionRow[]);
+
+      if (currentUser!.mentor_id) {
+        const [{ data: m }, reviews] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", currentUser!.mentor_id).single(),
+          getReviewsByMentor(currentUser!.mentor_id),
+        ]);
+        setMentor((m as Profile) ?? null);
+        setMentorReviews(reviews as MentorReviewRow[]);
+      }
+
       setLoading(false);
     }
 
@@ -124,7 +158,6 @@ export default function StudentDashboardPage() {
   }
 
   // ── Submissions stats ──
-  const mySubmissions = getSubmissionsByUser(currentUser.id);
   const totalSubmitted = mySubmissions.length;
   const gradedSubmissions = mySubmissions.filter((s) => s.graded_at);
   const totalGraded = gradedSubmissions.length;
@@ -134,14 +167,13 @@ export default function StudentDashboardPage() {
   const incorrectCount = totalGraded - correctCount;
 
   // ── Mentor info ──
-  const mentor = users.find((u) => u.id === currentUser.mentor_id);
   const mentorInitials = mentor
     ? mentor.full_name.split(" ").map((n: string) => n[0]).join("").slice(-2)
     : "";
 
   // Existing reviews
   const existingReviews = mentor
-    ? getReviewsByMentor(mentor.id).filter((r) => r.student_id === currentUser.id)
+    ? mentorReviews.filter((r) => r.student_id === currentUser.id)
     : [];
   const hasReviewed = existingReviews.length > 0;
   const lastReview = hasReviewed ? existingReviews[existingReviews.length - 1] : null;

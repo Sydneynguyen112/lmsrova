@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Search, Clock, BookOpen, ArrowRight } from "lucide-react";
-import { courses, modules, lessons } from "@/lib/mock-data";
-import { formatPrice, formatDuration } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { staggerContainer, fadeInUp } from "@/components/shared/ScrollReveal";
 import { Input } from "@/components/ui/input";
@@ -12,26 +11,43 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-function getCourseStats(courseId: string) {
-  const courseModules = modules.filter((m) => m.course_id === courseId);
-  const courseLessons = courseModules.flatMap((m) =>
-    lessons.filter((l) => l.module_id === m.id)
-  );
-  const totalDuration = courseLessons.reduce(
-    (sum, l) => sum + l.duration_sec,
-    0
-  );
-  return {
-    lessonCount: courseLessons.length,
-    moduleCount: courseModules.length,
-    totalDuration,
-  };
+interface StaticCourse {
+  id: string;
+  title: string;
+  description: string;
+  price: number | string;
+  moduleCount: number;
+  lessonCount: number;
+  durationLabel: string;
 }
+
+const STATIC_COURSES: StaticCourse[] = [
+  {
+    id: "c-pro",
+    title: "Khoá 3 Hộp PRO",
+    description:
+      "Khóa học nền tảng giúp bạn hiểu từ A-Z về giao dịch: từ cách đọc biểu đồ, vẽ trendline, xác định vùng cung cầu, đến quản lý rủi ro và tâm lý trading. 12 video ngắn gọn dưới 15 phút, dễ học mỗi ngày.",
+    price: 7990000,
+    moduleCount: 1,
+    lessonCount: 12,
+    durationLabel: "2h 42p",
+  },
+  {
+    id: "c-coaching",
+    title: "Khoá Coaching Nâng Cao",
+    description:
+      "Dành cho học viên đã hoàn thành Khoá PRO. Đi sâu vào chiến lược giao dịch nâng cao, tối ưu hệ thống, quản trị danh mục và tâm lý giao dịch chuyên nghiệp. Được mentor 1:1 sửa bài hàng ngày.",
+    price: "Nhận tư vấn",
+    moduleCount: 3,
+    lessonCount: 15,
+    durationLabel: "3h 24p",
+  },
+];
 
 export default function CoursesPage() {
   const [search, setSearch] = useState("");
 
-  const filtered = courses.filter((c) =>
+  const filtered = STATIC_COURSES.filter((c) =>
     c.title.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -79,7 +95,6 @@ export default function CoursesPage() {
             className="grid md:grid-cols-2 gap-6 lg:gap-8"
           >
             {filtered.map((course, i) => {
-              const stats = getCourseStats(course.id);
               return (
                 <motion.div
                   key={course.id}
@@ -110,12 +125,12 @@ export default function CoursesPage() {
                     <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-6">
                       <span className="flex items-center gap-1.5">
                         <BookOpen size={14} className="text-gold" />
-                        {stats.moduleCount} module &middot; {stats.lessonCount}{" "}
+                        {course.moduleCount} module &middot; {course.lessonCount}{" "}
                         bài học
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Clock size={14} className="text-gold" />
-                        {formatDuration(stats.totalDuration)}
+                        {course.durationLabel}
                       </span>
                     </div>
 

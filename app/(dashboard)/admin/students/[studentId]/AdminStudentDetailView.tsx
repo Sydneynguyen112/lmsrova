@@ -16,14 +16,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
-  users,
-  assignments,
   getEnrollmentsByUser,
-  getCourseById,
   getSubmissionsByUser,
   getNotesByUser,
   getOnboardingSurveyByUser,
-} from "@/lib/mock-data";
+  createNote,
+} from "@/lib/api";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -59,29 +57,105 @@ const riskLabels: Record<string, string> = {
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
 
+interface DbCourse {
+  id: string;
+  title: string;
+}
+
+interface DbEnrollment {
+  id: string;
+  course_id: string;
+  status: string;
+  progress_pct: number;
+  enrolled_at: string;
+}
+
+interface DbSubmission {
+  id: string;
+  assignment_id: string;
+  mentor_feedback: string | null;
+  graded_at: string | null;
+  submitted_at: string;
+}
+
+interface DbAssignment {
+  id: string;
+  title: string;
+}
+
+interface DbNote {
+  id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+}
+
 interface Props {
   studentId: string;
 }
 
 export function AdminStudentDetailView({ studentId }: Props) {
   const currentUser = useCurrentUser("admin");
-  const [dbStudent, setDbStudent] = useState<Profile | null>(null);
+  const [student, setStudent] = useState<Profile | null>(null);
   const [mentorName, setMentorName] = useState<string | null>(null);
+  const [enrollmentList, setEnrollmentList] = useState<DbEnrollment[]>([]);
+  const [submissionList, setSubmissionList] = useState<DbSubmission[]>([]);
+  const [notes, setNotes] = useState<DbNote[]>([]);
+  const [noteAuthors, setNoteAuthors] = useState<Profile[]>([]);
+  const [assignments, setAssignments] = useState<DbAssignment[]>([]);
+  const [courses, setCourses] = useState<DbCourse[]>([]);
+  const [survey, setSurvey] = useState<Profile["onboarding_survey"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [noteText, setNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   useEffect(() => {
     async function load() {
-      if (!studentId.startsWith("u-")) {
-        const { data } = await supabase.from("profiles").select("*").eq("id", studentId).single();
-        if (data) {
-          setDbStudent(data as Profile);
-          if (data.mentor_id) {
-            const { data: m } = await supabase.from("profiles").select("full_name").eq("id", data.mentor_id).single();
-            if (m) setMentorName(m.full_name);
-          }
-        }
+      const { data: studentData } = await supabase.from("profiles").select("*").eq("id", studentId).single();
+      if (!studentData) {
+        setLoading(false);
+        return;
       }
+      setStudent(studentData as Profile);
+
+      const [
+        enrollments,
+        submissions,
+        notesData,
+        surveyData,
+      ] = await Promise.all([
+        getEnrollmentsByUser(studentId),
+        getSubmissionsByUser(studentId),
+        getNotesByUser(studentId),
+        getOnboardingSurveyByUser(studentId),
+      ]);
+      setEnrollmentList(enrollments as DbEnrollment[]);
+      setSubmissionList(submissions as DbSubmission[]);
+      setNotes(notesData as DbNote[]);
+      setSurvey(surveyData);
+
+      const courseIds = Array.from(new Set((enrollments as DbEnrollment[]).map((e) => e.course_id)));
+      const assignmentIds = Array.from(new Set((submissions as DbSubmission[]).map((s) => s.assignment_id)));
+      const authorIds = Array.from(new Set((notesData as DbNote[]).map((n) => n.author_id)));
+
+      const [
+        { data: coursesData },
+        { data: assignmentsData },
+        { data: authorsData },
+        mentorResult,
+      ] = await Promise.all([
+        courseIds.length > 0 ? supabase.from("courses").select("id, title").in("id", courseIds) : Promise.resolve({ data: [] as DbCourse[] }),
+        assignmentIds.length > 0 ? supabase.from("assignments").select("id, title").in("id", assignmentIds) : Promise.resolve({ data: [] as DbAssignment[] }),
+        authorIds.length > 0 ? supabase.from("profiles").select("*").in("id", authorIds) : Promise.resolve({ data: [] as Profile[] }),
+        studentData.mentor_id
+          ? supabase.from("profiles").select("full_name").eq("id", studentData.mentor_id).single()
+          : Promise.resolve({ data: null }),
+      ]);
+      if (coursesData) setCourses(coursesData as DbCourse[]);
+      if (assignmentsData) setAssignments(assignmentsData as DbAssignment[]);
+      if (authorsData) setNoteAuthors(authorsData as Profile[]);
+      if (mentorResult.data) setMentorName(mentorResult.data.full_name);
+
       setLoading(false);
     }
     load();
@@ -95,11 +169,6 @@ export function AdminStudentDetailView({ studentId }: Props) {
     );
   }
 
-  const mockStudent = users.find((u) => u.id === studentId);
-  const student = mockStudent || dbStudent;
-  const mentor = mockStudent ? users.find((u) => u.id === mockStudent.mentor_id) : null;
-  const displayMentorName = mentor?.full_name || mentorName;
-
   if (!student) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -109,19 +178,30 @@ export function AdminStudentDetailView({ studentId }: Props) {
     );
   }
 
-  const enrollmentList = getEnrollmentsByUser(student.id);
-  const submissionList = getSubmissionsByUser(student.id);
-  const notes = getNotesByUser(student.id);
-  // Mock student → đọc từ mock fixture; DB student → đọc từ profiles.onboarding_survey
-  const survey = mockStudent
-    ? getOnboardingSurveyByUser(student.id)
-    : dbStudent?.onboarding_survey ?? null;
+  const displayMentorName = mentorName;
   const initials = student.full_name.split(" ").map((n) => n[0]).join("").slice(-2);
 
-  const handleAddNote = () => {
-    if (!noteText.trim()) return;
-    console.log("Adding note:", student.id, noteText);
-    setNoteText("");
+  function getCourseTitle(courseId: string) {
+    return courses.find((c) => c.id === courseId)?.title;
+  }
+
+  const handleAddNote = async () => {
+    if (!noteText.trim() || !currentUser) return;
+    setSavingNote(true);
+    try {
+      const newNote = await createNote({
+        user_id: studentId,
+        author_id: currentUser.id,
+        content: noteText.trim(),
+      });
+      setNotes((prev) => [newNote as DbNote, ...prev]);
+      if (!noteAuthors.some((a) => a.id === currentUser.id)) {
+        setNoteAuthors((prev) => [...prev, currentUser]);
+      }
+      setNoteText("");
+    } finally {
+      setSavingNote(false);
+    }
   };
 
   return (
@@ -193,7 +273,7 @@ export function AdminStudentDetailView({ studentId }: Props) {
                 ) : (
                   <div className="space-y-4">
                     {enrollmentList.map((enrollment) => {
-                      const course = getCourseById(enrollment.course_id);
+                      const course = { title: getCourseTitle(enrollment.course_id) };
                       return (
                         <div key={enrollment.id} className="rounded-lg border border-border/50 bg-muted/20 p-4 space-y-2">
                           <div className="flex items-center justify-between">
@@ -273,7 +353,7 @@ export function AdminStudentDetailView({ studentId }: Props) {
                   onKeyDown={(e) => { if (e.key === "Enter") handleAddNote(); }}
                   className="flex-1"
                 />
-                <Button onClick={handleAddNote} disabled={!noteText.trim()} className="bg-gold hover:bg-gold/90 text-black">
+                <Button onClick={handleAddNote} disabled={!noteText.trim() || savingNote} className="bg-gold hover:bg-gold/90 text-black">
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
@@ -283,7 +363,7 @@ export function AdminStudentDetailView({ studentId }: Props) {
               ) : (
                 <div className="space-y-3">
                   {notes.map((note) => {
-                    const author = users.find((u) => u.id === note.author_id);
+                    const author = noteAuthors.find((u) => u.id === note.author_id);
                     return (
                       <div key={note.id} className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1">
                         <div className="flex items-center justify-between">

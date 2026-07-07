@@ -2,15 +2,81 @@
 
 import { motion } from "framer-motion";
 import { Star, Users, MessageCircle } from "lucide-react";
-import { getMentors, mentorProfiles, getAvgRating, getReviewsByMentor, users } from "@/lib/mock-data";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { staggerContainer, fadeInUp } from "@/components/shared/ScrollReveal";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
+interface StaticReview {
+  id: string;
+  studentName: string;
+  rating: number;
+  feedback: string;
+}
+
+interface StaticMentor {
+  id: string;
+  fullName: string;
+  initials: string;
+  bio: string;
+  rating: number;
+  studentCount: number;
+  reviewCount: number;
+  recentReviews: StaticReview[];
+}
+
+const STATIC_MENTORS: StaticMentor[] = [
+  {
+    id: "u-mentor-001",
+    fullName: "Trương Văn Tiến",
+    initials: "VT",
+    bio: "5 năm kinh nghiệm trading Forex. Chuyên Price Action và Smart Money Concept. Đã đào tạo hơn 200 học viên từ zero đến profitable.",
+    rating: 4.7,
+    studentCount: 4,
+    reviewCount: 9,
+    recentReviews: [
+      {
+        id: "mr-001",
+        studentName: "Lê Quốc Huy",
+        rating: 5,
+        feedback: "Anh Thành giải thích rất dễ hiểu, reply nhanh, sửa bài kỹ lưỡng.",
+      },
+      {
+        id: "mr-002",
+        studentName: "Phạm Thị Mai",
+        rating: 4,
+        feedback: "Mentor nhiệt tình, nhưng đôi khi reply hơi chậm vào cuối tuần.",
+      },
+    ],
+  },
+  {
+    id: "u-mentor-002",
+    fullName: "Nguyễn Xuân Đại",
+    initials: "XĐ",
+    bio: "Chuyên gia phân tích kỹ thuật với 4 năm kinh nghiệm. Focus vào Crypto và Stock trading. Phong cách mentoring kiên nhẫn, phù hợp với người mới.",
+    rating: 4.8,
+    studentCount: 3,
+    reviewCount: 4,
+    recentReviews: [
+      {
+        id: "mr-003",
+        studentName: "Nguyễn Thùy Trang",
+        rating: 5,
+        feedback: "Chị Linh rất kiên nhẫn, phân tích bài nộp chi tiết, chỉ ra cả điểm mình chưa thấy.",
+      },
+      {
+        id: "mr-004",
+        studentName: "Võ Hoàng Long",
+        rating: 5,
+        feedback: "Mentoring chiến lược rất hay, giúp mình tối ưu hệ thống trading đang có.",
+      },
+    ],
+  },
+];
+
 export default function MentorsPage() {
-  const mentors = getMentors();
+  const mentors = STATIC_MENTORS;
 
   return (
     <>
@@ -40,19 +106,7 @@ export default function MentorsPage() {
             className="grid md:grid-cols-2 gap-6 lg:gap-8"
           >
             {mentors.map((mentor) => {
-              const profile = mentorProfiles.find(
-                (p) => p.user_id === mentor.id
-              );
-              const rating = getAvgRating(mentor.id);
-              const reviews = getReviewsByMentor(mentor.id);
-              const studentCount = users.filter(
-                (u) => u.mentor_id === mentor.id
-              ).length;
-              const initials = mentor.full_name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .slice(-2);
+              const reviews = mentor.recentReviews;
 
               return (
                 <motion.div
@@ -63,32 +117,32 @@ export default function MentorsPage() {
                   <div className="flex items-start gap-5 mb-6">
                     <Avatar className="w-16 h-16 border-2 border-gold/30 shrink-0">
                       <AvatarFallback className="bg-gold/10 text-gold text-xl font-bold">
-                        {initials}
+                        {mentor.initials}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <h2 className="text-xl font-bold text-foreground">
-                        {mentor.full_name}
+                        {mentor.fullName}
                       </h2>
                       <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Star size={14} className="text-gold fill-gold" />
-                          {rating} / 5
+                          {mentor.rating} / 5
                         </span>
                         <span className="flex items-center gap-1">
                           <Users size={14} className="text-gold" />
-                          {studentCount} học viên
+                          {mentor.studentCount} học viên
                         </span>
                         <span className="flex items-center gap-1">
                           <MessageCircle size={14} className="text-gold" />
-                          {reviews.length} đánh giá
+                          {mentor.reviewCount} đánh giá
                         </span>
                       </div>
                     </div>
                   </div>
 
                   <p className="text-muted-foreground leading-relaxed mb-6">
-                    {profile?.bio}
+                    {mentor.bio}
                   </p>
 
                   {/* Recent reviews */}
@@ -98,9 +152,6 @@ export default function MentorsPage() {
                         Đánh giá gần đây
                       </h3>
                       {reviews.slice(0, 2).map((review) => {
-                        const student = users.find(
-                          (u) => u.id === review.student_id
-                        );
                         return (
                           <div
                             key={review.id}
@@ -108,7 +159,7 @@ export default function MentorsPage() {
                           >
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-medium text-foreground">
-                                {student?.full_name}
+                                {review.studentName}
                               </span>
                               <div className="flex gap-0.5">
                                 {Array.from({ length: review.rating }).map(

@@ -1,11 +1,4 @@
-import { users } from "@/lib/mock-data";
 import { StudentDetailView } from "./StudentDetailView";
-
-export function generateStaticParams() {
-  return users
-    .filter((u) => u.role === "student")
-    .map((u) => ({ studentId: u.id }));
-}
 
 export const dynamicParams = true;
 

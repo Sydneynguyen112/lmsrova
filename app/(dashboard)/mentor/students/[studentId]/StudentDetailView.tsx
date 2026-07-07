@@ -15,19 +15,17 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
-  users,
-  assignments,
   getEnrollmentsByUser,
   getCourseById,
   getSubmissionsByUser,
   getNotesByUser,
-  getLessonProgressByUser,
-  getOnboardingSurveyByUser,
-} from "@/lib/mock-data";
+  createNote,
+} from "@/lib/api";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import type { Profile } from "@/lib/auth";
+import type { Enrollment, Submission, UserNote, Course } from "@/lib/types";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -82,23 +80,74 @@ interface Props {
 export function StudentDetailView({ studentId }: Props) {
   const currentUser = useCurrentUser("mentor");
   const [noteText, setNoteText] = useState("");
-  const [dbStudent, setDbStudent] = useState<Profile | null>(null);
+  const [submittingNote, setSubmittingNote] = useState(false);
+  const [student, setStudent] = useState<Profile | null>(null);
+  const [enrollmentList, setEnrollmentList] = useState<Enrollment[]>([]);
+  const [courseTitles, setCourseTitles] = useState<Map<string, string>>(new Map());
+  const [submissionList, setSubmissionList] = useState<Submission[]>([]);
+  const [assignmentTitles, setAssignmentTitles] = useState<Map<string, string>>(new Map());
+  const [notes, setNotes] = useState<UserNote[]>([]);
+  const [authorNames, setAuthorNames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    // Try to load from Supabase if not a mock ID
-    async function loadStudent() {
-      if (!studentId.startsWith("u-")) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", studentId)
-          .single();
-        if (data) setDbStudent(data as Profile);
+    async function load() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", studentId)
+        .maybeSingle();
+
+      if (!data) {
+        setNotFound(true);
+        setLoading(false);
+        return;
       }
+      setStudent(data as Profile);
+
+      const [enrollments, submissions, studentNotes] = await Promise.all([
+        getEnrollmentsByUser(studentId),
+        getSubmissionsByUser(studentId),
+        getNotesByUser(studentId),
+      ]);
+      setEnrollmentList(enrollments as Enrollment[]);
+      setSubmissionList(submissions as Submission[]);
+      setNotes(studentNotes as UserNote[]);
+
+      const courseIds = Array.from(new Set(enrollments.map((e) => e.course_id)));
+      if (courseIds.length > 0) {
+        const courseResults = await Promise.all(courseIds.map((id) => getCourseById(id)));
+        setCourseTitles(
+          new Map(
+            courseIds
+              .map((id, i) => [id, (courseResults[i] as Course | null)?.title])
+              .filter((entry): entry is [string, string] => !!entry[1])
+          )
+        );
+      }
+
+      const assignmentIds = Array.from(new Set(submissions.map((s) => s.assignment_id)));
+      if (assignmentIds.length > 0) {
+        const { data: aRows } = await supabase
+          .from("assignments")
+          .select("id, title")
+          .in("id", assignmentIds);
+        setAssignmentTitles(new Map((aRows || []).map((a) => [a.id, a.title as string])));
+      }
+
+      const authorIds = Array.from(new Set(studentNotes.map((n) => n.author_id)));
+      if (authorIds.length > 0) {
+        const { data: authorRows } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", authorIds);
+        setAuthorNames(new Map((authorRows || []).map((a) => [a.id, a.full_name as string])));
+      }
+
       setLoading(false);
     }
-    loadStudent();
+    load();
   }, [studentId]);
 
   if (!currentUser || loading) {
@@ -109,10 +158,7 @@ export function StudentDetailView({ studentId }: Props) {
     );
   }
 
-  const mockStudent = users.find((u) => u.id === studentId);
-  const student = mockStudent || dbStudent;
-
-  if (!student) {
+  if (notFound || !student) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-muted-foreground text-lg">
@@ -125,22 +171,30 @@ export function StudentDetailView({ studentId }: Props) {
     );
   }
 
-  const enrollmentList = getEnrollmentsByUser(student.id);
-  const submissionList = getSubmissionsByUser(student.id);
-  const notes = getNotesByUser(student.id);
-  const survey = mockStudent
-    ? getOnboardingSurveyByUser(student.id)
-    : dbStudent?.onboarding_survey ?? null;
+  const survey = student.onboarding_survey ?? null;
   const initials = student.full_name
     .split(" ")
     .map((n) => n[0])
     .join("")
     .slice(-2);
 
-  const handleAddNote = () => {
-    if (!noteText.trim()) return;
-    console.log("Adding note for student:", student.id, "Content:", noteText);
-    setNoteText("");
+  const handleAddNote = async () => {
+    if (!noteText.trim() || submittingNote) return;
+    setSubmittingNote(true);
+    try {
+      const newNote = await createNote({
+        user_id: student.id,
+        author_id: currentUser.id,
+        content: noteText.trim(),
+      });
+      setNotes((prev) => [newNote as UserNote, ...prev]);
+      setAuthorNames((prev) => new Map(prev).set(currentUser.id, currentUser.full_name));
+      setNoteText("");
+    } catch (err) {
+      console.error("Failed to add note:", err);
+    } finally {
+      setSubmittingNote(false);
+    }
   };
 
   return (
@@ -236,7 +290,7 @@ export function StudentDetailView({ studentId }: Props) {
               ) : (
                 <div className="space-y-4">
                   {enrollmentList.map((enrollment) => {
-                    const course = getCourseById(enrollment.course_id);
+                    const courseTitle = courseTitles.get(enrollment.course_id);
                     return (
                       <div
                         key={enrollment.id}
@@ -244,7 +298,7 @@ export function StudentDetailView({ studentId }: Props) {
                       >
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-foreground text-sm">
-                            {course?.title || "Khoá học"}
+                            {courseTitle || "Khoá học"}
                           </p>
                           <Badge
                             variant="outline"
@@ -305,9 +359,7 @@ export function StudentDetailView({ studentId }: Props) {
               ) : (
                 <div className="space-y-3">
                   {submissionList.map((submission) => {
-                    const assignment = assignments.find(
-                      (a) => a.id === submission.assignment_id
-                    );
+                    const assignmentTitle = assignmentTitles.get(submission.assignment_id);
                     const isGraded = !!submission.graded_at;
 
                     return (
@@ -317,7 +369,7 @@ export function StudentDetailView({ studentId }: Props) {
                       >
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-foreground text-sm">
-                            {assignment?.title || "Bài tập"}
+                            {assignmentTitle || "Bài tập"}
                           </p>
                           <Badge
                             variant="outline"
@@ -368,7 +420,7 @@ export function StudentDetailView({ studentId }: Props) {
               />
               <Button
                 onClick={handleAddNote}
-                disabled={!noteText.trim()}
+                disabled={!noteText.trim() || submittingNote}
                 className="bg-gold hover:bg-gold/90 text-black"
               >
                 <Send className="h-4 w-4" />
@@ -385,7 +437,7 @@ export function StudentDetailView({ studentId }: Props) {
             ) : (
               <div className="space-y-3">
                 {notes.map((note) => {
-                  const author = users.find((u) => u.id === note.author_id);
+                  const authorName = authorNames.get(note.author_id);
                   return (
                     <div
                       key={note.id}
@@ -393,7 +445,7 @@ export function StudentDetailView({ studentId }: Props) {
                     >
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-medium text-gold">
-                          {author?.full_name || "Mentor"}
+                          {authorName || "Mentor"}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatRelativeTime(note.created_at)}

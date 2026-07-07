@@ -17,10 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import {
-  getQuizByLesson,
-  getAssignmentByLesson,
-} from "@/lib/mock-data";
+import { getQuizByLesson, getAssignmentsByCourse, createQuizAttempt, createSubmission } from "@/lib/api";
 import { cn, formatDuration } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -36,6 +33,24 @@ interface ProgressRecord {
   status?: string;
   completed?: boolean;
   watch_count?: number;
+}
+
+interface QuizRow {
+  id: string;
+  lesson_id: string;
+  title: string;
+  questions: { question: string; options: string[]; correct: number }[];
+  pass_score: number;
+}
+
+interface AssignmentRow {
+  id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  instructions: string | null;
+  materials: { name: string; url: string; type: string }[];
+  order_index: number;
 }
 
 interface Props {
@@ -57,19 +72,23 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const [dbModuleLessons, setDbModuleLessons] = useState<Record<string, unknown>[]>([]);
   const [progressList, setProgressList] = useState<ProgressRecord[]>([]);
   const [videoCompleted, setVideoCompleted] = useState(false);
+  const [quiz, setQuiz] = useState<QuizRow | null>(null);
+  const [assignment, setAssignment] = useState<AssignmentRow | null>(null);
 
   useEffect(() => {
     if (!currentUser) return;
     async function check() {
-      const [{ data: enrollData }, { data: courseData }, { data: lessonData }, { data: progressData }] = await Promise.all([
+      const [{ data: enrollData }, { data: courseData }, { data: lessonData }, { data: progressData }, quizData] = await Promise.all([
         supabase.from("enrollments").select("id").eq("user_id", currentUser!.id).eq("course_id", courseId).limit(1),
         supabase.from("courses").select("id, title").eq("id", courseId).single(),
         supabase.from("lessons").select("*").eq("id", lessonId).single(),
         supabase.from("lesson_progress").select("*").eq("user_id", currentUser!.id),
+        getQuizByLesson(lessonId),
       ]);
       setIsEnrolled((enrollData ?? []).length > 0);
       if (courseData) setDbCourse(courseData);
       setProgressList(progressData || []);
+      setQuiz(quizData as QuizRow | null);
       if (lessonData) {
         setDbLesson(lessonData);
         const [{ data: modData }, { data: siblingsData }] = await Promise.all([
@@ -78,6 +97,15 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
         ]);
         if (modData) setDbModuleTitle(modData.title);
         setDbModuleLessons(siblingsData || []);
+
+        // Assignments have no lesson_id FK (DB: course_id + order_index only).
+        // Adaptation: match the assignment whose order_index equals this lesson's
+        // order_index within its module — closest faithful mapping to the old
+        // mock's per-lesson assignment linkage.
+        const courseAssignments = (await getAssignmentsByCourse(courseId)) as AssignmentRow[];
+        const lessonOrderIndex = (lessonData as { order_index?: number }).order_index;
+        const matched = courseAssignments.find((a) => a.order_index === lessonOrderIndex);
+        setAssignment(matched ?? null);
       }
     }
     check();
@@ -166,17 +194,12 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   }
 
   const moduleLessons = dbModuleLessons as { id: string; title: string; duration_sec: number }[];
-  const quiz = getQuizByLesson(lessonId);
-  const assignment = getAssignmentByLesson(lessonId);
 
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; show: boolean }[] = [
     { key: "materials", label: "Tài liệu", icon: <FileText className="h-4 w-4" />, show: true },
     { key: "quiz", label: "Quiz", icon: <HelpCircle className="h-4 w-4" />, show: !!quiz },
     { key: "assignment", label: "Bài tập", icon: <PenTool className="h-4 w-4" />, show: !!assignment },
   ];
-
-  const handleQuizSubmit = () => setQuizSubmitted(true);
-  const handleAssignmentSubmit = () => setAssignmentSubmitted(true);
 
   const getQuizScore = () => {
     if (!quiz) return 0;
@@ -185,6 +208,29 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
       if (quizAnswers[i] === q.correct) correct++;
     });
     return Math.round((correct / quiz.questions.length) * 100);
+  };
+
+  const handleQuizSubmit = async () => {
+    setQuizSubmitted(true);
+    if (!currentUser || !quiz) return;
+    const score = getQuizScore();
+    await createQuizAttempt({
+      quiz_id: quiz.id,
+      user_id: currentUser.id,
+      answers: quiz.questions.map((_, i) => quizAnswers[i] ?? -1),
+      score,
+      passed: score >= quiz.pass_score,
+    });
+  };
+
+  const handleAssignmentSubmit = async () => {
+    setAssignmentSubmitted(true);
+    if (!currentUser || !assignment) return;
+    await createSubmission({
+      assignment_id: assignment.id,
+      user_id: currentUser.id,
+      note: assignmentNote.trim(),
+    });
   };
 
   return (

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getStoredUserId } from "@/lib/auth";
 
-// ── Question definitions derived from mock-data answers ──
+// â”€â”€ Question definitions derived from mock-data answers â”€â”€
 
 interface ScoredOption {
   score: number;
@@ -54,95 +54,95 @@ const questions: Question[] = [
     type: "scored",
     id: "self_learning",
     icon: Brain,
-    title: "Khả năng tự học",
-    subtitle: "Khi gặp một khái niệm mới mà bạn chưa hiểu rõ, bạn thường làm gì?",
+    title: "Kháº£ nÄƒng tá»± há»c",
+    subtitle: "Khi gáº·p má»™t khÃ¡i niá»‡m má»›i mÃ  báº¡n chÆ°a hiá»ƒu rÃµ, báº¡n thÆ°á»ng lÃ m gÃ¬?",
     options: [
-      { score: 1, label: "Xem lại một vài lần, nếu vẫn chưa rõ thì chuyển sang phần khác" },
-      { score: 2, label: "Hỏi bạn bè hoặc tìm video khác giải thích đơn giản hơn" },
-      { score: 3, label: "Tự tìm hiểu thêm rồi mới tiếp tục" },
-      { score: 4, label: "Ghi lại và tìm cách hiểu rõ, rồi mới sang bài tiếp" },
+      { score: 1, label: "Xem láº¡i má»™t vÃ i láº§n, náº¿u váº«n chÆ°a rÃµ thÃ¬ chuyá»ƒn sang pháº§n khÃ¡c" },
+      { score: 2, label: "Há»i báº¡n bÃ¨ hoáº·c tÃ¬m video khÃ¡c giáº£i thÃ­ch Ä‘Æ¡n giáº£n hÆ¡n" },
+      { score: 3, label: "Tá»± tÃ¬m hiá»ƒu thÃªm rá»“i má»›i tiáº¿p tá»¥c" },
+      { score: 4, label: "Ghi láº¡i vÃ  tÃ¬m cÃ¡ch hiá»ƒu rÃµ, rá»“i má»›i sang bÃ i tiáº¿p" },
     ],
   },
   {
     type: "scored",
     id: "motivation",
     icon: Target,
-    title: "Động lực học Trading",
-    subtitle: "Điều gì thúc đẩy bạn tìm đến ROVA?",
+    title: "Äá»™ng lá»±c há»c Trading",
+    subtitle: "Äiá»u gÃ¬ thÃºc Ä‘áº©y báº¡n tÃ¬m Ä‘áº¿n ROVA?",
     options: [
-      { score: 1, label: "Tò mò, muốn thử xem trading có kiếm tiền được không" },
-      { score: 2, label: "Đang cần thu nhập nhanh, muốn học và áp dụng sớm" },
-      { score: 3, label: "Đang gặp vấn đề trong giao dịch, muốn có phương pháp rõ ràng" },
-      { score: 4, label: "Đã có ý định học bài bản, đi đường dài" },
+      { score: 1, label: "TÃ² mÃ², muá»‘n thá»­ xem trading cÃ³ kiáº¿m tiá»n Ä‘Æ°á»£c khÃ´ng" },
+      { score: 2, label: "Äang cáº§n thu nháº­p nhanh, muá»‘n há»c vÃ  Ã¡p dá»¥ng sá»›m" },
+      { score: 3, label: "Äang gáº·p váº¥n Ä‘á» trong giao dá»‹ch, muá»‘n cÃ³ phÆ°Æ¡ng phÃ¡p rÃµ rÃ ng" },
+      { score: 4, label: "ÄÃ£ cÃ³ Ã½ Ä‘á»‹nh há»c bÃ i báº£n, Ä‘i Ä‘Æ°á»ng dÃ i" },
     ],
   },
   {
     type: "scored",
     id: "tradingview_skill",
     icon: BarChart3,
-    title: "Kỹ năng TradingView",
-    subtitle: "Bạn đã sử dụng TradingView ở mức nào?",
+    title: "Ká»¹ nÄƒng TradingView",
+    subtitle: "Báº¡n Ä‘Ã£ sá»­ dá»¥ng TradingView á»Ÿ má»©c nÃ o?",
     options: [
-      { score: 1, label: "Chưa biết, chưa có tài khoản TradingView" },
-      { score: 2, label: "Đã từng dùng, chủ yếu mở lên xem giá" },
-      { score: 3, label: "Biết vẽ đường, đánh dấu vùng giá, thêm indicator" },
-      { score: 4, label: "Có layout riêng và sử dụng thường xuyên để phân tích" },
+      { score: 1, label: "ChÆ°a biáº¿t, chÆ°a cÃ³ tÃ i khoáº£n TradingView" },
+      { score: 2, label: "ÄÃ£ tá»«ng dÃ¹ng, chá»§ yáº¿u má»Ÿ lÃªn xem giÃ¡" },
+      { score: 3, label: "Biáº¿t váº½ Ä‘Æ°á»ng, Ä‘Ã¡nh dáº¥u vÃ¹ng giÃ¡, thÃªm indicator" },
+      { score: 4, label: "CÃ³ layout riÃªng vÃ  sá»­ dá»¥ng thÆ°á»ng xuyÃªn Ä‘á»ƒ phÃ¢n tÃ­ch" },
     ],
   },
   {
     type: "scored",
     id: "device",
     icon: Monitor,
-    title: "Thiết bị học tập",
-    subtitle: "Bạn thường dùng thiết bị gì để học và giao dịch?",
+    title: "Thiáº¿t bá»‹ há»c táº­p",
+    subtitle: "Báº¡n thÆ°á»ng dÃ¹ng thiáº¿t bá»‹ gÃ¬ Ä‘á»ƒ há»c vÃ  giao dá»‹ch?",
     options: [
-      { score: 1, label: "Chỉ dùng điện thoại, chưa có máy tính" },
-      { score: 2, label: "Chủ yếu dùng điện thoại, có máy tính nhưng không thường xuyên" },
-      { score: 3, label: "Chủ yếu dùng máy tính để học và giao dịch" },
-      { score: 4, label: "Thành thạo máy tính và ứng dụng điện thoại" },
+      { score: 1, label: "Chá»‰ dÃ¹ng Ä‘iá»‡n thoáº¡i, chÆ°a cÃ³ mÃ¡y tÃ­nh" },
+      { score: 2, label: "Chá»§ yáº¿u dÃ¹ng Ä‘iá»‡n thoáº¡i, cÃ³ mÃ¡y tÃ­nh nhÆ°ng khÃ´ng thÆ°á»ng xuyÃªn" },
+      { score: 3, label: "Chá»§ yáº¿u dÃ¹ng mÃ¡y tÃ­nh Ä‘á»ƒ há»c vÃ  giao dá»‹ch" },
+      { score: 4, label: "ThÃ nh tháº¡o mÃ¡y tÃ­nh vÃ  á»©ng dá»¥ng Ä‘iá»‡n thoáº¡i" },
     ],
   },
   {
     type: "scored",
     id: "trading_method",
     icon: LineChart,
-    title: "Phương pháp giao dịch",
-    subtitle: "Hiện tại bạn giao dịch theo phương pháp nào?",
+    title: "PhÆ°Æ¡ng phÃ¡p giao dá»‹ch",
+    subtitle: "Hiá»‡n táº¡i báº¡n giao dá»‹ch theo phÆ°Æ¡ng phÃ¡p nÃ o?",
     options: [
-      { score: 1, label: "Chưa có phương pháp, chủ yếu vào lệnh theo cảm tính" },
-      { score: 2, label: "Đã thử qua nhiều phương pháp, chưa kiểm chứng rõ" },
-      { score: 3, label: "Đang tập trung giao dịch theo một phương pháp" },
-      { score: 4, label: "Đã có phương pháp riêng, đang tối ưu" },
+      { score: 1, label: "ChÆ°a cÃ³ phÆ°Æ¡ng phÃ¡p, chá»§ yáº¿u vÃ o lá»‡nh theo cáº£m tÃ­nh" },
+      { score: 2, label: "ÄÃ£ thá»­ qua nhiá»u phÆ°Æ¡ng phÃ¡p, chÆ°a kiá»ƒm chá»©ng rÃµ" },
+      { score: 3, label: "Äang táº­p trung giao dá»‹ch theo má»™t phÆ°Æ¡ng phÃ¡p" },
+      { score: 4, label: "ÄÃ£ cÃ³ phÆ°Æ¡ng phÃ¡p riÃªng, Ä‘ang tá»‘i Æ°u" },
     ],
   },
   {
     type: "scored",
     id: "probability_thinking",
     icon: Dice5,
-    title: "Tư duy xác suất",
-    subtitle: "Khi bạn thua lỗ liên tiếp 3 lệnh, bạn thường làm gì?",
+    title: "TÆ° duy xÃ¡c suáº¥t",
+    subtitle: "Khi báº¡n thua lá»— liÃªn tiáº¿p 3 lá»‡nh, báº¡n thÆ°á»ng lÃ m gÃ¬?",
     options: [
-      { score: 1, label: "Xem lại thị trường và điều chỉnh cách vào lệnh" },
-      { score: 2, label: "Tạm dừng một thời gian để quan sát" },
-      { score: 3, label: "Xem lại các lệnh đã vào để hiểu điều gì chưa ổn" },
-      { score: 4, label: "Tiếp tục giao dịch như bình thường và theo dõi" },
+      { score: 1, label: "Xem láº¡i thá»‹ trÆ°á»ng vÃ  Ä‘iá»u chá»‰nh cÃ¡ch vÃ o lá»‡nh" },
+      { score: 2, label: "Táº¡m dá»«ng má»™t thá»i gian Ä‘á»ƒ quan sÃ¡t" },
+      { score: 3, label: "Xem láº¡i cÃ¡c lá»‡nh Ä‘Ã£ vÃ o Ä‘á»ƒ hiá»ƒu Ä‘iá»u gÃ¬ chÆ°a á»•n" },
+      { score: 4, label: "Tiáº¿p tá»¥c giao dá»‹ch nhÆ° bÃ¬nh thÆ°á»ng vÃ  theo dÃµi" },
     ],
   },
   {
     type: "text",
     id: "income_status",
     icon: Wallet,
-    title: "Tình trạng thu nhập",
-    subtitle: "Mô tả ngắn gọn tình trạng tài chính hiện tại của bạn",
-    placeholder: "Ví dụ: Có thu nhập ổn định hàng tháng, trading là thêm",
+    title: "TÃ¬nh tráº¡ng thu nháº­p",
+    subtitle: "MÃ´ táº£ ngáº¯n gá»n tÃ¬nh tráº¡ng tÃ i chÃ­nh hiá»‡n táº¡i cá»§a báº¡n",
+    placeholder: "VÃ­ dá»¥: CÃ³ thu nháº­p á»•n Ä‘á»‹nh hÃ ng thÃ¡ng, trading lÃ  thÃªm",
   },
   {
     type: "text",
     id: "device_detail",
     icon: Smartphone,
-    title: "Chi tiết thiết bị",
-    subtitle: "Bạn đang dùng thiết bị gì cụ thể?",
-    placeholder: "Ví dụ: MacBook Pro, iPhone 15, setup 2 màn hình...",
+    title: "Chi tiáº¿t thiáº¿t bá»‹",
+    subtitle: "Báº¡n Ä‘ang dÃ¹ng thiáº¿t bá»‹ gÃ¬ cá»¥ thá»ƒ?",
+    placeholder: "VÃ­ dá»¥: MacBook Pro, iPhone 15, setup 2 mÃ n hÃ¬nh...",
   },
 ];
 
@@ -157,22 +157,22 @@ const classificationInfo: Record<string, { label: string; color: string; descrip
   newbie: {
     label: "Newbie",
     color: "text-gray-700 dark:text-gray-300",
-    description: "Bạn mới bắt đầu hành trình Trading. ROVA sẽ hướng dẫn bạn từng bước từ cơ bản nhất!",
+    description: "Báº¡n má»›i báº¯t Ä‘áº§u hÃ nh trÃ¬nh Trading. ROVA sáº½ hÆ°á»›ng dáº«n báº¡n tá»«ng bÆ°á»›c tá»« cÆ¡ báº£n nháº¥t!",
   },
   beginner: {
     label: "Beginner",
     color: "text-blue-700 dark:text-blue-300",
-    description: "Bạn đã có nền tảng ban đầu. Hãy cùng ROVA xây dựng phương pháp giao dịch vững chắc!",
+    description: "Báº¡n Ä‘Ã£ cÃ³ ná»n táº£ng ban Ä‘áº§u. HÃ£y cÃ¹ng ROVA xÃ¢y dá»±ng phÆ°Æ¡ng phÃ¡p giao dá»‹ch vá»¯ng cháº¯c!",
   },
   intermediate: {
     label: "Intermediate",
     color: "text-amber-700 dark:text-amber-300",
-    description: "Bạn có kiến thức khá tốt. ROVA sẽ giúp bạn tối ưu chiến lược và quản lý rủi ro!",
+    description: "Báº¡n cÃ³ kiáº¿n thá»©c khÃ¡ tá»‘t. ROVA sáº½ giÃºp báº¡n tá»‘i Æ°u chiáº¿n lÆ°á»£c vÃ  quáº£n lÃ½ rá»§i ro!",
   },
   advanced: {
     label: "Advanced",
     color: "text-green-700 dark:text-green-300",
-    description: "Bạn là trader có kinh nghiệm. ROVA sẽ đồng hành nâng cấp hệ thống giao dịch của bạn!",
+    description: "Báº¡n lÃ  trader cÃ³ kinh nghiá»‡m. ROVA sáº½ Ä‘á»“ng hÃ nh nÃ¢ng cáº¥p há»‡ thá»‘ng giao dá»‹ch cá»§a báº¡n!",
   },
 };
 
@@ -229,7 +229,7 @@ export default function OnboardingPage() {
     try {
       const userId = getStoredUserId();
       if (userId) {
-        // Build full survey object — scored q lưu {score, answer}, text q lưu string
+        // Build full survey object â€” scored q lÆ°u {score, answer}, text q lÆ°u string
         const surveyAnswers: Record<string, { score: number; answer: string } | string> = {};
         for (const q of questions) {
           const v = answers[q.id];
@@ -264,7 +264,7 @@ export default function OnboardingPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-muted-foreground">
-            {showResult ? "Kết quả" : `Câu ${step + 1} / ${totalSteps}`}
+            {showResult ? "Káº¿t quáº£" : `CÃ¢u ${step + 1} / ${totalSteps}`}
           </span>
           <span className="text-sm text-gold font-medium">
             {Math.round(progress)}%
@@ -361,20 +361,20 @@ export default function OnboardingPage() {
                 className="text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft size={16} className="mr-2" />
-                Quay lại
+                Quay láº¡i
               </Button>
               <Button
                 onClick={handleNext}
                 disabled={!canNext}
                 className="bg-gold hover:bg-gold-medium text-gold-black font-semibold px-8 py-5"
               >
-                {step === totalSteps - 1 ? "Xem kết quả" : "Tiếp theo"}
+                {step === totalSteps - 1 ? "Xem káº¿t quáº£" : "Tiáº¿p theo"}
                 <ArrowRight size={16} className="ml-2" />
               </Button>
             </div>
           </motion.div>
         ) : (
-          /* ── Result Screen ── */
+          /* â”€â”€ Result Screen â”€â”€ */
           <motion.div
             key="result"
             initial={{ opacity: 0, scale: 0.95 }}
@@ -392,24 +392,24 @@ export default function OnboardingPage() {
             </motion.div>
 
             <h2 className="text-2xl font-bold text-foreground mb-2">
-              Hoàn thành khảo sát!
+              HoÃ n thÃ nh kháº£o sÃ¡t!
             </h2>
             <p className="text-muted-foreground mb-8">
-              Dựa trên câu trả lời của bạn, đây là kết quả phân loại:
+              Dá»±a trÃªn cÃ¢u tráº£ lá»i cá»§a báº¡n, Ä‘Ã¢y lÃ  káº¿t quáº£ phÃ¢n loáº¡i:
             </p>
 
             {/* Score display */}
             <div className="inline-flex items-center gap-6 rounded-2xl border border-gold/20 bg-gold/5 px-8 py-5 mb-6">
               <div className="text-center">
                 <div className="text-4xl font-extrabold text-gold">{totalScore}</div>
-                <div className="text-xs text-muted-foreground mt-1">Tổng điểm</div>
+                <div className="text-xs text-muted-foreground mt-1">Tá»•ng Ä‘iá»ƒm</div>
               </div>
               <div className="w-px h-12 bg-gold/20" />
               <div className="text-center">
                 <div className={cn("text-2xl font-bold", result.color)}>
                   {result.label}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">Phân loại</div>
+                <div className="text-xs text-muted-foreground mt-1">PhÃ¢n loáº¡i</div>
               </div>
             </div>
 
@@ -425,14 +425,14 @@ export default function OnboardingPage() {
                 className="text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft size={16} className="mr-2" />
-                Xem lại câu trả lời
+                Xem láº¡i cÃ¢u tráº£ lá»i
               </Button>
               <Button
                 onClick={handleFinish}
                 disabled={saving}
                 className="bg-gold hover:bg-gold-medium text-gold-black font-bold px-8 py-5 rounded-xl"
               >
-                {saving ? "Đang lưu..." : "Bắt đầu học ngay"}
+                {saving ? "Äang lÆ°u..." : "Báº¯t Ä‘áº§u há»c ngay"}
                 {!saving && <ArrowRight size={16} className="ml-2" />}
               </Button>
             </div>

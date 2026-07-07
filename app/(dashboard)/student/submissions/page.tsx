@@ -15,7 +15,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { getAssignmentsByCourse, getSubmissionsByUser } from "@/lib/mock-data";
+import { getAssignmentsByCourse, getSubmissionsByUser, createSubmission } from "@/lib/api";
 import { cn, formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -32,13 +32,33 @@ interface ModelSlot {
   note: string;
 }
 
+interface AssignmentRow {
+  id: string;
+  course_id: string;
+  title: string;
+  description: string | null;
+  instructions: string | null;
+  materials: { name: string; url: string; type: string }[];
+  order_index: number;
+}
+
+interface SubmissionRow {
+  id: string;
+  assignment_id: string;
+  user_id: string;
+  mentor_feedback: string | null;
+  graded_at: string | null;
+  submitted_at: string;
+}
+
 function emptySlots(): ModelSlot[] {
   return Array.from({ length: MAX_MODELS }, () => ({ image: "", note: "" }));
 }
 
 export default function StudentSubmissionsPage() {
   const currentUser = useCurrentUser("student");
-  const proAssignments = getAssignmentsByCourse("c-pro");
+  const [proAssignments, setProAssignments] = useState<AssignmentRow[]>([]);
+  const [mySubmissions, setMySubmissions] = useState<SubmissionRow[]>([]);
 
   const [activeAssignment, setActiveAssignment] = useState<string | null>(null);
   const [models, setModels] = useState<ModelSlot[]>(emptySlots());
@@ -49,12 +69,18 @@ export default function StudentSubmissionsPage() {
   useEffect(() => {
     if (!currentUser) return;
     async function check() {
-      const { data } = await supabase
-        .from("enrollments")
-        .select("id")
-        .eq("user_id", currentUser!.id)
-        .limit(1);
+      const [{ data }, assignments, submissions] = await Promise.all([
+        supabase
+          .from("enrollments")
+          .select("id")
+          .eq("user_id", currentUser!.id)
+          .limit(1),
+        getAssignmentsByCourse("c-pro"),
+        getSubmissionsByUser(currentUser!.id),
+      ]);
       setHasEnrollment((data ?? []).length > 0);
+      setProAssignments(assignments as AssignmentRow[]);
+      setMySubmissions(submissions as SubmissionRow[]);
     }
     check();
   }, [currentUser]);
@@ -76,7 +102,6 @@ export default function StudentSubmissionsPage() {
     );
   }
 
-  const mySubmissions = getSubmissionsByUser(currentUser.id);
   const selected = proAssignments.find((a) => a.id === activeAssignment);
 
   function getStatus(assignmentId: string) {
@@ -108,9 +133,20 @@ export default function StudentSubmissionsPage() {
 
   const filledCount = models.filter((m) => m.image || m.note.trim()).length;
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    if (!currentUser || !activeAssignment) return;
     const filled = models.filter((m) => m.image || m.note.trim());
-    console.log("Submit:", { assignment_id: activeAssignment, models: filled });
+    const created = await Promise.all(
+      filled.map((m) =>
+        createSubmission({
+          assignment_id: activeAssignment,
+          user_id: currentUser.id,
+          image_urls: m.image ? [m.image] : [],
+          note: m.note.trim() || undefined,
+        })
+      )
+    );
+    setMySubmissions((prev) => [...(created as SubmissionRow[]), ...prev]);
     setSubmitted(true);
   }
 

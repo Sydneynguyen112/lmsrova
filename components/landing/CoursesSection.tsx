@@ -3,22 +3,42 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Clock, BookOpen, ArrowRight } from "lucide-react";
-import { courses, modules, lessons } from "@/lib/mock-data";
-import { formatPrice, formatDuration } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { staggerContainer, fadeInUp } from "@/components/shared/ScrollReveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-function getCourseStats(courseId: string) {
-  const courseModules = modules.filter((m) => m.course_id === courseId);
-  const courseLessons = courseModules.flatMap((m) =>
-    lessons.filter((l) => l.module_id === m.id)
-  );
-  const totalDuration = courseLessons.reduce((sum, l) => sum + l.duration_sec, 0);
-  return { lessonCount: courseLessons.length, totalDuration };
+interface StaticCourse {
+  id: string;
+  title: string;
+  description: string;
+  price: number | string;
+  lessonCount: number;
+  durationLabel: string;
 }
+
+const STATIC_COURSES: StaticCourse[] = [
+  {
+    id: "c-pro",
+    title: "Khoá 3 Hộp PRO",
+    description:
+      "Khóa học nền tảng giúp bạn hiểu từ A-Z về giao dịch: từ cách đọc biểu đồ, vẽ trendline, xác định vùng cung cầu, đến quản lý rủi ro và tâm lý trading. 12 video ngắn gọn dưới 15 phút, dễ học mỗi ngày.",
+    price: 7990000,
+    lessonCount: 12,
+    durationLabel: "2h 42p",
+  },
+  {
+    id: "c-coaching",
+    title: "Khoá Coaching Nâng Cao",
+    description:
+      "Dành cho học viên đã hoàn thành Khoá PRO. Đi sâu vào chiến lược giao dịch nâng cao, tối ưu hệ thống, quản trị danh mục và tâm lý giao dịch chuyên nghiệp. Được mentor 1:1 sửa bài hàng ngày.",
+    price: "Nhận tư vấn",
+    lessonCount: 15,
+    durationLabel: "3h 24p",
+  },
+];
 
 export function CoursesSection() {
   return (
@@ -38,8 +58,7 @@ export function CoursesSection() {
           viewport={{ once: true }}
           className="grid md:grid-cols-2 gap-6 lg:gap-8"
         >
-          {courses.map((course, i) => {
-            const stats = getCourseStats(course.id);
+          {STATIC_COURSES.map((course, i) => {
             return (
               <motion.div
                 key={course.id}
@@ -71,11 +90,11 @@ export function CoursesSection() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
                     <span className="flex items-center gap-1.5">
                       <BookOpen size={14} className="text-gold" />
-                      {stats.lessonCount} bài học
+                      {course.lessonCount} bài học
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Clock size={14} className="text-gold" />
-                      {formatDuration(stats.totalDuration)}
+                      {course.durationLabel}
                     </span>
                   </div>
 

@@ -17,19 +17,18 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
-  users,
-  assignments,
-  userNotes,
   getStudentsByMentor,
   getUngradedSubmissions,
   getAvgRating,
   getEnrollmentsByUser,
   getRecentSubmissions,
-} from "@/lib/mock-data";
+  getNotesByUser,
+} from "@/lib/api";
 import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import type { Profile } from "@/lib/auth";
+import type { Submission, UserNote } from "@/lib/types";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -79,30 +78,49 @@ interface YesterdayStudentActivity {
   actions: { action: string; time: string }[];
 }
 
-function getLatestNoteByMentor(studentId: string, mentorId: string) {
-  const note = userNotes
-    .filter((n) => n.user_id === studentId && n.author_id === mentorId)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-  return note ? { content: note.content, created_at: note.created_at } : { content: null as string | null, created_at: null as string | null };
-}
-
-function getYesterdayActivity(studentIds: Set<string>, mentorId: string | null) {
+async function buildYesterdayActivity(
+  studentIds: Set<string>,
+  students: Profile[],
+  mentorId: string
+): Promise<{ students: YesterdayStudentActivity[]; activeCount: number }> {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yKey = yesterday.toISOString().split("T")[0];
 
-  const studentMap = new Map<string, YesterdayStudentActivity>();
-
-  const recentSubs = getRecentSubmissions();
-  recentSubs.forEach((s) => {
-    if (!studentIds.has(s.user_id)) return;
+  const recentSubs = (await getRecentSubmissions(50)) as Submission[];
+  const relevantSubs = recentSubs.filter((s) => {
+    if (!studentIds.has(s.user_id)) return false;
     const sKey = new Date(s.submitted_at).toISOString().split("T")[0];
-    if (sKey !== yKey) return;
+    return sKey === yKey;
+  });
 
+  if (relevantSubs.length === 0) return { students: [], activeCount: 0 };
+
+  const uniqueUserIds = Array.from(new Set(relevantSubs.map((s) => s.user_id)));
+  const assignmentIds = Array.from(new Set(relevantSubs.map((s) => s.assignment_id)));
+
+  const [{ data: assignmentRows }, enrollmentResults, noteResults] = await Promise.all([
+    supabase.from("assignments").select("id, title").in("id", assignmentIds),
+    Promise.all(uniqueUserIds.map((id) => getEnrollmentsByUser(id))),
+    Promise.all(uniqueUserIds.map((id) => getNotesByUser(id))),
+  ]);
+
+  const assignmentTitleMap = new Map((assignmentRows || []).map((a) => [a.id, a.title as string]));
+  const enrollmentMap = new Map(uniqueUserIds.map((id, i) => [id, enrollmentResults[i]]));
+  const notesMap = new Map(
+    uniqueUserIds.map((id, i) => [
+      id,
+      (noteResults[i] as UserNote[]).filter((n) => n.author_id === mentorId),
+    ])
+  );
+
+  const studentMap = new Map<string, YesterdayStudentActivity>();
+  relevantSubs.forEach((s) => {
     if (!studentMap.has(s.user_id)) {
-      const student = users.find((u) => u.id === s.user_id);
-      const enrollment = getEnrollmentsByUser(s.user_id).find((e) => e.status === "active");
-      const latestNote = mentorId ? getLatestNoteByMentor(s.user_id, mentorId) : { content: null, created_at: null };
+      const student = students.find((u) => u.id === s.user_id);
+      const enrollment = (enrollmentMap.get(s.user_id) || []).find((e) => e.status === "active");
+      const latestNote = (notesMap.get(s.user_id) || [])
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
       studentMap.set(s.user_id, {
         userId: s.user_id,
         name: student?.full_name || "Học viên",
@@ -111,12 +129,13 @@ function getYesterdayActivity(studentIds: Set<string>, mentorId: string | null) 
         classification: student?.classification || null,
         riskTag: student?.risk_tag || null,
         progressPct: enrollment?.progress_pct || 0,
-        latestMentorNote: latestNote.content,
-        lastInteractionAt: latestNote.created_at,
+        latestMentorNote: latestNote?.content || null,
+        lastInteractionAt: latestNote?.created_at || null,
         actions: [],
       });
     }
-    studentMap.get(s.user_id)!.actions.push({ action: s.action, time: s.submitted_at });
+    const title = assignmentTitleMap.get(s.assignment_id) || "Bài tập";
+    studentMap.get(s.user_id)!.actions.push({ action: `Nộp bài ${title}`, time: s.submitted_at });
   });
 
   return { students: Array.from(studentMap.values()), activeCount: studentMap.size };
@@ -124,22 +143,66 @@ function getYesterdayActivity(studentIds: Set<string>, mentorId: string | null) 
 
 export default function MentorDashboardPage() {
   const currentUser = useCurrentUser("mentor");
-  const [dbStudents, setDbStudents] = useState<Profile[]>([]);
+  const [allStudents, setAllStudents] = useState<Profile[]>([]);
+  const [mentorUngraded, setMentorUngraded] = useState<Submission[]>([]);
+  const [avgRating, setAvgRating] = useState(0);
+  const [yesterdayStudents, setYesterdayStudents] = useState<YesterdayStudentActivity[]>([]);
+  const [yesterdayActiveCount, setYesterdayActiveCount] = useState(0);
+  const [assignmentTitles, setAssignmentTitles] = useState<Map<string, string>>(new Map());
+  const [enrollmentsByStudent, setEnrollmentsByStudent] = useState<Map<string, { status: string; progress_pct: number }[]>>(new Map());
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
     async function load() {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("role", "student")
-        .eq("mentor_id", currentUser!.id);
-      if (data) setDbStudents(data as Profile[]);
+      const students = await getStudentsByMentor(currentUser!.id);
+      setAllStudents(students as Profile[]);
+
+      const studentIds = new Set(students.map((s) => s.id));
+
+      if (students.length > 0) {
+        const { data: enrollRows } = await supabase
+          .from("enrollments")
+          .select("user_id, status, progress_pct")
+          .in("user_id", students.map((s) => s.id));
+        const map = new Map<string, { status: string; progress_pct: number }[]>();
+        (enrollRows || []).forEach((e) => {
+          const list = map.get(e.user_id) || [];
+          list.push({ status: e.status, progress_pct: e.progress_pct });
+          map.set(e.user_id, list);
+        });
+        setEnrollmentsByStudent(map);
+      }
+      const [ungraded, avg] = await Promise.all([
+        getUngradedSubmissions(),
+        getAvgRating(currentUser!.id),
+      ]);
+      const filteredUngraded = (ungraded as Submission[]).filter((s) => studentIds.has(s.user_id));
+      setMentorUngraded(filteredUngraded);
+      setAvgRating(avg);
+
+      if (filteredUngraded.length > 0) {
+        const { data: aRows } = await supabase
+          .from("assignments")
+          .select("id, title")
+          .in("id", Array.from(new Set(filteredUngraded.map((s) => s.assignment_id))));
+        setAssignmentTitles(new Map((aRows || []).map((a) => [a.id, a.title as string])));
+      }
+
+      const { students: yStudents, activeCount } = await buildYesterdayActivity(
+        studentIds,
+        students as Profile[],
+        currentUser!.id
+      );
+      setYesterdayStudents(yStudents);
+      setYesterdayActiveCount(activeCount);
+
+      setLoading(false);
     }
     load();
   }, [currentUser]);
 
-  if (!currentUser) {
+  if (!currentUser || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
@@ -147,29 +210,10 @@ export default function MentorDashboardPage() {
     );
   }
 
-  // Mock mentor ID mapping: Supabase UUID → mock ID
-  const mockMentorId = currentUser.email === "tien@rova.vn" ? "u-mentor-001"
-    : currentUser.email === "bao@rova.vn" ? "u-mentor-002" : currentUser.id;
-  const mockStudents = getStudentsByMentor(mockMentorId);
-  const dbEmails = new Set(dbStudents.map((s) => s.email));
-  const allStudents = [...dbStudents, ...mockStudents.filter((s) => !dbEmails.has(s.email))];
-
-  const ungradedSubmissions = getUngradedSubmissions();
-  const avgRating = getAvgRating(mockMentorId);
-  // Include cả mock IDs và DB UUIDs để match getRecentSubmissions
-  const mentorStudentIds = new Set([
-    ...allStudents.map((s) => s.id),
-    ...mockStudents.map((s) => s.id),
-  ]);
-  const mentorUngraded = ungradedSubmissions.filter((s) => mentorStudentIds.has(s.user_id));
-
   // Risk stats
   const normalCount = allStudents.filter((s) => !s.risk_tag || s.risk_tag === "normal").length;
   const atRiskCount = allStudents.filter((s) => s.risk_tag === "at_risk").length;
   const watchCount = allStudents.filter((s) => s.risk_tag === "watch").length;
-
-  // Yesterday activity
-  const { students: yesterdayStudents, activeCount: yesterdayActiveCount } = getYesterdayActivity(mentorStudentIds, mockMentorId);
 
   return (
     <PageTransition>
@@ -344,7 +388,7 @@ export default function MentorDashboardPage() {
                   </TableHeader>
                   <TableBody>
                     {allStudents.map((student) => {
-                      const enrollmentList = getEnrollmentsByUser(student.id);
+                      const enrollmentList = enrollmentsByStudent.get(student.id) || [];
                       const activeEnrollment = enrollmentList.find((e) => e.status === "active");
                       const progressPct = activeEnrollment ? activeEnrollment.progress_pct : 0;
                       const initials = student.full_name.split(" ").map((n) => n[0]).join("").slice(-2);
@@ -403,13 +447,13 @@ export default function MentorDashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {mentorUngraded.map((sub) => {
-                    const student = users.find((u) => u.id === sub.user_id);
-                    const assignment = assignments.find((a) => a.id === sub.assignment_id);
+                    const student = allStudents.find((u) => u.id === sub.user_id);
+                    const assignmentTitle = assignmentTitles.get(sub.assignment_id);
                     return (
                       <div key={sub.id} className="flex items-center justify-between rounded-lg border border-border/50 bg-muted/30 p-3">
                         <div className="space-y-1">
                           <p className="font-medium text-foreground text-sm">{student?.full_name || "Học viên"}</p>
-                          <p className="text-xs text-muted-foreground">{assignment?.title || "Bài tập"}</p>
+                          <p className="text-xs text-muted-foreground">{assignmentTitle || "Bài tập"}</p>
                         </div>
                         <div className="text-right space-y-1">
                           <p className="text-xs text-muted-foreground">{formatRelativeTime(sub.submitted_at)}</p>

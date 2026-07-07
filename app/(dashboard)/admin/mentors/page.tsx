@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Star,
@@ -8,19 +8,35 @@ import {
   FileCheck,
   AlertTriangle,
 } from "lucide-react";
-import {
-  users,
-  assignments,
-  mentorReviews,
-  getStudentsByMentor,
-  getUngradedSubmissions,
-  getAvgRating,
-} from "@/lib/mock-data";
+import { supabase } from "@/lib/supabase";
+import type { Profile } from "@/lib/auth";
 import { formatDate, formatRelativeTime, cn } from "@/lib/utils";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+
+interface DbSubmission {
+  id: string;
+  user_id: string;
+  assignment_id: string;
+  submitted_at: string;
+  graded_at: string | null;
+}
+
+interface DbAssignment {
+  id: string;
+  title: string;
+}
+
+interface DbReview {
+  id: string;
+  mentor_id: string;
+  student_id: string;
+  rating: number;
+  feedback: string;
+  created_at: string;
+}
 
 const container = {
   hidden: { opacity: 0 },
@@ -61,11 +77,51 @@ function getInitials(name: string) {
 type Tab = "overview" | "ungraded" | "reviews";
 
 export default function AdminMentorsPage() {
-  const mentors = users.filter((u) => u.role === "mentor");
+  const [mentors, setMentors] = useState<Profile[]>([]);
+  const [students, setStudents] = useState<Profile[]>([]);
+  const [ungradedSubmissions, setUngradedSubmissions] = useState<DbSubmission[]>([]);
+  const [assignments, setAssignments] = useState<DbAssignment[]>([]);
+  const [reviews, setReviews] = useState<DbReview[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedMentorId, setSelectedMentorId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
+  useEffect(() => {
+    async function load() {
+      const [
+        { data: mentorsData },
+        { data: studentsData },
+        { data: ungradedData },
+        { data: assignmentsData },
+        { data: reviewsData },
+      ] = await Promise.all([
+        supabase.from("profiles").select("*").eq("role", "mentor").order("full_name"),
+        supabase.from("profiles").select("*").eq("role", "student"),
+        supabase.from("submissions").select("id, user_id, assignment_id, submitted_at, graded_at").is("graded_at", null).order("submitted_at"),
+        supabase.from("assignments").select("id, title"),
+        supabase.from("mentor_reviews").select("*"),
+      ]);
+      if (mentorsData) setMentors(mentorsData as Profile[]);
+      if (studentsData) setStudents(studentsData as Profile[]);
+      if (ungradedData) setUngradedSubmissions(ungradedData as DbSubmission[]);
+      if (assignmentsData) setAssignments(assignmentsData as DbAssignment[]);
+      if (reviewsData) setReviews(reviewsData as DbReview[]);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
   const selectedMentor = mentors.find((m) => m.id === selectedMentorId);
+
+  function getStudentsByMentor(mentorId: string) {
+    return students.filter((s) => s.mentor_id === mentorId);
+  }
+
+  function getAvgRating(mentorId: string) {
+    const list = reviews.filter((r) => r.mentor_id === mentorId);
+    if (list.length === 0) return 0;
+    return Math.round((list.reduce((sum, r) => sum + r.rating, 0) / list.length) * 10) / 10;
+  }
 
   // Data for selected mentor
   const mentorStudents = selectedMentorId
@@ -73,10 +129,10 @@ export default function AdminMentorsPage() {
     : [];
   const mentorStudentIds = new Set(mentorStudents.map((s) => s.id));
   const mentorUngraded = selectedMentorId
-    ? getUngradedSubmissions().filter((s) => mentorStudentIds.has(s.user_id))
+    ? ungradedSubmissions.filter((s) => mentorStudentIds.has(s.user_id))
     : [];
   const mentorReviewsList = selectedMentorId
-    ? [...mentorReviews]
+    ? [...reviews]
         .filter((r) => r.mentor_id === selectedMentorId)
         .sort(
           (a, b) =>
@@ -89,6 +145,14 @@ export default function AdminMentorsPage() {
     { key: "ungraded", label: "Bài chưa chấm", count: mentorUngraded.length },
     { key: "reviews", label: "Đánh giá", count: mentorReviewsList.length },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-muted-foreground">Đang tải...</div>
+      </div>
+    );
+  }
 
   return (
     <PageTransition>
@@ -118,10 +182,10 @@ export default function AdminMentorsPage() {
             const studentIds = new Set(
               getStudentsByMentor(mentor.id).map((s) => s.id)
             );
-            const ungradedCount = getUngradedSubmissions().filter((s) =>
+            const ungradedCount = ungradedSubmissions.filter((s) =>
               studentIds.has(s.user_id)
             ).length;
-            const reviewCount = mentorReviews.filter(
+            const reviewCount = reviews.filter(
               (r) => r.mentor_id === mentor.id
             ).length;
             const isSelected = selectedMentorId === mentor.id;
@@ -283,7 +347,7 @@ export default function AdminMentorsPage() {
                     </Card>
                   ) : (
                     mentorUngraded.map((submission, i) => {
-                      const student = users.find(
+                      const student = students.find(
                         (u) => u.id === submission.user_id
                       );
                       const assignment = assignments.find(
@@ -356,7 +420,7 @@ export default function AdminMentorsPage() {
                     </Card>
                   ) : (
                     mentorReviewsList.map((review, i) => {
-                      const student = users.find(
+                      const student = students.find(
                         (u) => u.id === review.student_id
                       );
 

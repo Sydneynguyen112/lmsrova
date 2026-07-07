@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
-import { getReviewsByMentor, getAvgRating, getReviewsPerDay } from "@/lib/mock-data";
+import { getReviewsByMentor, getAvgRating, getReviewsPerDay } from "@/lib/api";
 import { useCurrentUser } from "@/lib/auth";
+import type { MentorReview } from "@/lib/types";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -34,10 +36,35 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
+interface ReviewDay {
+  date: string;
+  count: number;
+}
+
 export default function MentorReviewsPage() {
   const currentUser = useCurrentUser("mentor");
+  const [reviews, setReviews] = useState<MentorReview[]>([]);
+  const [avgRating, setAvgRating] = useState(0);
+  const [reviewsPerDay, setReviewsPerDay] = useState<ReviewDay[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!currentUser) {
+  useEffect(() => {
+    if (!currentUser) return;
+    async function load() {
+      const [r, avg, perDay] = await Promise.all([
+        getReviewsByMentor(currentUser!.id),
+        getAvgRating(currentUser!.id),
+        getReviewsPerDay(currentUser!.id, 14),
+      ]);
+      setReviews(r as MentorReview[]);
+      setAvgRating(avg);
+      setReviewsPerDay(perDay);
+      setLoading(false);
+    }
+    load();
+  }, [currentUser]);
+
+  if (!currentUser || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
@@ -45,9 +72,6 @@ export default function MentorReviewsPage() {
     );
   }
 
-  const reviews = getReviewsByMentor(currentUser.id);
-  const avgRating = getAvgRating(currentUser.id);
-  const reviewsPerDay = getReviewsPerDay(currentUser.id, 14);
   const maxReviewDay = Math.max(...reviewsPerDay.map((d) => d.count), 1);
 
   return (

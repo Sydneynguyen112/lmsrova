@@ -3,22 +3,122 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react";
-import { mentorReviews, users } from "@/lib/mock-data";
 import { ScrollReveal } from "@/components/shared/ScrollReveal";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
+interface StaticReview {
+  id: string;
+  studentName: string;
+  classification: string;
+  rating: number;
+  feedback: string;
+}
+
+const STATIC_REVIEWS: StaticReview[] = [
+  {
+    id: "mr-001",
+    studentName: "Lê Quốc Huy",
+    classification: "newbie",
+    rating: 5,
+    feedback: "Anh Thành giải thích rất dễ hiểu, reply nhanh, sửa bài kỹ lưỡng.",
+  },
+  {
+    id: "mr-002",
+    studentName: "Phạm Thị Mai",
+    classification: "beginner",
+    rating: 4,
+    feedback: "Mentor nhiệt tình, nhưng đôi khi reply hơi chậm vào cuối tuần.",
+  },
+  {
+    id: "mr-003",
+    studentName: "Nguyễn Thùy Trang",
+    classification: "intermediate",
+    rating: 5,
+    feedback: "Chị Linh rất kiên nhẫn, phân tích bài nộp chi tiết, chỉ ra cả điểm mình chưa thấy.",
+  },
+  {
+    id: "mr-004",
+    studentName: "Võ Hoàng Long",
+    classification: "advanced",
+    rating: 5,
+    feedback: "Mentoring chiến lược rất hay, giúp mình tối ưu hệ thống trading đang có.",
+  },
+  {
+    id: "mr-005",
+    studentName: "Trần Văn Đức",
+    classification: "beginner",
+    rating: 5,
+    feedback: "Giải thích Price Action rõ ràng, dễ áp dụng ngay.",
+  },
+  {
+    id: "mr-011",
+    studentName: "Bùi Đăng Khoa",
+    classification: "newbie",
+    rating: 5,
+    feedback: "Buổi chiều hôm nay rất bổ ích, cảm ơn anh!",
+  },
+  {
+    id: "mr-006",
+    studentName: "Bùi Đăng Khoa",
+    classification: "newbie",
+    rating: 4,
+    feedback: "Nội dung bài review rất chi tiết, mình học được nhiều.",
+  },
+  {
+    id: "mr-007",
+    studentName: "Lê Quốc Huy",
+    classification: "newbie",
+    rating: 5,
+    feedback: "Mentor giải đáp thắc mắc rất nhanh, support tận tâm.",
+  },
+  {
+    id: "mr-008",
+    studentName: "Phạm Thị Mai",
+    classification: "beginner",
+    rating: 5,
+    feedback: "Buổi 1-on-1 rất bổ ích, cảm ơn anh Thành!",
+  },
+  {
+    id: "mr-012",
+    studentName: "Trần Văn Đức",
+    classification: "beginner",
+    rating: 4,
+    feedback: "Review bài chi tiết, giúp mình hiểu rõ lỗi sai.",
+  },
+  {
+    id: "mr-013",
+    studentName: "Lê Quốc Huy",
+    classification: "newbie",
+    rating: 5,
+    feedback: "Anh Thành support cả ngày, quá tuyệt vời!",
+  },
+  {
+    id: "mr-009",
+    studentName: "Hoàng Việt Anh",
+    classification: "newbie",
+    rating: 4,
+    feedback: "Chị Linh hướng dẫn tỉ mỉ, thích cách phân tích chart.",
+  },
+  {
+    id: "mr-010",
+    studentName: "Nguyễn Thùy Trang",
+    classification: "intermediate",
+    rating: 5,
+    feedback: "Support nhanh, bài chấm kỹ, rất hài lòng!",
+  },
+];
+
 export function TestimonialsSection() {
   const [current, setCurrent] = useState(0);
-  const reviews = mentorReviews;
+  const reviews = STATIC_REVIEWS;
 
   const next = () => setCurrent((c) => (c + 1) % reviews.length);
   const prev = () => setCurrent((c) => (c - 1 + reviews.length) % reviews.length);
 
   const review = reviews[current];
-  const student = users.find((u) => u.id === review.student_id);
-  const initials = student?.full_name
+  const initials = review.studentName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -75,10 +175,10 @@ export function TestimonialsSection() {
                 </Avatar>
                 <div className="text-left">
                   <div className="text-sm font-semibold text-foreground">
-                    {student?.full_name}
+                    {review.studentName}
                   </div>
                   <div className="text-xs text-muted-foreground capitalize">
-                    {student?.classification}
+                    {review.classification}
                   </div>
                 </div>
               </div>
