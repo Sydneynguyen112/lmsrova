@@ -10,6 +10,7 @@ import {
   NotebookPen,
   BarChart3,
   GraduationCap,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/types";
@@ -49,6 +50,7 @@ export const adminNav: NavItem[] = [
   { href: "/admin/courses", label: "Quản lý Khoá học", icon: BookOpen },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/forms", label: "Biểu mẫu", icon: FileText },
+  { href: "/admin/quizzes", label: "Quiz", icon: ClipboardCheck },
   { href: "/admin/blog", label: "Vườn ươm tâm thức", icon: Sprout },
   { href: "/admin/profile", label: "Hồ sơ", icon: User },
 ];
