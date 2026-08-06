@@ -7,6 +7,7 @@ import {
   Sprout,
   NotebookPen,
   GraduationCap,
+  MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/types";
@@ -25,6 +26,7 @@ export const studentNav: NavItem[] = [
   { href: "/student/submissions", label: "Bài nộp", icon: FileText, requiresEnrollment: true },
   { href: "/student/graduation", label: "Bài tốt nghiệp", icon: GraduationCap, requiresEnrollment: true },
   { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
+  { href: "/student/messages", label: "Chat với Mentor", icon: MessageCircle, requiresEnrollment: true },
   { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
   { href: "/student/review", label: "Đánh giá Mentor", icon: Star, requiresEnrollment: true },
   { href: "/student/profile", label: "Hồ sơ", icon: User },
