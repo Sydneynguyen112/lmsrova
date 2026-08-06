@@ -254,8 +254,8 @@ export default function OnboardingPage() {
           .eq("id", userId);
 
         // Phase 02: survey xong = khoi tao lo trinh + qua chang onboarding
-        await initStudentRoadmap(userId, "c-pro");
-        await checkAndCompleteStages(userId, "c-pro");
+        await initStudentRoadmap(userId, "c-mov3c81m-fdq2");
+        await checkAndCompleteStages(userId, "c-mov3c81m-fdq2");
       }
     } catch (err) {
       console.error("Failed to save onboarding survey:", err);

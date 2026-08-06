@@ -23,8 +23,8 @@ interface StaticCourse {
 }
 
 const STATIC_COURSES: Record<string, StaticCourse> = {
-  "c-pro": {
-    id: "c-pro",
+  "c-mov3c81m-fdq2": {
+    id: "c-mov3c81m-fdq2",
     title: "Khoá 3 Hộp PRO",
     description:
       "Khóa học nền tảng giúp bạn hiểu từ A-Z về giao dịch: từ cách đọc biểu đồ, vẽ trendline, xác định vùng cung cầu, đến quản lý rủi ro và tâm lý trading. 12 video ngắn gọn dưới 15 phút, dễ học mỗi ngày.",
@@ -41,7 +41,7 @@ const STATIC_COURSES: Record<string, StaticCourse> = {
 
 const plans = [
   {
-    courseId: "c-pro",
+    courseId: "c-mov3c81m-fdq2",
     features: [
       "12 video bài giảng chuyên sâu",
       "Quiz kiểm tra sau mỗi bài",

@@ -46,7 +46,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const MAX_MODELS = 5;
-const COURSE_ID = "c-pro";
+const COURSE_ID = "c-mov3c81m-fdq2";
 
 interface ModelSlot {
   image: string; // data URL (lưu thẳng vào DB — pattern avatar hiện có)

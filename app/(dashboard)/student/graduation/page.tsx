@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageTransition } from "@/components/shared/PageTransition";
 
-const COURSE_ID = "c-pro";
+const COURSE_ID = "c-mov3c81m-fdq2";
 
 interface FormInfo {
   id: string;

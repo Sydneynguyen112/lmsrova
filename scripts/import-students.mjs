@@ -24,7 +24,7 @@ if (!URL || !KEY) {
 }
 const sb = createClient(URL, KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
-const COURSE_ID = "c-pro";
+const COURSE_ID = "c-mov3c81m-fdq2";
 const FALLBACK_PASSWORD = "Rovatrading26";
 // Sale = Andrew → mentor Andrew; Sale = Ham → mentor Ham; còn lại chia đều luân phiên (đã chốt)
 const MENTOR_NAMES = { andrew: "Andrew", ham: "Ham" };

@@ -101,7 +101,7 @@ export async function getPendingImagesByStudents(studentIds: string[]): Promise<
   return (data as unknown as PendingImage[]) || [];
 }
 
-// Chấm 1 ảnh. Sau khi gọi hàm này, NGƯỜI GỌI phải gọi checkAndCompleteStages(userId, 'c-pro')
+// Chấm 1 ảnh. Sau khi gọi hàm này, NGƯỜI GỌI phải gọi checkAndCompleteStages(userId, 'c-mov3c81m-fdq2')
 // (lib/roadmap.ts) — ảnh thứ 20 correct có thể qua chặng/mở quiz. Trigger DB tự lo pause/unpause.
 export async function gradeImage(
   imageId: string,

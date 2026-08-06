@@ -68,7 +68,7 @@ export default function MentorGradingQueuePage() {
       setImages(imgs);
       setChoChamCount(waiting);
 
-      const a = (await getAssignmentsByCourse("c-pro")) as { id: string; title: string }[];
+      const a = (await getAssignmentsByCourse("c-mov3c81m-fdq2")) as { id: string; title: string }[];
       setAssignmentTitles(new Map(a.map((x) => [x.id, x.title])));
       setLoading(false);
     }
@@ -101,7 +101,7 @@ export default function MentorGradingQueuePage() {
     try {
       await gradeImage(currentImage.id, verdict, feedback, currentUser.id);
       // Ảnh thứ 20 đúng có thể qua chặng + mở quiz — engine chung lo hết
-      await checkAndCompleteStages(currentImage.user_id, "c-pro");
+      await checkAndCompleteStages(currentImage.user_id, "c-mov3c81m-fdq2");
       setImages((prev) => prev.filter((i) => i.id !== currentImage.id));
       setVerdict(null);
       setFeedback("");

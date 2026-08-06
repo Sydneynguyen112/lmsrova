@@ -23,7 +23,7 @@ interface StaticCourse {
 
 const STATIC_COURSES: StaticCourse[] = [
   {
-    id: "c-pro",
+    id: "c-mov3c81m-fdq2",
     title: "Khoá 3 Hộp PRO",
     description:
       "Khóa học nền tảng giúp bạn hiểu từ A-Z về giao dịch: từ cách đọc biểu đồ, vẽ trendline, xác định vùng cung cầu, đến quản lý rủi ro và tâm lý trading. 12 video ngắn gọn dưới 15 phút, dễ học mỗi ngày.",

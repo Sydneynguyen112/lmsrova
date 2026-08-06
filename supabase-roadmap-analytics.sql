@@ -274,36 +274,31 @@ END; $$ LANGUAGE plpgsql;
 -- Bật extension pg_cron trong Dashboard → Database → Extensions trước, rồi:
 -- SELECT cron.schedule('refresh-statuses', '0 * * * *', $cron$SELECT refresh_student_statuses()$cron$);
 
--- ============ 6. SEED LỘ TRÌNH 10 CHẶNG (course c-pro) ============
--- Mapping lesson/assignment dò theo TÊN trong DB thật (bài học đặt tên trùng chặng).
--- Sau khi chạy: BẮT BUỘC chạy SELECT kiểm tra ở cuối file — chỗ nào NULL thì admin gắn tay.
+-- ============ 6. SEED LỘ TRÌNH 10 CHẶNG (course c-mov3c81m-fdq2 "3 hộp PRO") ============
+-- Hiện trạng DB 06/08/2026: course thật chỉ có 1 lesson (Chương 1 chào mừng), 0 assignment.
+-- → Tạo luôn 5 assignment cho 5 chặng bài tập. lesson_id các chặng dò theo TÊN (giờ sẽ NULL,
+--   admin/dev chạy lại khối UPDATE ở mục 6b sau khi upload đủ video là mapping tự đầy).
+
+INSERT INTO assignments (id, course_id, title, description, order_index) VALUES
+  ('a-nen-chu','c-mov3c81m-fdq2','Bài tập: Nến chủ','Nộp 20 ảnh xác định nến chủ — cần được mentor chấm ĐÚNG đủ 20 ảnh để mở quiz chặng',1),
+  ('a-cau-truc','c-mov3c81m-fdq2','Bài tập: Cấu trúc','Nộp 20 ảnh đánh dấu cấu trúc thị trường — cần đủ 20 ảnh chấm ĐÚNG để mở quiz chặng',2),
+  ('a-ct1','c-mov3c81m-fdq2','Bài tập: Công thức 1 (CT1)','Backtest Công thức 1 — nộp 20 ảnh được chấm ĐÚNG để mở quiz chặng',3),
+  ('a-ct2','c-mov3c81m-fdq2','Bài tập: Công thức 2 (CT2)','Backtest Công thức 2 — nộp 20 ảnh được chấm ĐÚNG để mở quiz chặng',4),
+  ('a-ct3','c-mov3c81m-fdq2','Bài tập: Công thức 3 (CT3)','Backtest Công thức 3 — nộp 20 ảnh được chấm ĐÚNG để mở quiz chặng',5)
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO roadmap_stages (id, course_id, stage_key, title, order_index, target_days, completion_type, lesson_id, assignment_id, lesson_ids)
 VALUES
-  ('stg-pro-01','c-pro','onboarding','Onboarding',1,1,'onboarding',NULL,NULL,NULL),
-  ('stg-pro-02','c-pro','xem_video','Xem video',2,1,'first_lesson',NULL,NULL,NULL),
-  ('stg-pro-03','c-pro','nen_chu','Nến chủ',3,2,'assignment_quiz',
-    (SELECT l.id FROM lessons l JOIN modules m ON m.id=l.module_id WHERE m.course_id='c-pro' AND l.title ILIKE '%nến%' ORDER BY l.order_index LIMIT 1),
-    (SELECT id FROM assignments WHERE course_id='c-pro' AND title ILIKE '%nến chủ%' LIMIT 1), NULL),
-  ('stg-pro-04','c-pro','cau_truc','Cấu trúc',4,3,'assignment_quiz',
-    (SELECT l.id FROM lessons l JOIN modules m ON m.id=l.module_id WHERE m.course_id='c-pro' AND l.title ILIKE '%cấu trúc%' ORDER BY l.order_index LIMIT 1),
-    (SELECT id FROM assignments WHERE course_id='c-pro' AND title ILIKE '%cấu trúc%' LIMIT 1), NULL),
-  ('stg-pro-05','c-pro','tu_duy','Tư duy',5,1,'lesson_quiz',
-    (SELECT l.id FROM lessons l JOIN modules m ON m.id=l.module_id WHERE m.course_id='c-pro' AND l.title ILIKE '%tư duy%' ORDER BY l.order_index LIMIT 1),
-    NULL, NULL),
-  ('stg-pro-06','c-pro','ct1','Công thức 1',6,3,'assignment_quiz',
-    (SELECT l.id FROM lessons l JOIN modules m ON m.id=l.module_id WHERE m.course_id='c-pro' AND (l.title ILIKE '%công thức 1%' OR l.title ILIKE '%ct1%') ORDER BY l.order_index LIMIT 1),
-    (SELECT id FROM assignments WHERE course_id='c-pro' AND (title ILIKE '%công thức 1%' OR title ILIKE '%ct1%') LIMIT 1), NULL),
-  ('stg-pro-07','c-pro','ct2','Công thức 2',7,3,'assignment_quiz',
-    (SELECT l.id FROM lessons l JOIN modules m ON m.id=l.module_id WHERE m.course_id='c-pro' AND (l.title ILIKE '%công thức 2%' OR l.title ILIKE '%ct2%') ORDER BY l.order_index LIMIT 1),
-    (SELECT id FROM assignments WHERE course_id='c-pro' AND (title ILIKE '%công thức 2%' OR title ILIKE '%ct2%') LIMIT 1), NULL),
-  ('stg-pro-08','c-pro','ct3','Công thức 3',8,3,'assignment_quiz',
-    (SELECT l.id FROM lessons l JOIN modules m ON m.id=l.module_id WHERE m.course_id='c-pro' AND (l.title ILIKE '%công thức 3%' OR l.title ILIKE '%ct3%') ORDER BY l.order_index LIMIT 1),
-    (SELECT id FROM assignments WHERE course_id='c-pro' AND (title ILIKE '%công thức 3%' OR title ILIKE '%ct3%') LIMIT 1), NULL),
-  ('stg-pro-09','c-pro','video_hoan_thien','Video hoàn thiện',9,2,'lesson_group',NULL,NULL,
-    (SELECT array_agg(l.id ORDER BY l.order_index) FROM lessons l JOIN modules m ON m.id=l.module_id
-     WHERE m.course_id='c-pro' AND (l.title ILIKE '%tâm lý%' OR l.title ILIKE '%quản lý vốn%' OR l.title ILIKE '%nhật ký%'))),
-  ('stg-pro-10','c-pro','tot_nghiep','Bài Tốt nghiệp',10,1,'graduation_form',NULL,NULL,NULL)
+  ('stg-pro-01','c-mov3c81m-fdq2','onboarding','Onboarding',1,1,'onboarding',NULL,NULL,NULL),
+  ('stg-pro-02','c-mov3c81m-fdq2','xem_video','Xem video',2,1,'first_lesson',NULL,NULL,NULL),
+  ('stg-pro-03','c-mov3c81m-fdq2','nen_chu','Nến chủ',3,2,'assignment_quiz',NULL,'a-nen-chu',NULL),
+  ('stg-pro-04','c-mov3c81m-fdq2','cau_truc','Cấu trúc',4,3,'assignment_quiz',NULL,'a-cau-truc',NULL),
+  ('stg-pro-05','c-mov3c81m-fdq2','tu_duy','Tư duy',5,1,'lesson_quiz',NULL,NULL,NULL),
+  ('stg-pro-06','c-mov3c81m-fdq2','ct1','Công thức 1',6,3,'assignment_quiz',NULL,'a-ct1',NULL),
+  ('stg-pro-07','c-mov3c81m-fdq2','ct2','Công thức 2',7,3,'assignment_quiz',NULL,'a-ct2',NULL),
+  ('stg-pro-08','c-mov3c81m-fdq2','ct3','Công thức 3',8,3,'assignment_quiz',NULL,'a-ct3',NULL),
+  ('stg-pro-09','c-mov3c81m-fdq2','video_hoan_thien','Video hoàn thiện',9,2,'lesson_group',NULL,NULL,NULL),
+  ('stg-pro-10','c-mov3c81m-fdq2','tot_nghiep','Bài Tốt nghiệp',10,1,'graduation_form',NULL,NULL,NULL)
 ON CONFLICT (course_id, stage_key) DO NOTHING;
 
 -- ============ 7. RLS (pattern allow_all hiện tại — siết ở dự án riêng) ============
@@ -319,10 +314,22 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ============ 6b. CHẠY LẠI SAU KHI UPLOAD ĐỦ VIDEO (mapping lesson theo tên) ============
+-- Khi admin upload đủ 12 video vào khoá, chạy khối này để gắn video vào chặng:
+-- UPDATE roadmap_stages SET lesson_id = (SELECT l.id FROM lessons l JOIN modules m ON m.id=l.module_id
+--   WHERE m.course_id='c-mov3c81m-fdq2' AND l.title ILIKE '%nến chủ%' ORDER BY l.order_index LIMIT 1)
+--   WHERE id='stg-pro-03';
+-- (tương tự: stg-pro-04 '%cấu trúc%' · stg-pro-05 '%tư duy%' · stg-pro-06..08 '%công thức 1/2/3%')
+-- UPDATE roadmap_stages SET lesson_ids = (SELECT array_agg(l.id ORDER BY l.order_index)
+--   FROM lessons l JOIN modules m ON m.id=l.module_id WHERE m.course_id='c-mov3c81m-fdq2'
+--   AND (l.title ILIKE '%tâm lý%' OR l.title ILIKE '%quản lý vốn%' OR l.title ILIKE '%nhật ký%'))
+--   WHERE id='stg-pro-09';
+-- Quiz chặng: tạo quiz trong bảng quizzes rồi UPDATE roadmap_stages SET quiz_id=... theo chặng.
+
 -- ============ 8. KIỂM TRA SAU KHI CHẠY ============
 -- Chạy tay từng câu, xem kết quả:
 -- SELECT stage_key, title, target_days, completion_type, lesson_id, assignment_id, lesson_ids
---   FROM roadmap_stages WHERE course_id='c-pro' ORDER BY order_index;
+--   FROM roadmap_stages WHERE course_id='c-mov3c81m-fdq2' ORDER BY order_index;
 --   → đủ 10 dòng, tổng target_days = 20. Ô lesson_id/assignment_id NULL ở chặng 3-9 = tên bài
 --     trong DB không khớp pattern → UPDATE gắn tay theo id thật.
 -- SELECT * FROM cron.job;  → sau khi schedule, có job refresh-statuses.

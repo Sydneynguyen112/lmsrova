@@ -35,7 +35,7 @@ SELECT
   gr.grade AS graduation_grade
 FROM profiles p
 LEFT JOIN profiles mt ON mt.id = p.mentor_id
-LEFT JOIN enrollments e ON e.user_id = p.id AND e.course_id = 'c-pro'
+LEFT JOIN enrollments e ON e.user_id = p.id AND e.course_id = 'c-mov3c81m-fdq2'
 LEFT JOIN LATERAL (
   SELECT rs.stage_key, rs.title AS stage_title, rs.order_index AS stage_order,
          rs.assignment_id, rs.required_correct_images,
@@ -150,7 +150,7 @@ FROM roadmap_stages rs
 LEFT JOIN student_stage_progress ssp
   ON ssp.stage_id = rs.id AND ssp.completed_at IS NOT NULL
   AND ssp.entered_at IS NOT NULL AND ssp.source = 'app'
-WHERE rs.course_id = 'c-pro'
+WHERE rs.course_id = 'c-mov3c81m-fdq2'
 GROUP BY rs.stage_key, rs.title, rs.order_index, rs.target_days
 ORDER BY rs.order_index;
 
