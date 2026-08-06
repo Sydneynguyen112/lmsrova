@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { LogIn, Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { signInWithEmail, signInWithGoogle } from "@/lib/auth";
+import { signInWithPassword, signInWithGoogle, requestPasswordReset } from "@/lib/auth";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -21,19 +21,30 @@ export default function SignInPage() {
     setError("");
     setLoading(true);
 
-    const profile = await signInWithEmail(form.email);
-
-    if (!profile) {
-      setError("Email không tồn tại trong hệ thống");
+    try {
+      const profile = await signInWithPassword(form.email, form.password);
       setLoading(false);
+      if (profile.role === "admin" || profile.role === "super_admin") router.push("/admin");
+      else if (profile.role === "mentor") router.push("/mentor");
+      else router.push("/student");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không đăng nhập được");
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError("");
+    if (!form.email) {
+      setError("Nhập email trước rồi bấm Quên mật khẩu");
       return;
     }
-
-    setLoading(false);
-
-    if (profile.role === "admin" || profile.role === "super_admin") router.push("/admin");
-    else if (profile.role === "mentor") router.push("/mentor");
-    else router.push("/student");
+    try {
+      await requestPasswordReset(form.email);
+      setError("Đã gửi email đặt lại mật khẩu — kiểm tra hộp thư");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không gửi được email");
+    }
   };
 
   const handleGoogleSignIn = async () => {
@@ -86,12 +97,13 @@ export default function SignInPage() {
             <label className="text-sm font-medium text-foreground">
               Mật khẩu
             </label>
-            <Link
-              href="#"
+            <button
+              type="button"
+              onClick={handleForgotPassword}
               className="text-xs text-gold hover:underline"
             >
               Quên mật khẩu?
-            </Link>
+            </button>
           </div>
           <div className="relative">
             <Lock

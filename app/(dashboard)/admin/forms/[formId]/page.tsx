@@ -5,16 +5,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Plus, Save, Trash2, ChevronUp, ChevronDown, Pencil, X,
   Type, AlignLeft, CircleDot, CheckSquare, List, Star,
-  GripVertical, Globe, Lock, Copy, Eye, CheckCircle2,
+  Globe, Lock, Copy, Eye, CheckCircle2, GraduationCap, Award,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  type FormQuestionRow,
+  isScorableType,
+  validateGraduationPublish,
+} from "@/lib/api-forms";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { PageTransition } from "@/components/shared/PageTransition";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -28,15 +32,7 @@ interface Form {
   status: string;
 }
 
-interface Question {
-  id: string;
-  form_id: string;
-  question_text: string;
-  question_type: string;
-  options: string[];
-  required: boolean;
-  order_index: number;
-}
+type Question = FormQuestionRow;
 
 const QUESTION_TYPES = [
   { value: "text", label: "Văn bản ngắn", icon: Type },
@@ -51,6 +47,24 @@ function genId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+interface QuestionDraft {
+  question_text: string;
+  question_type: string;
+  required: boolean;
+  options: string[];
+  correct_option: number | null;
+  points: number;
+}
+
+const EMPTY_DRAFT: QuestionDraft = {
+  question_text: "",
+  question_type: "text",
+  required: false,
+  options: [""],
+  correct_option: null,
+  points: 1,
+};
+
 export default function FormBuilderPage({ params }: { params: Promise<{ formId: string }> }) {
   const { formId } = use(params);
   const [form, setForm] = useState<Form | null>(null);
@@ -58,10 +72,11 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [toastError, setToastError] = useState(false);
 
   // Add question dialog
   const [addOpen, setAddOpen] = useState(false);
-  const [newQ, setNewQ] = useState({ question_text: "", question_type: "text", required: false, options: [""] });
+  const [newQ, setNewQ] = useState<QuestionDraft>({ ...EMPTY_DRAFT });
 
   // Edit question
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -70,8 +85,15 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
   // Preview
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  const isGraduation = form?.form_type === "graduation";
+
   useEffect(() => { loadData(); }, [formId]);
-  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); } }, [toast]);
+  useEffect(() => { if (toast) { const t = setTimeout(() => { setToast(null); setToastError(false); }, 4000); return () => clearTimeout(t); } }, [toast]);
+
+  function showToast(msg: string, isError = false) {
+    setToast(msg);
+    setToastError(isError);
+  }
 
   async function loadData() {
     const [{ data: f }, { data: q }] = await Promise.all([
@@ -91,63 +113,99 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
   async function togglePublish() {
     if (!form) return;
     const newStatus = form.status === "published" ? "draft" : "published";
+    // Validate publish form graduation: >=1 câu có đáp án đúng, tổng điểm > 0
+    if (newStatus === "published" && isGraduation) {
+      const err = validateGraduationPublish(questions);
+      if (err) { showToast(err, true); return; }
+    }
     await supabase.from("forms").update({ status: newStatus }).eq("id", formId);
     setForm({ ...form, status: newStatus });
-    setToast(newStatus === "published" ? "Đã xuất bản!" : "Đã chuyển về nháp");
+    showToast(newStatus === "published" ? "Đã xuất bản!" : "Đã chuyển về nháp");
   }
 
   function copyLink() {
     navigator.clipboard.writeText(`${window.location.origin}/forms/${formId}`);
-    setToast("Đã copy link!");
+    showToast("Đã copy link!");
+  }
+
+  const needsOptions = (type: string) => ["radio", "checkbox", "select"].includes(type);
+  // Câu được chấm điểm trong form graduation: radio/select
+  const scorableHere = (type: string) => isGraduation && isScorableType(type);
+
+  // Lọc tuỳ chọn rỗng có thể làm lệch index đáp án đúng → remap theo giá trị
+  function remapCorrectOption(
+    rawOptions: string[],
+    cleanOptions: string[],
+    correctOption: number | null | undefined
+  ): number | null {
+    if (correctOption === null || correctOption === undefined) return null;
+    const chosen = rawOptions[correctOption];
+    if (chosen === undefined || !chosen.trim()) return null;
+    const idx = cleanOptions.indexOf(chosen);
+    return idx >= 0 ? idx : null;
   }
 
   /* ─── Question CRUD ─── */
   async function addQuestion() {
     const id = genId("q");
     setSaving(true);
-    const hasOptions = ["radio", "checkbox", "select"].includes(newQ.question_type);
+    const hasOptions = needsOptions(newQ.question_type);
+    const scorable = scorableHere(newQ.question_type);
+    const cleanOptions = hasOptions ? newQ.options.filter((o) => o.trim()) : [];
     const { error } = await supabase.from("form_questions").insert({
       id,
       form_id: formId,
       question_text: newQ.question_text,
       question_type: newQ.question_type,
-      options: hasOptions ? newQ.options.filter((o) => o.trim()) : [],
+      options: cleanOptions,
       required: newQ.required,
       order_index: questions.length + 1,
+      // Form graduation: radio/select có đáp án đúng + điểm; loại khác points = 0
+      correct_option: scorable ? remapCorrectOption(newQ.options, cleanOptions, newQ.correct_option) : null,
+      points: scorable ? Math.max(0, newQ.points || 0) : 0,
     });
     setSaving(false);
-    if (error) { setToast("Lỗi: " + error.message); return; }
+    if (error) { showToast("Lỗi: " + error.message, true); return; }
     setAddOpen(false);
-    setNewQ({ question_text: "", question_type: "text", required: false, options: [""] });
-    setToast("Đã thêm câu hỏi!");
+    setNewQ({ ...EMPTY_DRAFT });
+    showToast("Đã thêm câu hỏi!");
     loadData();
   }
 
   function startEdit(q: Question) {
     setEditingId(q.id);
-    setEditQ({ ...q, options: q.options?.length ? q.options : [""] });
+    setEditQ({ ...q, options: q.options?.length ? q.options : [""], points: q.points ?? 1 });
   }
 
   async function saveEdit() {
     if (!editingId) return;
     setSaving(true);
-    const hasOptions = ["radio", "checkbox", "select"].includes(editQ.question_type || "");
+    const hasOptions = needsOptions(editQ.question_type || "");
+    const scorable = scorableHere(editQ.question_type || "");
+    const rawOptions = editQ.options || [];
+    const cleanOptions = hasOptions ? rawOptions.filter((o: string) => o.trim()) : [];
+    // Đáp án đúng phải còn nằm trong danh sách tuỳ chọn sau khi lọc rỗng
+    const correctOption = scorable
+      ? remapCorrectOption(rawOptions, cleanOptions, editQ.correct_option)
+      : null;
     await supabase.from("form_questions").update({
       question_text: editQ.question_text,
       question_type: editQ.question_type,
-      options: hasOptions ? (editQ.options || []).filter((o: string) => o.trim()) : [],
+      options: cleanOptions,
       required: editQ.required,
+      correct_option: correctOption,
+      points: scorable ? Math.max(0, editQ.points || 0) : 0,
     }).eq("id", editingId);
     setSaving(false);
     setEditingId(null);
-    setToast("Đã lưu câu hỏi!");
+    showToast("Đã lưu câu hỏi!");
     loadData();
   }
 
   async function deleteQuestion(id: string) {
     if (!confirm("Xoá câu hỏi này?")) return;
     await supabase.from("form_questions").delete().eq("id", id);
-    setToast("Đã xoá câu hỏi");
+    showToast("Đã xoá câu hỏi");
     loadData();
   }
 
@@ -166,10 +224,67 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
     loadData();
   }
 
-  const needsOptions = (type: string) => ["radio", "checkbox", "select"].includes(type);
+  // Tổng điểm các câu có đáp án đúng (hiện trên header form graduation)
+  const totalPoints = questions
+    .filter((q) => isScorableType(q.question_type) && q.correct_option !== null)
+    .reduce((sum, q) => sum + (q.points || 0), 0);
+  const scorableCount = questions.filter(
+    (q) => isScorableType(q.question_type) && q.correct_option !== null
+  ).length;
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="text-muted-foreground">Đang tải...</div></div>;
   if (!form) return <div className="p-6 text-center text-muted-foreground">Biểu mẫu không tồn tại.</div>;
+
+  /* Khối chọn đáp án đúng + điểm — dùng chung cho dialog thêm và edit inline */
+  function renderScoringFields(
+    options: string[],
+    correctOption: number | null | undefined,
+    points: number | undefined,
+    onChange: (patch: { correct_option?: number | null; points?: number }) => void
+  ) {
+    return (
+      <div className="rounded-xl border border-gold/30 bg-gold/5 p-3 space-y-3">
+        <p className="text-xs font-medium text-gold flex items-center gap-1.5">
+          <Award className="h-3.5 w-3.5" /> Chấm điểm (form tốt nghiệp)
+        </p>
+        <div>
+          <label className="text-xs text-muted-foreground font-medium">Đáp án đúng</label>
+          <div className="space-y-1.5 mt-1">
+            {options.map((opt, i) => (
+              <label key={i} className={cn(
+                "flex items-center gap-2 rounded-lg border p-2 text-xs cursor-pointer transition-all",
+                correctOption === i ? "border-gold bg-gold/10 text-gold" : "border-border text-muted-foreground hover:border-gold/30"
+              )}>
+                <input
+                  type="radio"
+                  checked={correctOption === i}
+                  onChange={() => onChange({ correct_option: i })}
+                  className="accent-gold"
+                />
+                {opt.trim() || `Tuỳ chọn ${i + 1}`}
+              </label>
+            ))}
+            {options.every((o) => !o.trim()) && (
+              <p className="text-[11px] text-muted-foreground">Nhập tuỳ chọn trước rồi chọn đáp án đúng.</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground font-medium">Điểm</label>
+          <Input
+            type="number"
+            min={0}
+            value={points ?? 1}
+            onChange={(e) => onChange({ points: Math.max(0, parseInt(e.target.value) || 0) })}
+            className="w-24 text-xs"
+          />
+          {correctOption === null || correctOption === undefined ? (
+            <span className="text-[11px] text-amber-600 dark:text-amber-400">Chưa chọn đáp án đúng — câu này sẽ không được tính điểm.</span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <PageTransition>
@@ -193,7 +308,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
               placeholder="Thêm mô tả..."
               className="block text-sm bg-transparent border-none outline-none text-muted-foreground w-full"
             />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="outline" className={cn(
                 form.status === "published"
                   ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30"
@@ -201,7 +316,18 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
               )}>
                 {form.status === "published" ? <><Globe className="h-3 w-3 mr-1" /> Đã xuất bản</> : <><Lock className="h-3 w-3 mr-1" /> Nháp</>}
               </Badge>
-              <Badge variant="outline">{form.form_type === "onboarding" ? "Onboarding" : "Survey"}</Badge>
+              {isGraduation ? (
+                <Badge variant="outline" className="bg-gold/15 text-gold border-gold/40">
+                  <GraduationCap className="h-3 w-3 mr-1" /> Tốt nghiệp
+                </Badge>
+              ) : (
+                <Badge variant="outline">{form.form_type === "onboarding" ? "Onboarding" : "Survey"}</Badge>
+              )}
+              {isGraduation && (
+                <Badge variant="outline" className="text-muted-foreground">
+                  {scorableCount} câu tính điểm · tổng {totalPoints} điểm
+                </Badge>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -223,11 +349,28 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
         <AnimatePresence>
           {toast && (
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-              className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-sm text-emerald-700 dark:text-emerald-400">
+              className={cn(
+                "flex items-center gap-2 rounded-lg border p-3 text-sm",
+                toastError
+                  ? "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-400"
+                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+              )}>
               <CheckCircle2 className="h-4 w-4 shrink-0" />{toast}
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Hướng dẫn form graduation */}
+        {isGraduation && (
+          <div className="rounded-xl border border-gold/30 bg-gold/5 p-4 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground flex items-center gap-1.5 mb-1">
+              <GraduationCap className="h-4 w-4 text-gold" /> Form tốt nghiệp có chấm điểm
+            </p>
+            Câu <strong>Chọn một</strong> / <strong>Dropdown</strong> có ô chọn đáp án đúng + điểm.
+            Câu văn bản không tính điểm (dùng cho câu cảm nhận).
+            Điểm học viên = % điểm các câu trả lời đúng. Dưới 60% = Không đạt · từ 60% = Tốt · từ 85% = Xuất Sắc.
+          </div>
+        )}
 
         {/* Questions list */}
         <div className="space-y-3">
@@ -274,7 +417,13 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
                           <label className="text-xs text-muted-foreground font-medium">Loại câu hỏi</label>
                           <div className="grid grid-cols-3 gap-2 mt-1">
                             {QUESTION_TYPES.map((t) => (
-                              <button key={t.value} type="button" onClick={() => setEditQ({ ...editQ, question_type: t.value })}
+                              <button key={t.value} type="button"
+                                onClick={() => setEditQ({
+                                  ...editQ,
+                                  question_type: t.value as Question["question_type"],
+                                  // Đổi sang loại không tính điểm → reset đáp án đúng
+                                  correct_option: isScorableType(t.value) ? editQ.correct_option ?? null : null,
+                                })}
                                 className={cn("flex items-center gap-2 rounded-lg border p-2 text-xs transition-all",
                                   editQ.question_type === t.value ? "border-gold bg-gold/10 text-gold" : "border-border text-muted-foreground hover:border-gold/30"
                                 )}>
@@ -296,7 +445,15 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
                                   }} placeholder={`Tuỳ chọn ${i + 1}`} className="flex-1 text-xs" />
                                   <Button size="sm" variant="ghost" onClick={() => {
                                     const opts = (editQ.options || []).filter((_: string, j: number) => j !== i);
-                                    setEditQ({ ...editQ, options: opts.length ? opts : [""] });
+                                    const correct = editQ.correct_option;
+                                    setEditQ({
+                                      ...editQ,
+                                      options: opts.length ? opts : [""],
+                                      // Xoá tuỳ chọn → điều chỉnh index đáp án đúng
+                                      correct_option: correct === null || correct === undefined ? null
+                                        : correct === i ? null
+                                        : correct > i ? correct - 1 : correct,
+                                    });
                                   }} className="text-red-400 hover:text-red-500 h-8 w-8 p-0">
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </Button>
@@ -308,6 +465,10 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
                             </div>
                           </div>
                         )}
+                        {scorableHere(editQ.question_type || "") &&
+                          renderScoringFields(editQ.options || [], editQ.correct_option, editQ.points, (patch) =>
+                            setEditQ({ ...editQ, ...patch })
+                          )}
                         <label className="flex items-center gap-2 text-sm">
                           <input type="checkbox" checked={editQ.required || false} onChange={(e) => setEditQ({ ...editQ, required: e.target.checked })} className="accent-gold" />
                           Bắt buộc trả lời
@@ -333,9 +494,19 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
                             {q.question_text}
                             {q.required && <span className="text-red-400 ml-1">*</span>}
                           </p>
-                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5 flex-wrap">
                             <span>{typeInfo?.label}</span>
                             {q.options?.length > 0 && <span>{q.options.length} tuỳ chọn</span>}
+                            {isGraduation && isScorableType(q.question_type) && (
+                              q.correct_option !== null && q.options?.[q.correct_option] !== undefined ? (
+                                <span className="text-gold">
+                                  Đáp án: {q.options[q.correct_option]} · {q.points || 0} điểm
+                                </span>
+                              ) : (
+                                <span className="text-amber-500">Chưa chọn đáp án đúng</span>
+                              )
+                            )}
+                            {isGraduation && !isScorableType(q.question_type) && <span>Không tính điểm</span>}
                           </div>
                         </div>
                         <Button size="sm" variant="ghost" onClick={() => startEdit(q)} className="text-muted-foreground hover:text-gold"><Pencil className="h-4 w-4" /></Button>
@@ -352,7 +523,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
 
       {/* ─── Add Question Dialog ─── */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Thêm câu hỏi</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -363,7 +534,12 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
               <label className="text-xs font-medium text-muted-foreground">Loại câu hỏi</label>
               <div className="grid grid-cols-3 gap-2 mt-2">
                 {QUESTION_TYPES.map((t) => (
-                  <button key={t.value} type="button" onClick={() => setNewQ({ ...newQ, question_type: t.value })}
+                  <button key={t.value} type="button"
+                    onClick={() => setNewQ({
+                      ...newQ,
+                      question_type: t.value,
+                      correct_option: isScorableType(t.value) ? newQ.correct_option : null,
+                    })}
                     className={cn("flex items-center gap-2 rounded-xl border p-3 text-xs transition-all",
                       newQ.question_type === t.value ? "border-gold bg-gold/10 text-gold" : "border-border text-muted-foreground hover:border-gold/30"
                     )}>
@@ -371,6 +547,11 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
                   </button>
                 ))}
               </div>
+              {isGraduation && !isScorableType(newQ.question_type) && (
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Loại câu này không tính điểm trong form tốt nghiệp (dùng cho câu cảm nhận).
+                </p>
+              )}
             </div>
             {needsOptions(newQ.question_type) && (
               <div>
@@ -384,7 +565,16 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
                         setNewQ({ ...newQ, options: opts });
                       }} placeholder={`Tuỳ chọn ${i + 1}`} className="flex-1 text-xs" />
                       {newQ.options.length > 1 && (
-                        <Button size="sm" variant="ghost" onClick={() => setNewQ({ ...newQ, options: newQ.options.filter((_, j) => j !== i) })} className="text-red-400 h-8 w-8 p-0">
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          const correct = newQ.correct_option;
+                          setNewQ({
+                            ...newQ,
+                            options: newQ.options.filter((_, j) => j !== i),
+                            correct_option: correct === null ? null
+                              : correct === i ? null
+                              : correct > i ? correct - 1 : correct,
+                          });
+                        }} className="text-red-400 h-8 w-8 p-0">
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       )}
@@ -396,6 +586,10 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
                 </div>
               </div>
             )}
+            {scorableHere(newQ.question_type) &&
+              renderScoringFields(newQ.options, newQ.correct_option, newQ.points, (patch) =>
+                setNewQ({ ...newQ, ...patch })
+              )}
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={newQ.required} onChange={(e) => setNewQ({ ...newQ, required: e.target.checked })} className="accent-gold" />
               Bắt buộc trả lời
@@ -422,12 +616,18 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
               <div key={q.id} className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
                   {q.question_text} {q.required && <span className="text-red-400">*</span>}
+                  {isGraduation && isScorableType(q.question_type) && q.correct_option !== null && (
+                    <span className="text-[10px] text-gold ml-2">({q.points || 0} điểm)</span>
+                  )}
                 </label>
                 {q.question_type === "text" && <Input placeholder="Câu trả lời..." disabled className="bg-muted" />}
                 {q.question_type === "textarea" && <textarea placeholder="Câu trả lời..." disabled rows={3} className="w-full rounded-lg border border-border bg-muted p-3 text-sm resize-none" />}
                 {q.question_type === "radio" && (
                   <div className="space-y-1.5 pl-1">{q.options?.map((opt, i) => (
-                    <label key={i} className="flex items-center gap-2 text-sm"><input type="radio" disabled className="accent-gold" /> {opt}</label>
+                    <label key={i} className="flex items-center gap-2 text-sm">
+                      <input type="radio" disabled className="accent-gold" /> {opt}
+                      {isGraduation && q.correct_option === i && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
+                    </label>
                   ))}</div>
                 )}
                 {q.question_type === "checkbox" && (
@@ -438,7 +638,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
                 {q.question_type === "select" && (
                   <select disabled className="w-full rounded-lg border border-border bg-muted p-2.5 text-sm">
                     <option>Chọn...</option>
-                    {q.options?.map((opt, i) => <option key={i}>{opt}</option>)}
+                    {q.options?.map((opt, i) => <option key={i}>{opt}{isGraduation && q.correct_option === i ? " ✓" : ""}</option>)}
                   </select>
                 )}
                 {q.question_type === "rating" && (

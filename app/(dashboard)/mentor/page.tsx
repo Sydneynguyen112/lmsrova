@@ -14,6 +14,10 @@ import {
   FileText,
   Play,
   MessageSquare,
+  PhoneCall,
+  GraduationCap,
+  Filter,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -27,6 +31,12 @@ import {
 import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import { FLAG_LABELS } from "@/lib/status-labels";
+import {
+  fetchTodayActions,
+  type TodayActionRow,
+  type ActionGroup,
+} from "@/lib/api-analytics";
 import type { Profile } from "@/lib/auth";
 import type { Submission, UserNote } from "@/lib/types";
 import { PageTransition } from "@/components/shared/PageTransition";
@@ -64,6 +74,51 @@ const riskLabels: Record<string, string> = {
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
+
+// 4 thẻ hành động hôm nay của mentor (từ v_today_actions, CHỈ học viên mình phụ trách)
+interface MentorActionCardConfig {
+  group: ActionGroup;
+  label: string;
+  icon: LucideIcon;
+  iconClass: string;
+  countClass: string;
+  selectedClass: string;
+}
+
+const MENTOR_ACTION_CARDS: MentorActionCardConfig[] = [
+  {
+    group: "ket",
+    label: FLAG_LABELS.ket,
+    icon: AlertTriangle,
+    iconClass: "text-red-500",
+    countClass: "text-red-500",
+    selectedClass: "ring-2 ring-red-500/60 border-red-500/40",
+  },
+  {
+    group: "can_cham",
+    label: "Cần chạm",
+    icon: PhoneCall,
+    iconClass: "text-amber-500",
+    countClass: "text-amber-500",
+    selectedClass: "ring-2 ring-amber-500/60 border-amber-500/40",
+  },
+  {
+    group: "cho_cham",
+    label: FLAG_LABELS.cho_cham,
+    icon: FileCheck,
+    iconClass: "text-sky-500",
+    countClass: "text-sky-500",
+    selectedClass: "ring-2 ring-sky-500/60 border-sky-500/40",
+  },
+  {
+    group: "cho_tot_nghiep",
+    label: "Chờ tốt nghiệp",
+    icon: GraduationCap,
+    iconClass: "text-emerald-500",
+    countClass: "text-emerald-500",
+    selectedClass: "ring-2 ring-emerald-500/60 border-emerald-500/40",
+  },
+];
 
 interface YesterdayStudentActivity {
   userId: string;
@@ -150,6 +205,8 @@ export default function MentorDashboardPage() {
   const [yesterdayActiveCount, setYesterdayActiveCount] = useState(0);
   const [assignmentTitles, setAssignmentTitles] = useState<Map<string, string>>(new Map());
   const [enrollmentsByStudent, setEnrollmentsByStudent] = useState<Map<string, { status: string; progress_pct: number }[]>>(new Map());
+  const [todayActions, setTodayActions] = useState<TodayActionRow[]>([]);
+  const [selectedActionGroup, setSelectedActionGroup] = useState<ActionGroup | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -173,10 +230,12 @@ export default function MentorDashboardPage() {
         });
         setEnrollmentsByStudent(map);
       }
-      const [ungraded, avg] = await Promise.all([
+      const [ungraded, avg, actionsData] = await Promise.all([
         getUngradedSubmissions(),
         getAvgRating(currentUser!.id),
+        fetchTodayActions(currentUser!.id),
       ]);
+      setTodayActions(actionsData);
       const filteredUngraded = (ungraded as Submission[]).filter((s) => studentIds.has(s.user_id));
       setMentorUngraded(filteredUngraded);
       setAvgRating(avg);
@@ -215,6 +274,12 @@ export default function MentorDashboardPage() {
   const atRiskCount = allStudents.filter((s) => s.risk_tag === "at_risk").length;
   const watchCount = allStudents.filter((s) => s.risk_tag === "watch").length;
 
+  // Hành động hôm nay (đã lọc theo mentor hiện tại ngay từ query)
+  const selectedActionRows = selectedActionGroup
+    ? todayActions.filter((a) => a.action_group === selectedActionGroup)
+    : [];
+  const selectedActionConfig = MENTOR_ACTION_CARDS.find((c) => c.group === selectedActionGroup);
+
   return (
     <PageTransition>
       <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -223,6 +288,76 @@ export default function MentorDashboardPage() {
             Xin chào, <span className="gold-gradient-text">{currentUser.full_name}</span>
           </h1>
           <p className="mt-1 text-muted-foreground">Tổng quan hoạt động mentoring của bạn</p>
+        </motion.div>
+
+        {/* Hành động hôm nay — 4 thẻ từ v_today_actions, chỉ học viên mình phụ trách */}
+        <motion.div variants={item} className="space-y-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {MENTOR_ACTION_CARDS.map((cfg) => {
+              const count = todayActions.filter((a) => a.action_group === cfg.group).length;
+              const isSelected = selectedActionGroup === cfg.group;
+              return (
+                <button
+                  key={cfg.group}
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => setSelectedActionGroup(isSelected ? null : cfg.group)}
+                >
+                  <Card className={cn("transition-shadow hover:shadow-md cursor-pointer", isSelected && cfg.selectedClass)}>
+                    <CardContent className="py-4 text-center">
+                      <cfg.icon className={cn("h-5 w-5 mx-auto", cfg.iconClass)} />
+                      <p className={cn("text-2xl font-bold mt-1 tabular-nums", cfg.countClass)}>{count}</p>
+                      <p className="text-[11px] text-muted-foreground">{cfg.label}</p>
+                    </CardContent>
+                  </Card>
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedActionGroup && selectedActionConfig && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Filter className={cn("h-5 w-5", selectedActionConfig.iconClass)} />
+                  {selectedActionConfig.label}
+                  <Badge className="bg-gold/15 text-gold ml-2">{selectedActionRows.length} học viên</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedActionRows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Không có học viên nào trong nhóm này hôm nay
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedActionRows.map((row) => (
+                      <div
+                        key={`${row.action_group}-${row.user_id}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/30 p-3"
+                      >
+                        <div className="min-w-0">
+                          <Link
+                            href={`/mentor/students/${row.user_id}`}
+                            className="text-sm font-medium text-foreground hover:text-gold transition-colors"
+                          >
+                            {row.full_name}
+                          </Link>
+                          <p className="text-xs text-muted-foreground truncate">{row.detail}</p>
+                        </div>
+                        <Link
+                          href={`/mentor/students/${row.user_id}`}
+                          className="text-xs text-gold hover:underline whitespace-nowrap shrink-0"
+                        >
+                          Xem hồ sơ
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </motion.div>
 
         {/* Stats Row 1 */}

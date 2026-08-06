@@ -1,32 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+// Hàng đợi chấm ảnh (Phase 03) — mentor chấm từng ảnh Đúng/Sai.
+// Nguồn: submission_images verdict='pending' của học viên mình phụ trách,
+// group theo học viên → bài tập, ảnh cũ nhất trước. Phím tắt: C đúng · X sai · Enter lưu + ảnh kế.
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileCheck,
-  Send,
-  CheckCircle2,
-  Clock,
   ArrowLeft,
-  ImagePlus,
-  MessageSquare,
-  Circle,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Hourglass,
+  AlertTriangle,
+  Keyboard,
 } from "lucide-react";
+import { getStudentsByMentor, getAssignmentsByCourse } from "@/lib/api";
 import {
-  getStudentsByMentor,
-  getUngradedSubmissions,
-  getSubmissionsByUser,
-  getAssignmentsByCourse,
-  gradeSubmission,
-} from "@/lib/api";
-import { supabase } from "@/lib/supabase";
+  getPendingImagesByStudents,
+  countChoChamStudents,
+  gradeImage,
+  type PendingImage,
+} from "@/lib/api-mentor";
+import { checkAndCompleteStages } from "@/lib/roadmap";
 import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
 import type { Profile } from "@/lib/auth";
-import type { Assignment as AssignmentBase, Submission } from "@/lib/types";
-
-// lib/types.ts Assignment thiếu order_index (cột thật trong DB) — bổ sung local
-type Assignment = AssignmentBase & { order_index: number };
 import { PageTransition } from "@/components/shared/PageTransition";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,55 +36,105 @@ function getInitials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").slice(-2);
 }
 
-export default function MentorSubmissionsPage() {
+interface QueueGroup {
+  studentId: string;
+  assignmentId: string;
+  images: PendingImage[];
+}
+
+export default function MentorGradingQueuePage() {
   const currentUser = useCurrentUser("mentor");
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [feedbacks, setFeedbacks] = useState<Record<string, string>>({});
-  const [gradedIds, setGradedIds] = useState<Set<string>>(new Set());
   const [students, setStudents] = useState<Profile[]>([]);
-  const [proAssignments, setProAssignments] = useState<Assignment[]>([]);
-  const [mentorUngraded, setMentorUngraded] = useState<Submission[]>([]);
-  const [studentSubmissions, setStudentSubmissions] = useState<Submission[]>([]);
+  const [images, setImages] = useState<PendingImage[]>([]);
+  const [assignmentTitles, setAssignmentTitles] = useState<Map<string, string>>(new Map());
+  const [choChamCount, setChoChamCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Màn chấm: group đang mở + trạng thái chấm ảnh hiện tại
+  const [activeGroup, setActiveGroup] = useState<{ studentId: string; assignmentId: string } | null>(null);
+  const [verdict, setVerdict] = useState<"correct" | "incorrect" | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
     async function load() {
-      const s = await getStudentsByMentor(currentUser!.id);
-      setStudents(s as Profile[]);
+      const s = (await getStudentsByMentor(currentUser!.id)) as Profile[];
+      setStudents(s);
+      const [imgs, waiting] = await Promise.all([
+        getPendingImagesByStudents(s.map((st) => st.id)),
+        countChoChamStudents(currentUser!.id),
+      ]);
+      setImages(imgs);
+      setChoChamCount(waiting);
 
-      // Tìm khoá "PRO" theo title (không hardcode id mock)
-      const { data: proCourse } = await supabase
-        .from("courses")
-        .select("id")
-        .ilike("title", "%PRO%")
-        .limit(1)
-        .maybeSingle();
-      if (proCourse) {
-        const a = await getAssignmentsByCourse(proCourse.id);
-        setProAssignments(a as Assignment[]);
-      }
-
-      const allUngraded = await getUngradedSubmissions();
-      const mentorStudentIds = new Set(s.map((st) => st.id));
-      setMentorUngraded((allUngraded as Submission[]).filter((sub) => mentorStudentIds.has(sub.user_id)));
-
+      const a = (await getAssignmentsByCourse("c-pro")) as { id: string; title: string }[];
+      setAssignmentTitles(new Map(a.map((x) => [x.id, x.title])));
       setLoading(false);
     }
     load();
   }, [currentUser]);
 
+  // Group ảnh pending: học viên → bài tập, thứ tự theo ảnh cũ nhất
+  const groups: QueueGroup[] = useMemo(() => {
+    const map = new Map<string, QueueGroup>();
+    for (const img of images) {
+      const key = `${img.user_id}::${img.assignment_id}`;
+      const g = map.get(key) || { studentId: img.user_id, assignmentId: img.assignment_id, images: [] };
+      g.images.push(img); // images đã sort created_at asc từ query
+      map.set(key, g);
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(a.images[0].created_at).getTime() - new Date(b.images[0].created_at).getTime()
+    );
+  }, [images]);
+
+  const currentGroup = activeGroup
+    ? groups.find((g) => g.studentId === activeGroup.studentId && g.assignmentId === activeGroup.assignmentId) || null
+    : null;
+  const currentImage = currentGroup?.images[0] || null;
+  const currentStudent = currentGroup ? students.find((s) => s.id === currentGroup.studentId) : null;
+
+  const handleSave = useCallback(async () => {
+    if (!currentImage || !verdict || !currentUser || saving) return;
+    setSaving(true);
+    try {
+      await gradeImage(currentImage.id, verdict, feedback, currentUser.id);
+      // Ảnh thứ 20 đúng có thể qua chặng + mở quiz — engine chung lo hết
+      await checkAndCompleteStages(currentImage.user_id, "c-pro");
+      setImages((prev) => prev.filter((i) => i.id !== currentImage.id));
+      setVerdict(null);
+      setFeedback("");
+      // Hết ảnh của group → quay về danh sách + refresh số học viên chờ chấm
+      if (currentGroup && currentGroup.images.length <= 1) {
+        setActiveGroup(null);
+        countChoChamStudents(currentUser.id).then(setChoChamCount);
+      }
+    } catch (err) {
+      console.error("Chấm ảnh thất bại:", err);
+    } finally {
+      setSaving(false);
+    }
+  }, [currentImage, verdict, feedback, currentUser, saving, currentGroup]);
+
+  // Phím tắt: C = đúng, X = sai (ngoài ô nhập), Enter = lưu + ảnh kế
   useEffect(() => {
-    if (!selectedStudentId) {
-      setStudentSubmissions([]);
-      return;
+    if (!currentImage) return;
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      const inField = tag === "INPUT" || tag === "TEXTAREA";
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+      if (inField) return;
+      if (e.key.toLowerCase() === "c") setVerdict("correct");
+      else if (e.key.toLowerCase() === "x") setVerdict("incorrect");
     }
-    async function loadSubs() {
-      const subs = await getSubmissionsByUser(selectedStudentId!);
-      setStudentSubmissions(subs as Submission[]);
-    }
-    loadSubs();
-  }, [selectedStudentId]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [currentImage, handleSave]);
 
   if (!currentUser || loading) {
     return (
@@ -95,253 +144,200 @@ export default function MentorSubmissionsPage() {
     );
   }
 
-  const studentsWithUngraded = students.filter((s) =>
-    mentorUngraded.some((sub) => sub.user_id === s.id)
-  );
-
-  const selectedStudent = students.find((s) => s.id === selectedStudentId);
-
-  function getSubsForAssignment(assignmentId: string) {
-    return studentSubmissions
-      .filter((s) => s.assignment_id === assignmentId)
-      .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
-  }
-
-  async function handleGradeOne(subId: string) {
-    const fb = feedbacks[subId];
-    if (!fb?.trim()) return;
-    try {
-      await gradeSubmission(subId, fb);
-      setGradedIds((prev) => new Set(prev).add(subId));
-      setMentorUngraded((prev) => prev.filter((s) => s.id !== subId));
-    } catch (err) {
-      console.error("Grade submission failed:", err);
-    }
-  }
-
-  async function handleGradeAll() {
-    const toGrade = Object.entries(feedbacks).filter(([id, fb]) => fb.trim() && !gradedIds.has(id));
-    await Promise.all(toGrade.map(([id]) => handleGradeOne(id)));
-  }
-
-  const pendingCount = Object.entries(feedbacks).filter(
-    ([id, fb]) => fb.trim() && !gradedIds.has(id)
-  ).length;
+  const meta = currentImage?.submissions?.metadata || null;
+  const showFeedbackWarning = verdict === "incorrect" && !feedback.trim();
 
   return (
     <PageTransition>
       <div className="space-y-6">
+        {/* Header: tổng ảnh chờ + số học viên đang chờ chấm (đồng hồ dừng vì mình) */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-2xl md:text-3xl font-bold">
             <span className="gold-gradient-text">Chấm bài</span>
           </h1>
-          <p className="mt-1 text-muted-foreground">
-            {mentorUngraded.length > 0
-              ? `${mentorUngraded.length} bài chưa chấm — chấm từng mô hình riêng`
-              : "Tất cả bài đã được chấm!"}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-300">
+              <Clock className="h-3 w-3 mr-1" />
+              {images.length} ảnh chờ chấm
+            </Badge>
+            <Badge className={cn(
+              choChamCount > 0
+                ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+            )}>
+              <Hourglass className="h-3 w-3 mr-1" />
+              {choChamCount} học viên đang Chờ chấm (đồng hồ dừng)
+            </Badge>
+          </div>
         </motion.div>
 
         <AnimatePresence mode="wait">
-          {selectedStudent ? (
-            /* ─── Student worksheet ─── */
+          {currentGroup && currentImage && currentStudent ? (
+            /* ─── Màn chấm từng ảnh ─── */
             <motion.div
-              key={selectedStudent.id}
+              key={currentImage.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="space-y-5"
+              className="space-y-4"
             >
               <div className="flex items-center justify-between">
                 <button
-                  onClick={() => { setSelectedStudentId(null); setFeedbacks({}); setGradedIds(new Set()); }}
+                  onClick={() => { setActiveGroup(null); setVerdict(null); setFeedback(""); }}
                   className="text-sm text-gold hover:underline flex items-center gap-1"
                 >
-                  <ArrowLeft className="h-4 w-4" /> Quay lại
+                  <ArrowLeft className="h-4 w-4" /> Quay lại hàng đợi
                 </button>
-                {pendingCount > 0 && (
-                  <Button onClick={handleGradeAll} className="bg-gold hover:bg-gold/90 text-black font-semibold">
-                    <Send className="h-4 w-4 mr-2" /> Gửi {pendingCount} phản hồi
-                  </Button>
-                )}
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Keyboard className="h-3.5 w-3.5" /> C = Đúng · X = Sai · Enter = Lưu + ảnh kế
+                </span>
               </div>
 
-              {/* Student info */}
+              {/* Học viên + bài tập + còn lại */}
               <Card>
                 <CardContent className="pt-4">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-gold/15 text-gold font-semibold">
-                        {getInitials(selectedStudent.full_name)}
+                        {getInitials(currentStudent.full_name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="font-semibold text-foreground">{selectedStudent.full_name}</p>
-                      <p className="text-xs text-muted-foreground">{selectedStudent.email}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground">{currentStudent.full_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {assignmentTitles.get(currentGroup.assignmentId) || "Bài tập"}
+                      </p>
                     </div>
+                    <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-300 shrink-0">
+                      Còn {currentGroup.images.length} ảnh
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Each assignment */}
-              {proAssignments.map((assignment) => {
-                const subs = getSubsForAssignment(assignment.id);
-                const hasSubs = subs.length > 0;
+              {/* Ảnh lớn */}
+              <Card>
+                <CardContent className="pt-4 space-y-4">
+                  <div className="rounded-xl border border-border bg-muted/20 overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={currentImage.image_url}
+                      alt="Ảnh bài tập học viên nộp"
+                      className="w-full max-h-[70vh] object-contain"
+                    />
+                  </div>
 
-                return (
-                  <div key={assignment.id} className="space-y-2">
-                    {/* Assignment title bar */}
-                    <div className="flex items-center gap-3 px-1">
-                      <div className={cn(
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs",
-                        hasSubs ? "bg-gold/15 text-gold" : "bg-muted text-muted-foreground"
-                      )}>
-                        {assignment.order_index}
-                      </div>
-                      <h3 className="font-semibold text-foreground text-sm">{assignment.title}</h3>
-                      {!hasSubs && <span className="text-[10px] text-muted-foreground ml-auto">Chưa nộp</span>}
-                    </div>
+                  {/* Metadata submission: pair / timeframe / note */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    {meta?.pair && (
+                      <span className="font-medium text-foreground">
+                        {meta.pair}
+                        {meta.timeframe ? ` · ${meta.timeframe}` : ""}
+                      </span>
+                    )}
+                    {!meta?.pair && meta?.timeframe && (
+                      <span className="font-medium text-foreground">{meta.timeframe}</span>
+                    )}
+                    {meta?.formula && <span className="text-muted-foreground">CT: {meta.formula}</span>}
+                    {meta?.direction && <span className="text-muted-foreground">Hướng: {meta.direction}</span>}
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      Nộp {formatDate(currentImage.created_at)} · {formatRelativeTime(currentImage.created_at)}
+                    </span>
+                  </div>
+                  {meta?.note && (
+                    <p className="text-sm text-foreground border-l-2 border-gold/30 pl-3">
+                      {meta.note}
+                    </p>
+                  )}
 
-                    {hasSubs ? (
-                      /* Each submission = 1 model, rendered as a row */
-                      <div className="space-y-2">
-                        {subs.map((sub, idx) => {
-                          const isGraded = !!sub.graded_at || gradedIds.has(sub.id);
-                          const justGraded = gradedIds.has(sub.id) && !sub.graded_at;
+                  {/* 2 nút Đúng / Sai */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setVerdict("correct")}
+                      className={cn(
+                        "py-6 text-base font-semibold border-2",
+                        verdict === "correct"
+                          ? "border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                          : "border-border hover:border-emerald-500/50"
+                      )}
+                    >
+                      <CheckCircle2 className="h-5 w-5 mr-2" /> Đúng (C)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setVerdict("incorrect")}
+                      className={cn(
+                        "py-6 text-base font-semibold border-2",
+                        verdict === "incorrect"
+                          ? "border-red-500 bg-red-500/15 text-red-600 dark:text-red-400"
+                          : "border-border hover:border-red-500/50"
+                      )}
+                    >
+                      <XCircle className="h-5 w-5 mr-2" /> Sai (X)
+                    </Button>
+                  </div>
 
-                          return (
-                            <Card key={sub.id} className={cn(
-                              "transition-all",
-                              isGraded && "border-emerald-500/20 opacity-70"
-                            )}>
-                              <CardContent className="pt-4 space-y-3">
-                                <div className="flex items-start gap-4">
-                                  {/* Model number */}
-                                  <div className={cn(
-                                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-md font-bold text-[10px]",
-                                    isGraded ? "bg-emerald-500/15 text-emerald-500" : "bg-orange-500/15 text-orange-500"
-                                  )}>
-                                    #{idx + 1}
-                                  </div>
-
-                                  {/* Image thumbnails */}
-                                  {sub.image_urls && sub.image_urls.length > 0 && (
-                                    <div className="flex gap-1.5 shrink-0">
-                                      {sub.image_urls.map((_, j) => (
-                                        <div key={j} className="w-14 h-14 rounded-md bg-muted border border-border flex items-center justify-center">
-                                          <ImagePlus className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  {/* Student's note */}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] text-muted-foreground mb-1">
-                                      {formatDate(sub.submitted_at)} · {formatRelativeTime(sub.submitted_at)}
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {sub.metadata?.note || "Không có ghi chú"}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {/* Existing feedback */}
-                                {sub.graded_at && sub.mentor_feedback && (
-                                  <div className="rounded-lg bg-gold/5 border border-gold/20 p-3 ml-11">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <MessageSquare className="h-3 w-3 text-gold" />
-                                      <span className="text-[10px] text-gold font-medium">Đã chấm</span>
-                                    </div>
-                                    <p className="text-sm text-foreground">{sub.mentor_feedback}</p>
-                                  </div>
-                                )}
-
-                                {/* Just graded */}
-                                {justGraded && (
-                                  <div className="flex items-center gap-2 text-xs text-emerald-500 ml-11">
-                                    <CheckCircle2 className="h-4 w-4" /> Đã gửi phản hồi
-                                  </div>
-                                )}
-
-                                {/* Feedback input */}
-                                {!isGraded && (
-                                  <div className="flex gap-2 ml-11">
-                                    <input
-                                      type="text"
-                                      placeholder={`Phản hồi mô hình #${idx + 1}...`}
-                                      value={feedbacks[sub.id] || ""}
-                                      onChange={(e) => setFeedbacks((prev) => ({ ...prev, [sub.id]: e.target.value }))}
-                                      className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-gold/50"
-                                    />
-                                    <Button
-                                      size="sm"
-                                      disabled={!(feedbacks[sub.id] || "").trim()}
-                                      onClick={() => handleGradeOne(sub.id)}
-                                      className="bg-gold hover:bg-gold/90 text-black"
-                                    >
-                                      <Send className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </div>
-                                )}
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <Card className="opacity-40">
-                        <CardContent className="py-6 text-center">
-                          <Circle className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
-                          <p className="text-xs text-muted-foreground">Học viên chưa nộp bài này</p>
-                        </CardContent>
-                      </Card>
+                  {/* Nhận xét (không bắt buộc; nên có khi Sai) */}
+                  <div className="space-y-1.5">
+                    <textarea
+                      placeholder="Nhận xét cho học viên (không bắt buộc)..."
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-gold/50 resize-none"
+                    />
+                    {showFeedbackWarning && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        Chấm Sai nên kèm nhận xét để học viên biết sửa gì — vẫn lưu được nếu bỏ trống.
+                      </p>
                     )}
                   </div>
-                );
-              })}
 
-              {/* Bottom grade all */}
-              {pendingCount > 0 && (
-                <div className="sticky bottom-4 z-10">
                   <Button
-                    onClick={handleGradeAll}
-                    className="w-full bg-gold hover:bg-gold/90 text-black font-semibold py-5 shadow-lg gold-glow"
+                    onClick={handleSave}
+                    disabled={!verdict || saving}
+                    className="w-full bg-gold hover:bg-gold/90 text-black font-semibold py-5"
                   >
-                    <Send className="h-4 w-4 mr-2" />
-                    Gửi tất cả {pendingCount} phản hồi
+                    {saving ? "Đang lưu..." : "Lưu + ảnh kế (Enter)"}
                   </Button>
-                </div>
-              )}
+                </CardContent>
+              </Card>
             </motion.div>
           ) : (
-            /* ─── Student list ─── */
+            /* ─── Danh sách hàng đợi: học viên → bài tập ─── */
             <motion.div
-              key="list"
+              key="queue"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="space-y-3"
             >
-              {mentorUngraded.length === 0 && (
+              {groups.length === 0 && (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <FileCheck className="h-12 w-12 text-emerald-500/40 mx-auto mb-3" />
-                    <p className="text-muted-foreground">Tuyệt vời! Không có bài nào cần chấm</p>
+                    <p className="text-muted-foreground">Tuyệt vời! Không còn ảnh nào chờ chấm</p>
                   </CardContent>
                 </Card>
               )}
 
-              {studentsWithUngraded.map((student) => {
-                const count = mentorUngraded.filter((s) => s.user_id === student.id).length;
+              {groups.map((group) => {
+                const student = students.find((s) => s.id === group.studentId);
+                if (!student) return null;
                 return (
                   <motion.div
-                    key={student.id}
+                    key={`${group.studentId}-${group.assignmentId}`}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     whileHover={{ x: 4 }}
                     className="cursor-pointer"
-                    onClick={() => setSelectedStudentId(student.id)}
+                    onClick={() => {
+                      setActiveGroup({ studentId: group.studentId, assignmentId: group.assignmentId });
+                      setVerdict(null);
+                      setFeedback("");
+                    }}
                   >
                     <Card className="hover:border-gold/40 transition-all">
                       <CardContent className="py-4">
@@ -351,12 +347,15 @@ export default function MentorSubmissionsPage() {
                               {getInitials(student.full_name)}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <p className="font-semibold text-foreground">{student.full_name}</p>
-                            <p className="text-xs text-muted-foreground">{student.email}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {assignmentTitles.get(group.assignmentId) || "Bài tập"} · nộp cũ nhất{" "}
+                              {formatRelativeTime(group.images[0].created_at)}
+                            </p>
                           </div>
-                          <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-300">
-                            {count} mô hình chờ chấm
+                          <Badge className="bg-orange-500/15 text-orange-700 dark:text-orange-300 shrink-0">
+                            {group.images.length} ảnh chờ
                           </Badge>
                         </div>
                       </CardContent>
@@ -364,36 +363,6 @@ export default function MentorSubmissionsPage() {
                   </motion.div>
                 );
               })}
-
-              {/* Students done */}
-              {students.filter((s) => !studentsWithUngraded.includes(s)).length > 0 && (
-                <>
-                  <p className="text-xs text-muted-foreground pt-4">Đã chấm xong</p>
-                  {students.filter((s) => !studentsWithUngraded.includes(s)).map((student) => (
-                    <motion.div
-                      key={student.id}
-                      className="cursor-pointer"
-                      onClick={() => setSelectedStudentId(student.id)}
-                    >
-                      <Card className="opacity-50 hover:opacity-100 hover:border-gold/40 transition-all">
-                        <CardContent className="py-4">
-                          <div className="flex items-center gap-4">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback className="bg-gold/15 text-gold font-semibold">
-                                {getInitials(student.full_name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <p className="font-semibold text-foreground">{student.full_name}</p>
-                            </div>
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </>
-              )}
             </motion.div>
           )}
         </AnimatePresence>

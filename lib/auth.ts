@@ -61,7 +61,37 @@ export async function signInWithGoogle() {
 }
 
 /**
- * Sign in with email (lookup from profiles table — for existing mock users)
+ * Sign in with email + password qua Supabase Auth (tài khoản thật, gồm cả tài khoản import).
+ * Trả về profile nếu thành công, ném Error message tiếng Việt nếu sai.
+ */
+export async function signInWithPassword(email: string, password: string): Promise<Profile> {
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+  if (error) {
+    if (error.message.toLowerCase().includes("invalid")) {
+      throw new Error("Email hoặc mật khẩu không đúng");
+    }
+    throw new Error("Không đăng nhập được, thử lại sau");
+  }
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("email", email.trim().toLowerCase())
+    .single();
+  if (!profile) throw new Error("Tài khoản chưa có hồ sơ học viên — liên hệ ROVA");
+  signIn(profile.id);
+  return profile as Profile;
+}
+
+export async function requestPasswordReset(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+  if (error) throw new Error("Không gửi được email đặt lại mật khẩu");
+}
+
+/**
+ * @deprecated Đường đăng nhập KHÔNG mật khẩu — chỉ giữ cho code cũ compile, không dùng nữa.
  */
 export async function signInWithEmail(email: string) {
   const { data: profile } = await supabase

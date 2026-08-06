@@ -8,6 +8,12 @@ import Link from "next/link";
 import { cn, formatDuration } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import {
+  loadStudentUnlockData,
+  firstOpenLessonId,
+  type StudentUnlockData,
+  type CourseLessonRow,
+} from "@/lib/api-student";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,21 +36,6 @@ interface DbModule {
   order_index: number;
 }
 
-interface DbLesson {
-  id: string;
-  module_id: string;
-  title: string;
-  duration_sec: number;
-  order_index: number;
-}
-
-interface DbProgress {
-  lesson_id: string;
-  status?: string;
-  completed?: boolean;
-  watch_count?: number;
-}
-
 interface Props {
   courseId: string;
 }
@@ -54,55 +45,42 @@ export function CourseDetailView({ courseId }: Props) {
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
   const [course, setCourse] = useState<DbCourse | null>(null);
   const [courseModules, setCourseModules] = useState<DbModule[]>([]);
-  const [lessonsMap, setLessonsMap] = useState<Record<string, DbLesson[]>>({});
-  const [progressList, setProgressList] = useState<DbProgress[]>([]);
+  const [unlockData, setUnlockData] = useState<StudentUnlockData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
+    let cancelled = false;
     async function fetchAll() {
-      // First batch: enrollment, course, modules, progress
-      const [
-        { data: enrollData },
-        { data: courseData },
-        { data: modulesData },
-        { data: progressData },
-      ] = await Promise.all([
-        supabase.from("enrollments").select("id").eq("user_id", currentUser!.id).eq("course_id", courseId).limit(1),
-        supabase.from("courses").select("*").eq("id", courseId).single(),
-        supabase.from("modules").select("*").eq("course_id", courseId).order("order_index"),
-        supabase.from("lesson_progress").select("*").eq("user_id", currentUser!.id),
-      ]);
+      // Load 1 lần khi vào trang: enrollment, course, modules + toàn bộ dữ liệu unlock
+      // (roadmap_stages, lesson_progress, quiz map, quiz passed, image counts)
+      const [{ data: enrollData }, { data: courseData }, { data: modulesData }, data] =
+        await Promise.all([
+          supabase
+            .from("enrollments")
+            .select("id")
+            .eq("user_id", currentUser!.id)
+            .eq("course_id", courseId)
+            .limit(1),
+          supabase.from("courses").select("*").eq("id", courseId).single(),
+          supabase.from("modules").select("*").eq("course_id", courseId).order("order_index"),
+          loadStudentUnlockData(currentUser!.id, courseId),
+        ]);
+      if (cancelled) return;
 
       setIsEnrolled((enrollData ?? []).length > 0);
       if (courseData) setCourse(courseData);
-      const mods = modulesData || [];
-      setCourseModules(mods);
-      setProgressList(progressData || []);
-
-      // Second: fetch lessons using module IDs
-      const moduleIds = mods.map((m: DbModule) => m.id);
-      if (moduleIds.length > 0) {
-        const { data: lessonsData } = await supabase
-          .from("lessons")
-          .select("*")
-          .in("module_id", moduleIds)
-          .order("order_index");
-
-        const allLessons = lessonsData || [];
-        const map: Record<string, DbLesson[]> = {};
-        for (const mod of mods) {
-          map[mod.id] = allLessons.filter((l: DbLesson) => l.module_id === mod.id);
-        }
-        setLessonsMap(map);
-      }
-
+      setCourseModules(modulesData || []);
+      setUnlockData(data);
       setLoading(false);
     }
     fetchAll();
+    return () => {
+      cancelled = true;
+    };
   }, [currentUser, courseId]);
 
-  if (!currentUser || loading) {
+  if (!currentUser || loading || !unlockData) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
@@ -118,12 +96,23 @@ export function CourseDetailView({ courseId }: Props) {
     );
   }
 
-  const allLessons = courseModules.flatMap((mod) => lessonsMap[mod.id] || []);
-  const completedCount = allLessons.filter((l) =>
-    progressList.some((lp) => lp.lesson_id === l.id && (lp.status === "completed" || lp.completed === true))
-  ).length;
-  const totalCount = allLessons.length;
+  const data = unlockData;
+  const lessonsByModule = new Map<string, CourseLessonRow[]>();
+  for (const l of data.lessons) {
+    const list = lessonsByModule.get(l.module_id) || [];
+    list.push(l);
+    lessonsByModule.set(l.module_id, list);
+  }
+
+  const isCompleted = (lessonId: string) => {
+    const lp = data.progressMap.get(lessonId);
+    return lp?.status === "completed" || lp?.completed === true;
+  };
+
+  const completedCount = data.lessons.filter((l) => isCompleted(l.id)).length;
+  const totalCount = data.lessons.length;
   const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const currentOpenLessonId = firstOpenLessonId(data);
 
   return (
     <div className="space-y-6 p-6">
@@ -221,12 +210,8 @@ export function CourseDetailView({ courseId }: Props) {
           <CardContent>
             <Accordion className="space-y-2">
               {courseModules.map((mod) => {
-                const moduleLessons = lessonsMap[mod.id] || [];
-                const modCompleted = moduleLessons.filter((l) =>
-                  progressList.some(
-                    (lp) => lp.lesson_id === l.id && (lp.status === "completed" || lp.completed === true)
-                  )
-                ).length;
+                const moduleLessons = lessonsByModule.get(mod.id) || [];
+                const modCompleted = moduleLessons.filter((l) => isCompleted(l.id)).length;
 
                 return (
                   <AccordionItem key={mod.id} value={mod.id}>
@@ -241,36 +226,20 @@ export function CourseDetailView({ courseId }: Props) {
                     <AccordionContent>
                       <div className="space-y-1 pl-2">
                         {moduleLessons.map((lesson) => {
-                          const lp = progressList.find(
-                            (p) => p.lesson_id === lesson.id
-                          );
+                          const lp = data.progressMap.get(lesson.id);
                           const status = lp?.status || (lp?.completed ? "completed" : "not_started");
                           const watchCount = lp?.watch_count || 0;
+                          const isUnlocked = data.unlock.unlockedLessonIds.has(lesson.id);
+                          const isCurrentOpen = lesson.id === currentOpenLessonId;
 
-                          const statusIcon = !isEnrolled ? (
-                            <Lock size={16} className="text-muted-foreground/40" />
-                          ) : status === "completed" ? (
-                            <span className="relative">
-                              <CheckCircle2 size={18} className="text-emerald-500" />
-                              {watchCount >= 2 && (
-                                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none">
-                                  {watchCount}
-                                </span>
-                              )}
-                            </span>
-                          ) : status === "in_progress" ? (
-                            <PlayCircle size={18} className="text-gold" />
-                          ) : (
-                            <Circle size={18} className="text-muted-foreground/40" />
-                          );
-
+                          // Chưa enroll: giữ nguyên hành vi cũ (khoá toàn bộ)
                           if (!isEnrolled) {
                             return (
                               <div
                                 key={lesson.id}
                                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/60 cursor-not-allowed"
                               >
-                                <span className="shrink-0">{statusIcon}</span>
+                                <Lock size={16} className="text-muted-foreground/40 shrink-0" />
                                 <span className="flex-1 truncate">{lesson.title}</span>
                                 <span className="text-xs whitespace-nowrap">
                                   {formatDuration(lesson.duration_sec)}
@@ -279,11 +248,47 @@ export function CourseDetailView({ courseId }: Props) {
                             );
                           }
 
+                          // Khoá video tuần tự: bài khoá hiện tiêu đề + icon khoá + tooltip
+                          if (!isUnlocked) {
+                            return (
+                              <div
+                                key={lesson.id}
+                                title="Hoàn thành bài trước để mở"
+                                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/50 cursor-not-allowed"
+                              >
+                                <Lock size={16} className="text-muted-foreground/40 shrink-0" />
+                                <span className="flex-1 truncate">{lesson.title}</span>
+                                <span className="text-xs whitespace-nowrap">
+                                  {formatDuration(lesson.duration_sec)}
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          const statusIcon =
+                            status === "completed" ? (
+                              <span className="relative">
+                                <CheckCircle2 size={18} className="text-emerald-500" />
+                                {watchCount >= 2 && (
+                                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none">
+                                    {watchCount}
+                                  </span>
+                                )}
+                              </span>
+                            ) : status === "in_progress" ? (
+                              <PlayCircle size={18} className="text-gold" />
+                            ) : (
+                              <Circle size={18} className="text-muted-foreground/40" />
+                            );
+
                           return (
                             <Link
                               key={lesson.id}
                               href={`/student/courses/${courseId}/${lesson.id}`}
-                              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-gold/5 transition-colors"
+                              className={cn(
+                                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-gold/5",
+                                isCurrentOpen && "bg-gold/10 ring-1 ring-gold/40"
+                              )}
                             >
                               <span className="shrink-0">{statusIcon}</span>
                               <span
@@ -296,6 +301,11 @@ export function CourseDetailView({ courseId }: Props) {
                               >
                                 {lesson.title}
                               </span>
+                              {isCurrentOpen && (
+                                <Badge className="bg-gold/20 text-gold text-[10px] px-1.5 py-0">
+                                  Học tiếp
+                                </Badge>
+                              )}
                               <span className="text-xs text-muted-foreground whitespace-nowrap">
                                 {formatDuration(lesson.duration_sec)}
                               </span>

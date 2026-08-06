@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
@@ -14,8 +14,28 @@ import {
   FileDown,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
+  HelpCircle,
 } from "lucide-react";
-import { getAssignmentsByCourse, getSubmissionsByUser, createSubmission } from "@/lib/api";
+import { getAssignmentsByCourse, getSubmissionsByUser } from "@/lib/api";
+import {
+  createSubmissionWithImages,
+  getSubmissionImagesByUser,
+  getQuizzesByIds,
+  type SubmissionImageRow,
+  type QuizRow,
+} from "@/lib/api-student";
+import {
+  checkAndCompleteStages,
+  getImageCountsByAssignment,
+  getPassedQuizIds,
+  getRoadmapStages,
+  getStageProgress,
+  type ImageCounts,
+  type RoadmapStage,
+  type StageProgressRow,
+} from "@/lib/roadmap";
+import { QuizSection } from "@/app/(dashboard)/student/courses/[courseId]/[lessonId]/LessonPlayerView";
 import { cn, formatDate } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -26,9 +46,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const MAX_MODELS = 5;
+const COURSE_ID = "c-pro";
 
 interface ModelSlot {
-  image: string;
+  image: string; // data URL (lưu thẳng vào DB — pattern avatar hiện có)
   note: string;
 }
 
@@ -55,6 +76,38 @@ function emptySlots(): ModelSlot[] {
   return Array.from({ length: MAX_MODELS }, () => ({ image: "", note: "" }));
 }
 
+// Resize ảnh về data URL (jpeg) — pattern giống upload avatar trong ProfileEditor
+function resizeToDataUrl(file: File, maxSize = 1280): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Không đọc được file ảnh"));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("File không phải ảnh hợp lệ"));
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.width;
+        let h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) {
+            h = (h / w) * maxSize;
+            w = maxSize;
+          } else {
+            w = (w / h) * maxSize;
+            h = maxSize;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.src = e.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function StudentSubmissionsPage() {
   const currentUser = useCurrentUser("student");
   const [proAssignments, setProAssignments] = useState<AssignmentRow[]>([]);
@@ -64,26 +117,64 @@ export default function StudentSubmissionsPage() {
   const [models, setModels] = useState<ModelSlot[]>(emptySlots());
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [hasEnrollment, setHasEnrollment] = useState<boolean | null>(null);
+
+  // ─── Dữ liệu chặng (Phase 02) ───
+  const [stages, setStages] = useState<RoadmapStage[]>([]);
+  const [stageProgress, setStageProgress] = useState<StageProgressRow[]>([]);
+  const [imageCounts, setImageCounts] = useState<Map<string, ImageCounts>>(new Map());
+  const [myImages, setMyImages] = useState<SubmissionImageRow[]>([]);
+  const [passedQuizIds, setPassedQuizIds] = useState<Set<string>>(new Set());
+  const [stageQuizzes, setStageQuizzes] = useState<Map<string, QuizRow>>(new Map());
+
+  const refreshStageData = useCallback(async () => {
+    if (!currentUser) return;
+    const [counts, images, passed, progress] = await Promise.all([
+      getImageCountsByAssignment(currentUser.id),
+      getSubmissionImagesByUser(currentUser.id),
+      getPassedQuizIds(currentUser.id),
+      getStageProgress(currentUser.id),
+    ]);
+    setImageCounts(counts);
+    setMyImages(images);
+    setPassedQuizIds(passed);
+    setStageProgress(progress);
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
     async function check() {
-      const [{ data }, assignments, submissions] = await Promise.all([
+      const [{ data }, assignments, submissions, stagesData] = await Promise.all([
         supabase
           .from("enrollments")
           .select("id")
           .eq("user_id", currentUser!.id)
           .limit(1),
-        getAssignmentsByCourse("c-pro"),
+        getAssignmentsByCourse(COURSE_ID),
         getSubmissionsByUser(currentUser!.id),
+        getRoadmapStages(COURSE_ID),
       ]);
       setHasEnrollment((data ?? []).length > 0);
       setProAssignments(assignments as AssignmentRow[]);
       setMySubmissions(submissions as SubmissionRow[]);
+      setStages(stagesData);
+
+      // Quiz CHẶNG lấy từ roadmap_stages.quiz_id (KHÔNG phải quizzes.lesson_id)
+      const quizIds = stagesData
+        .filter((s) => s.completion_type === "assignment_quiz" && s.quiz_id)
+        .map((s) => s.quiz_id as string);
+      const quizMap = await getQuizzesByIds(quizIds);
+      const byStage = new Map<string, QuizRow>();
+      for (const s of stagesData) {
+        if (s.quiz_id && quizMap.has(s.quiz_id)) byStage.set(s.id, quizMap.get(s.quiz_id)!);
+      }
+      setStageQuizzes(byStage);
+
+      await refreshStageData();
     }
     check();
-  }, [currentUser]);
+  }, [currentUser, refreshStageData]);
 
   if (!currentUser || hasEnrollment === null) {
     return (
@@ -104,6 +195,17 @@ export default function StudentSubmissionsPage() {
 
   const selected = proAssignments.find((a) => a.id === activeAssignment);
 
+  const stageOfAssignment = (assignmentId: string): RoadmapStage | undefined =>
+    stages.find(
+      (s) => s.completion_type === "assignment_quiz" && s.assignment_id === assignmentId
+    );
+
+  const countsOf = (assignmentId: string): ImageCounts =>
+    imageCounts.get(assignmentId) || { correct: 0, pending: 0, incorrect: 0 };
+
+  const isStageCompleted = (stage: RoadmapStage): boolean =>
+    stageProgress.some((p) => p.stage_id === stage.id && p.completed_at);
+
   function getStatus(assignmentId: string) {
     const subs = mySubmissions.filter((s) => s.assignment_id === assignmentId);
     if (subs.length === 0) return "empty";
@@ -122,9 +224,13 @@ export default function StudentSubmissionsPage() {
     setModels((prev) => prev.map((m, i) => (i === index ? { ...m, [field]: value } : m)));
   }
 
-  function setImage(index: number, file: File) {
-    const url = URL.createObjectURL(file);
-    updateModel(index, "image", url);
+  async function setImage(index: number, file: File) {
+    try {
+      const dataUrl = await resizeToDataUrl(file);
+      updateModel(index, "image", dataUrl);
+    } catch (err) {
+      console.error("Không xử lý được ảnh:", err);
+    }
   }
 
   function clearImage(index: number) {
@@ -134,27 +240,163 @@ export default function StudentSubmissionsPage() {
   const filledCount = models.filter((m) => m.image || m.note.trim()).length;
 
   async function handleSubmit() {
-    if (!currentUser || !activeAssignment) return;
-    const filled = models.filter((m) => m.image || m.note.trim());
-    const created = await Promise.all(
-      filled.map((m) =>
-        createSubmission({
+    if (!currentUser || !activeAssignment || submitting) return;
+    setSubmitting(true);
+    try {
+      const filled = models.filter((m) => m.image || m.note.trim());
+      const imageUrls = filled.filter((m) => m.image).map((m) => m.image);
+      const note = filled
+        .map((m, i) => (m.note.trim() ? `Mô hình ${i + 1}: ${m.note.trim()}` : ""))
+        .filter(Boolean)
+        .join("\n");
+
+      // 1 lần nộp = 1 dòng submissions + MỖI ẢNH 1 dòng submission_images (verdict pending)
+      const created = await createSubmissionWithImages({
+        assignmentId: activeAssignment,
+        userId: currentUser.id,
+        imageUrls,
+        note: note || undefined,
+      });
+      setMySubmissions((prev) => [
+        {
+          id: created.id,
           assignment_id: activeAssignment,
           user_id: currentUser.id,
-          image_urls: m.image ? [m.image] : [],
-          note: m.note.trim() || undefined,
-        })
-      )
-    );
-    setMySubmissions((prev) => [...(created as SubmissionRow[]), ...prev]);
-    setSubmitted(true);
+          mentor_feedback: null,
+          graded_at: null,
+          submitted_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+      setSubmitted(true);
+      await refreshStageData();
+    } catch (err) {
+      console.error("Không nộp được bài:", err);
+    }
+    setSubmitting(false);
   }
+
+  const handleStageQuizPassed = async () => {
+    if (!currentUser) return;
+    await checkAndCompleteStages(currentUser.id, COURSE_ID);
+    await refreshStageData();
+  };
 
   const statusConfig = {
     empty: { icon: Circle, color: "text-muted-foreground", bg: "bg-muted", label: "Chưa nộp" },
     pending: { icon: Clock, color: "text-orange-500", bg: "bg-orange-500/15", label: "Chờ chấm" },
     graded: { icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/15", label: "Đã chấm" },
   };
+
+  // ─── Khối bộ đếm chặng + quiz chặng cho assignment đang mở ───
+  function renderStagePanel(assignmentId: string) {
+    const stage = stageOfAssignment(assignmentId);
+    if (!stage) return null;
+    const counts = countsOf(assignmentId);
+    const completed = isStageCompleted(stage);
+    const quizUnlocked = counts.correct >= stage.required_correct_images;
+    const quizPassed = !!stage.quiz_id && passedQuizIds.has(stage.quiz_id);
+    const stageQuiz = stageQuizzes.get(stage.id);
+    const incorrectImages = myImages.filter(
+      (img) => img.assignment_id === assignmentId && img.verdict === "incorrect"
+    );
+
+    return (
+      <Card className={cn(completed ? "border-emerald-500/30" : "border-gold/30")}>
+        <CardContent className="pt-4 space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-xs text-gold font-medium uppercase tracking-wide">
+                Chặng: {stage.title}
+              </p>
+              <p className="text-sm text-foreground font-semibold mt-1">
+                {counts.correct}/{stage.required_correct_images} ảnh được chấm đúng ·{" "}
+                {counts.pending} chờ chấm · {counts.incorrect} cần làm lại
+              </p>
+            </div>
+            {completed && (
+              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Đã qua chặng
+              </Badge>
+            )}
+          </div>
+
+          {/* Thanh tiến độ ảnh đúng */}
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gold transition-all"
+              style={{
+                width: `${Math.min(100, Math.round((counts.correct / stage.required_correct_images) * 100))}%`,
+              }}
+            />
+          </div>
+
+          {/* Ảnh bị chấm SAI + feedback mentor để nộp bù */}
+          {incorrectImages.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Ảnh cần làm lại — xem phản hồi mentor rồi nộp bù ảnh mới
+              </p>
+              <div className="space-y-2">
+                {incorrectImages.map((img) => (
+                  <div
+                    key={img.id}
+                    className="flex items-start gap-3 rounded-lg border border-red-500/25 bg-red-500/5 p-2.5"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.image_url}
+                      alt="Ảnh bị chấm sai"
+                      className="w-16 h-16 rounded-md object-cover shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground">
+                        {img.feedback || "Mentor chưa để lại nhận xét chi tiết."}
+                      </p>
+                      {img.graded_at && (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Chấm ngày {formatDate(img.graded_at)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Đủ 20 ảnh đúng → nút "Làm quiz chặng" */}
+          {!completed && quizUnlocked && (
+            quizPassed ? (
+              <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Đã đạt quiz chặng — hệ thống đang ghi nhận qua chặng.
+              </div>
+            ) : stageQuiz ? (
+              <StageQuizBlock
+                quiz={stageQuiz}
+                stageTitle={stage.title}
+                userId={currentUser!.id}
+                onPassed={handleStageQuizPassed}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Quiz chặng chưa được cấu hình — liên hệ mentor để mở chặng tiếp theo.
+              </p>
+            )
+          )}
+
+          {!completed && !quizUnlocked && (
+            <p className="text-xs text-muted-foreground">
+              Đủ {stage.required_correct_images} ảnh được chấm đúng sẽ mở quiz chặng.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <PageTransition>
@@ -164,7 +406,7 @@ export default function StudentSubmissionsPage() {
             <span className="gold-gradient-text">Bài nộp — Khoá PRO</span>
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Mỗi bài nộp tối đa {MAX_MODELS} mô hình. Mentor chấm từng mô hình riêng.
+            Mỗi bài nộp tối đa {MAX_MODELS} mô hình. Mentor chấm ĐÚNG/SAI từng ảnh.
           </p>
         </motion.div>
 
@@ -230,9 +472,12 @@ export default function StudentSubmissionsPage() {
                 </CardContent>
               </Card>
 
-              {/* Previous graded feedback */}
+              {/* Bộ đếm chặng + ảnh sai + quiz chặng */}
+              {renderStagePanel(selected.id)}
+
+              {/* Previous graded feedback (submission-level, pattern cũ) */}
               {mySubmissions
-                .filter((s) => s.assignment_id === selected.id && s.graded_at)
+                .filter((s) => s.assignment_id === selected.id && s.graded_at && s.mentor_feedback)
                 .map((sub) => (
                   <Card key={sub.id} className="border-emerald-500/20">
                     <CardContent className="pt-4">
@@ -252,9 +497,9 @@ export default function StudentSubmissionsPage() {
                   <CardContent className="py-10 text-center space-y-2">
                     <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
                     <p className="font-semibold text-foreground">Đã nộp {filledCount} mô hình!</p>
-                    <p className="text-sm text-muted-foreground">Mentor sẽ chấm từng mô hình.</p>
+                    <p className="text-sm text-muted-foreground">Mentor sẽ chấm ĐÚNG/SAI từng ảnh.</p>
                     <Button variant="outline" size="sm" className="mt-2" onClick={() => { setModels(emptySlots()); setSubmitted(false); }}>
-                      Nộp lại
+                      Nộp thêm
                     </Button>
                   </CardContent>
                 </Card>
@@ -281,6 +526,7 @@ export default function StudentSubmissionsPage() {
                             <div className="shrink-0">
                               {model.image ? (
                                 <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-muted">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img src={model.image} alt="" className="w-full h-full object-cover" />
                                   <button
                                     onClick={() => clearImage(i)}
@@ -322,10 +568,11 @@ export default function StudentSubmissionsPage() {
                     <div className="sticky bottom-4 z-10">
                       <Button
                         onClick={handleSubmit}
+                        disabled={submitting}
                         className="w-full bg-gold hover:bg-gold/90 text-black font-semibold py-5 shadow-lg gold-glow"
                       >
                         <Send className="h-4 w-4 mr-2" />
-                        Nộp {filledCount} mô hình
+                        {submitting ? "Đang nộp..." : `Nộp ${filledCount} mô hình`}
                       </Button>
                     </div>
                   )}
@@ -345,6 +592,8 @@ export default function StudentSubmissionsPage() {
                 const status = getStatus(assignment.id);
                 const cfg = statusConfig[status];
                 const StatusIcon = cfg.icon;
+                const stage = stageOfAssignment(assignment.id);
+                const counts = stage ? countsOf(assignment.id) : null;
 
                 return (
                   <motion.div
@@ -364,12 +613,26 @@ export default function StudentSubmissionsPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-foreground text-sm">{assignment.title}</h3>
-                            <p className="text-xs text-muted-foreground mt-0.5">Tối đa {MAX_MODELS} mô hình</p>
+                            {stage && counts ? (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {counts.correct}/{stage.required_correct_images} ảnh đúng ·{" "}
+                                {counts.pending} chờ chấm · {counts.incorrect} cần làm lại
+                              </p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground mt-0.5">Tối đa {MAX_MODELS} mô hình</p>
+                            )}
                           </div>
-                          <div className={cn("flex items-center gap-1.5 text-xs shrink-0", cfg.color)}>
-                            <StatusIcon className="h-4 w-4" />
-                            <span className="hidden sm:inline">{cfg.label}</span>
-                          </div>
+                          {stage && isStageCompleted(stage) ? (
+                            <div className="flex items-center gap-1.5 text-xs shrink-0 text-emerald-500">
+                              <CheckCircle2 className="h-4 w-4" />
+                              <span className="hidden sm:inline">Đã qua chặng</span>
+                            </div>
+                          ) : (
+                            <div className={cn("flex items-center gap-1.5 text-xs shrink-0", cfg.color)}>
+                              <StatusIcon className="h-4 w-4" />
+                              <span className="hidden sm:inline">{cfg.label}</span>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -381,5 +644,43 @@ export default function StudentSubmissionsPage() {
         </AnimatePresence>
       </div>
     </PageTransition>
+  );
+}
+
+// Nút "Làm quiz chặng" → mở QuizSection (tái dùng component quiz của LessonPlayerView)
+function StageQuizBlock({
+  quiz,
+  stageTitle,
+  userId,
+  onPassed,
+}: {
+  quiz: QuizRow;
+  stageTitle: string;
+  userId: string;
+  onPassed: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button
+        onClick={() => setOpen(true)}
+        className="bg-gold text-black hover:bg-gold/90"
+      >
+        <HelpCircle className="h-4 w-4 mr-2" />
+        Làm quiz chặng
+      </Button>
+    );
+  }
+
+  return (
+    <div className="border-t border-gold-shadow/30 pt-4">
+      <QuizSection
+        quiz={quiz}
+        userId={userId}
+        heading={`Quiz chặng — ${stageTitle}`}
+        onPassed={onPassed}
+      />
+    </div>
   );
 }

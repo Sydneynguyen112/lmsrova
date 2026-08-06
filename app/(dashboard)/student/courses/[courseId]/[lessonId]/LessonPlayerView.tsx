@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
-  Play,
   FileText,
   HelpCircle,
   PenTool,
@@ -14,10 +13,24 @@ import {
   Circle,
   Send,
   Lock,
+  ImagePlus,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-import { getQuizByLesson, getAssignmentsByCourse, createQuizAttempt, createSubmission } from "@/lib/api";
+import { getAssignmentsByCourse, createQuizAttempt, createSubmission } from "@/lib/api";
+import {
+  loadStudentUnlockData,
+  firstOpenLessonId,
+  getQuizById,
+  backfillLessonDuration,
+  incrementWatchCount,
+  type StudentUnlockData,
+  type CourseLessonRow,
+  type QuizRow,
+} from "@/lib/api-student";
+import { checkAndCompleteStages, flushWatchProgress, type RoadmapStage } from "@/lib/roadmap";
 import { cn, formatDuration } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -27,21 +40,6 @@ import { Badge } from "@/components/ui/badge";
 import { VideoPlayer, VideoPlaceholder } from "@/components/shared/VideoPlayer";
 
 type TabKey = "materials" | "quiz" | "assignment";
-
-interface ProgressRecord {
-  lesson_id: string;
-  status?: string;
-  completed?: boolean;
-  watch_count?: number;
-}
-
-interface QuizRow {
-  id: string;
-  lesson_id: string;
-  title: string;
-  questions: { question: string; options: string[]; correct: number }[];
-  pass_score: number;
-}
 
 interface AssignmentRow {
   id: string;
@@ -53,6 +51,152 @@ interface AssignmentRow {
   order_index: number;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// QuizSection — UI quiz dùng chung: quiz theo bài học VÀ quiz chặng (tái dùng ở
+// trang Bài nộp). Trượt cho làm lại ngay, mọi lượt đều lưu quiz_attempts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface QuizSectionProps {
+  quiz: QuizRow;
+  userId: string;
+  heading?: string;
+  onPassed?: () => void;
+}
+
+export function QuizSection({ quiz, userId, heading, onPassed }: QuizSectionProps) {
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const getScore = () => {
+    if (quiz.questions.length === 0) return 0;
+    let correct = 0;
+    quiz.questions.forEach((q, i) => {
+      if (answers[i] === q.correct) correct++;
+    });
+    return Math.round((correct / quiz.questions.length) * 100);
+  };
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    const score = getScore();
+    const passed = score >= quiz.pass_score;
+    try {
+      await createQuizAttempt({
+        quiz_id: quiz.id,
+        user_id: userId,
+        answers: quiz.questions.map((_, i) => answers[i] ?? -1),
+        score,
+        passed,
+      });
+      setSubmitted(true);
+      if (passed) onPassed?.();
+    } catch (err) {
+      console.error("Không lưu được lượt làm quiz:", err);
+    }
+    setSubmitting(false);
+  };
+
+  const handleRetry = () => {
+    setAnswers({});
+    setSubmitted(false);
+  };
+
+  const score = getScore();
+  const passed = score >= quiz.pass_score;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="font-semibold text-foreground">{heading || quiz.title}</h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          Đạt {quiz.pass_score}% để vượt qua · Trượt được làm lại ngay
+        </p>
+      </div>
+
+      {quiz.questions.map((q, qIndex) => (
+        <div key={qIndex} className="space-y-2">
+          <p className="text-sm font-medium text-foreground">
+            {qIndex + 1}. {q.question}
+          </p>
+          <div className="space-y-1.5 pl-4">
+            {q.options.map((opt, oIndex) => {
+              const isSelected = answers[qIndex] === oIndex;
+              const isCorrect = q.correct === oIndex;
+              let optClass = "border-gold-shadow/30";
+              if (submitted) {
+                if (isCorrect) optClass = "border-green-500 bg-green-500/10";
+                else if (isSelected && !isCorrect) optClass = "border-red-500 bg-red-500/10";
+              } else if (isSelected) {
+                optClass = "border-gold bg-gold/10";
+              }
+
+              return (
+                <label
+                  key={oIndex}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-3 text-sm cursor-pointer transition-colors",
+                    optClass,
+                    submitted && "cursor-default"
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={`quiz-${quiz.id}-q-${qIndex}`}
+                    checked={isSelected}
+                    disabled={submitted}
+                    onChange={() =>
+                      setAnswers((prev) => ({ ...prev, [qIndex]: oIndex }))
+                    }
+                    className="accent-gold"
+                  />
+                  <span>{opt}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      {!submitted ? (
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting || Object.keys(answers).length < quiz.questions.length}
+          className="bg-gold text-black hover:bg-gold/90"
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {submitting ? "Đang nộp..." : "Nộp bài"}
+        </Button>
+      ) : (
+        <div className="space-y-3">
+          <div
+            className={cn(
+              "rounded-lg p-4 text-sm font-medium",
+              passed
+                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                : "bg-red-500/10 text-red-700 dark:text-red-400"
+            )}
+          >
+            Kết quả: {score}% —{" "}
+            {passed ? "Bạn đã vượt qua!" : "Chưa đạt. Hãy xem lại bài học và thử lại."}
+          </div>
+          {!passed && (
+            <Button onClick={handleRetry} variant="outline" size="sm">
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Làm lại
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LessonPlayerView
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface Props {
   courseId: string;
   lessonId: string;
@@ -60,99 +204,144 @@ interface Props {
 
 export function LessonPlayerView({ courseId, lessonId }: Props) {
   const currentUser = useCurrentUser("student");
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>("materials");
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [assignmentNote, setAssignmentNote] = useState("");
   const [assignmentSubmitted, setAssignmentSubmitted] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
   const [dbCourse, setDbCourse] = useState<{ id: string; title: string } | null>(null);
-  const [dbLesson, setDbLesson] = useState<Record<string, unknown> | null>(null);
-  const [dbModuleTitle, setDbModuleTitle] = useState<string>("");
-  const [dbModuleLessons, setDbModuleLessons] = useState<Record<string, unknown>[]>([]);
-  const [progressList, setProgressList] = useState<ProgressRecord[]>([]);
+  const [unlockData, setUnlockData] = useState<StudentUnlockData | null>(null);
   const [videoCompleted, setVideoCompleted] = useState(false);
-  const [quiz, setQuiz] = useState<QuizRow | null>(null);
+  const [lessonQuiz, setLessonQuiz] = useState<QuizRow | null>(null);
+  const [stageQuiz, setStageQuiz] = useState<QuizRow | null>(null);
   const [assignment, setAssignment] = useState<AssignmentRow | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
+
+  // duration thật của video (từ DB, hoặc backfill từ metadata player)
+  const durationRef = useRef(0);
+
+  const refreshUnlock = useCallback(async () => {
+    if (!currentUser) return;
+    const data = await loadStudentUnlockData(currentUser.id, courseId);
+    setUnlockData(data);
+  }, [currentUser, courseId]);
 
   useEffect(() => {
     if (!currentUser) return;
-    async function check() {
-      const [{ data: enrollData }, { data: courseData }, { data: lessonData }, { data: progressData }, quizData] = await Promise.all([
-        supabase.from("enrollments").select("id").eq("user_id", currentUser!.id).eq("course_id", courseId).limit(1),
-        supabase.from("courses").select("id, title").eq("id", courseId).single(),
-        supabase.from("lessons").select("*").eq("id", lessonId).single(),
-        supabase.from("lesson_progress").select("*").eq("user_id", currentUser!.id),
-        getQuizByLesson(lessonId),
-      ]);
-      setIsEnrolled((enrollData ?? []).length > 0);
-      if (courseData) setDbCourse(courseData);
-      setProgressList(progressData || []);
-      setQuiz(quizData as QuizRow | null);
-      if (lessonData) {
-        setDbLesson(lessonData);
-        const [{ data: modData }, { data: siblingsData }] = await Promise.all([
-          supabase.from("modules").select("title").eq("id", lessonData.module_id).single(),
-          supabase.from("lessons").select("*").eq("module_id", lessonData.module_id).order("order_index"),
-        ]);
-        if (modData) setDbModuleTitle(modData.title);
-        setDbModuleLessons(siblingsData || []);
+    let cancelled = false;
 
-        // Assignments have no lesson_id FK (DB: course_id + order_index only).
-        // Adaptation: match the assignment whose order_index equals this lesson's
-        // order_index within its module — closest faithful mapping to the old
-        // mock's per-lesson assignment linkage.
+    async function load() {
+      const [{ data: enrollData }, { data: courseData }, data] = await Promise.all([
+        supabase
+          .from("enrollments")
+          .select("id")
+          .eq("user_id", currentUser!.id)
+          .eq("course_id", courseId)
+          .limit(1),
+        supabase.from("courses").select("id, title").eq("id", courseId).single(),
+        loadStudentUnlockData(currentUser!.id, courseId),
+      ]);
+      if (cancelled) return;
+
+      const enrolled = (enrollData ?? []).length > 0;
+      setIsEnrolled(enrolled);
+      if (courseData) setDbCourse(courseData);
+
+      const lesson = data.lessons.find((l) => l.id === lessonId);
+
+      // Khoá video tuần tự: vào thẳng URL bài khoá → redirect về bài đang mở đầu tiên
+      if (enrolled && lesson && !data.unlock.unlockedLessonIds.has(lessonId)) {
+        const target = firstOpenLessonId(data);
+        if (target && target !== lessonId) {
+          setRedirecting(true);
+          router.replace(`/student/courses/${courseId}/${target}`);
+          return;
+        }
+      }
+
+      setUnlockData(data);
+      if (lesson) {
+        durationRef.current = lesson.duration_sec || 0;
+        setVideoCompleted(!!data.progressMap.get(lessonId)?.completed);
+      }
+
+      // Quiz theo bài học (quizzes.lesson_id)
+      const lessonQuizId = data.lessonQuizMap.get(lessonId);
+      if (lessonQuizId) {
+        const q = await getQuizById(lessonQuizId);
+        if (!cancelled) setLessonQuiz(q);
+      } else {
+        setLessonQuiz(null);
+      }
+
+      // Quiz CHẶNG (roadmap_stages.quiz_id — KHÔNG phải quizzes.lesson_id)
+      const stage = data.stages.find(
+        (s) => s.completion_type === "assignment_quiz" && s.lesson_id === lessonId
+      );
+      if (stage?.quiz_id) {
+        const q = await getQuizById(stage.quiz_id);
+        if (!cancelled) setStageQuiz(q);
+      } else {
+        setStageQuiz(null);
+      }
+
+      // Assignment tab cũ: match assignment theo order_index (pattern hiện có)
+      if (lesson) {
         const courseAssignments = (await getAssignmentsByCourse(courseId)) as AssignmentRow[];
-        const lessonOrderIndex = (lessonData as { order_index?: number }).order_index;
-        const matched = courseAssignments.find((a) => a.order_index === lessonOrderIndex);
-        setAssignment(matched ?? null);
+        if (!cancelled) {
+          const matched = courseAssignments.find((a) => a.order_index === lesson.order_index);
+          setAssignment(matched ?? null);
+        }
       }
     }
-    check();
-  }, [currentUser, courseId, lessonId]);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, courseId, lessonId, router]);
 
-  const handleVideoEnded = useCallback(async () => {
-    if (!currentUser || videoCompleted) return;
-    setVideoCompleted(true);
+  // ─── Đo giây xem thật ───
 
-    // Find current progress for this lesson
-    const existing = progressList.find((p) => p.lesson_id === lessonId);
-    const newWatchCount = (existing?.watch_count || 0) + 1;
+  const handleDuration = useCallback(
+    (d: number) => {
+      // lessons.duration_sec = 0/null → lấy từ metadata video và update (chỉ khi đang null/0)
+      if (durationRef.current <= 0 && d > 0) {
+        durationRef.current = Math.round(d);
+        backfillLessonDuration(lessonId, d);
+      }
+    },
+    [lessonId]
+  );
 
-    const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from("lesson_progress")
-      .upsert(
-        {
-          user_id: currentUser.id,
-          lesson_id: lessonId,
-          completed: true,
-          completed_at: now,
-          status: "completed",
-          watch_count: newWatchCount,
-          last_watched_at: now,
-        },
-        { onConflict: "user_id,lesson_id" }
-      )
-      .select()
-      .single();
+  const handleFlush = useCallback(
+    (addedSeconds: number, positionSec: number) => {
+      if (!currentUser) return;
+      flushWatchProgress(currentUser.id, lessonId, addedSeconds, positionSec, durationRef.current)
+        .then(({ justCompleted }) => {
+          if (justCompleted) {
+            setVideoCompleted(true);
+            // Vừa đạt >=50% → check qua chặng + refresh unlock state UI
+            checkAndCompleteStages(currentUser.id, courseId).then(refreshUnlock);
+          }
+        })
+        .catch((err) => console.error("Không lưu được tiến độ xem:", err));
+    },
+    [currentUser, lessonId, courseId, refreshUnlock]
+  );
 
-    if (!error && data) {
-      // Update local progress list
-      setProgressList((prev) => {
-        const idx = prev.findIndex((p) => p.lesson_id === lessonId);
-        const updated: ProgressRecord = { lesson_id: lessonId, status: "completed", completed: true, watch_count: newWatchCount };
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = updated;
-          return next;
-        }
-        return [...prev, updated];
-      });
-    }
-  }, [currentUser, lessonId, videoCompleted, progressList]);
+  const handleVideoEnded = useCallback(() => {
+    if (!currentUser) return;
+    incrementWatchCount(currentUser.id, lessonId);
+  }, [currentUser, lessonId]);
 
-  if (!currentUser || isEnrolled === null) {
+  const handleQuizPassed = useCallback(() => {
+    if (!currentUser) return;
+    checkAndCompleteStages(currentUser.id, courseId).then(refreshUnlock);
+  }, [currentUser, courseId, refreshUnlock]);
+
+  // ─── Render ───
+
+  if (!currentUser || isEnrolled === null || redirecting || (isEnrolled && !unlockData)) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-muted-foreground">Đang tải...</div>
@@ -183,7 +372,8 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
     );
   }
 
-  const lesson = dbLesson as { id: string; module_id: string; title: string; video_url: string; duration_sec: number; materials?: { name: string; url: string; type: string }[] } | null;
+  const data = unlockData!;
+  const lesson = data.lessons.find((l) => l.id === lessonId);
 
   if (!dbCourse || !lesson) {
     return (
@@ -193,35 +383,27 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
     );
   }
 
-  const moduleLessons = dbModuleLessons as { id: string; title: string; duration_sec: number }[];
+  const moduleLessons = data.lessons.filter((l) => l.module_id === lesson.module_id);
+  const currentStage: RoadmapStage | undefined = data.stages.find(
+    (s) => s.completion_type === "assignment_quiz" && s.lesson_id === lessonId
+  );
+  const stageCompleted = currentStage
+    ? data.stageProgress.some((p) => p.stage_id === currentStage.id && p.completed_at)
+    : false;
+  const stageCounts = currentStage?.assignment_id
+    ? data.imageCounts.get(currentStage.assignment_id) || { correct: 0, pending: 0, incorrect: 0 }
+    : null;
+  const stageQuizUnlocked =
+    !!currentStage && !!stageCounts && stageCounts.correct >= currentStage.required_correct_images;
+  const stageQuizPassed = !!currentStage?.quiz_id && data.passedQuizIds.has(currentStage.quiz_id);
+
+  const startAt = data.progressMap.get(lessonId)?.last_position_sec || 0;
 
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; show: boolean }[] = [
     { key: "materials", label: "Tài liệu", icon: <FileText className="h-4 w-4" />, show: true },
-    { key: "quiz", label: "Quiz", icon: <HelpCircle className="h-4 w-4" />, show: !!quiz },
+    { key: "quiz", label: "Quiz", icon: <HelpCircle className="h-4 w-4" />, show: !!lessonQuiz },
     { key: "assignment", label: "Bài tập", icon: <PenTool className="h-4 w-4" />, show: !!assignment },
   ];
-
-  const getQuizScore = () => {
-    if (!quiz) return 0;
-    let correct = 0;
-    quiz.questions.forEach((q, i) => {
-      if (quizAnswers[i] === q.correct) correct++;
-    });
-    return Math.round((correct / quiz.questions.length) * 100);
-  };
-
-  const handleQuizSubmit = async () => {
-    setQuizSubmitted(true);
-    if (!currentUser || !quiz) return;
-    const score = getQuizScore();
-    await createQuizAttempt({
-      quiz_id: quiz.id,
-      user_id: currentUser.id,
-      answers: quiz.questions.map((_, i) => quizAnswers[i] ?? -1),
-      score,
-      passed: score >= quiz.pass_score,
-    });
-  };
 
   const handleAssignmentSubmit = async () => {
     setAssignmentSubmitted(true);
@@ -257,6 +439,9 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
             <VideoPlayer
               playbackId={lesson.video_url}
               title={lesson.title}
+              startAt={startAt}
+              onDuration={handleDuration}
+              onFlush={handleFlush}
               onEnded={handleVideoEnded}
             />
           ) : (
@@ -273,6 +458,69 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
               <CheckCircle2 className="h-4 w-4 shrink-0" />
               Đã hoàn thành bài học! Tiến độ đã được cập nhật.
             </motion.div>
+          )}
+
+          {/* ─── Chặng bài tập: bộ đếm ảnh + quiz chặng ─── */}
+          {currentStage && (
+            <Card className={cn(stageCompleted ? "border-emerald-500/30" : "border-gold/30")}>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="font-semibold text-foreground">
+                      Chặng: {currentStage.title}
+                    </h3>
+                    {stageCounts && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {stageCounts.correct}/{currentStage.required_correct_images} ảnh được chấm
+                        đúng · {stageCounts.pending} chờ chấm · {stageCounts.incorrect} cần làm lại
+                      </p>
+                    )}
+                  </div>
+                  {stageCompleted ? (
+                    <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Đã qua chặng
+                    </Badge>
+                  ) : (
+                    <Link href="/student/submissions">
+                      <Button size="sm" variant="outline" className="border-gold/40 text-gold">
+                        <ImagePlus className="h-4 w-4 mr-2" />
+                        Nộp ảnh bài tập
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+
+                {/* Đủ 20 ảnh đúng → mở quiz chặng */}
+                {!stageCompleted && stageQuizUnlocked && (
+                  stageQuizPassed ? (
+                    <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Đã đạt quiz chặng — hệ thống đang ghi nhận qua chặng.
+                    </div>
+                  ) : stageQuiz ? (
+                    <div className="border-t border-gold-shadow/30 pt-4">
+                      <QuizSection
+                        quiz={stageQuiz}
+                        userId={currentUser.id}
+                        heading={`Quiz chặng — ${currentStage.title}`}
+                        onPassed={handleQuizPassed}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Quiz chặng chưa được cấu hình — liên hệ mentor để mở chặng tiếp theo.
+                    </p>
+                  )
+                )}
+
+                {!stageCompleted && !stageQuizUnlocked && stageCounts && (
+                  <p className="text-xs text-muted-foreground">
+                    Đủ {currentStage.required_correct_images} ảnh được chấm đúng sẽ mở quiz chặng.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {/* Tabs */}
@@ -334,96 +582,20 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
               </Card>
             )}
 
-            {/* Quiz Tab */}
-            {activeTab === "quiz" && quiz && (
+            {/* Quiz Tab — quiz theo bài học */}
+            {activeTab === "quiz" && lessonQuiz && (
               <Card>
-                <CardContent className="space-y-6">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{quiz.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Đạt {quiz.pass_score}% để vượt qua
-                    </p>
-                  </div>
-
-                  {quiz.questions.map((q, qIndex) => (
-                    <div key={qIndex} className="space-y-2">
-                      <p className="text-sm font-medium text-foreground">
-                        {qIndex + 1}. {q.question}
-                      </p>
-                      <div className="space-y-1.5 pl-4">
-                        {q.options.map((opt, oIndex) => {
-                          const isSelected = quizAnswers[qIndex] === oIndex;
-                          const isCorrect = q.correct === oIndex;
-                          let optClass = "border-gold-shadow/30";
-                          if (quizSubmitted) {
-                            if (isCorrect) optClass = "border-green-500 bg-green-500/10";
-                            else if (isSelected && !isCorrect)
-                              optClass = "border-red-500 bg-red-500/10";
-                          } else if (isSelected) {
-                            optClass = "border-gold bg-gold/10";
-                          }
-
-                          return (
-                            <label
-                              key={oIndex}
-                              className={cn(
-                                "flex items-center gap-3 rounded-lg border p-3 text-sm cursor-pointer transition-colors",
-                                optClass,
-                                quizSubmitted && "cursor-default"
-                              )}
-                            >
-                              <input
-                                type="radio"
-                                name={`q-${qIndex}`}
-                                checked={isSelected}
-                                disabled={quizSubmitted}
-                                onChange={() =>
-                                  setQuizAnswers((prev) => ({
-                                    ...prev,
-                                    [qIndex]: oIndex,
-                                  }))
-                                }
-                                className="accent-gold"
-                              />
-                              <span>{opt}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-
-                  {!quizSubmitted ? (
-                    <Button
-                      onClick={handleQuizSubmit}
-                      disabled={
-                        Object.keys(quizAnswers).length < quiz.questions.length
-                      }
-                      className="bg-gold text-black hover:bg-gold/90"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      Nộp bài
-                    </Button>
-                  ) : (
-                    <div
-                      className={cn(
-                        "rounded-lg p-4 text-sm font-medium",
-                        getQuizScore() >= quiz.pass_score
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                          : "bg-red-500/10 text-red-700 dark:text-red-400"
-                      )}
-                    >
-                      Kết quả: {getQuizScore()}% —{" "}
-                      {getQuizScore() >= quiz.pass_score
-                        ? "Bạn đã vượt qua!"
-                        : "Chưa đạt. Hãy xem lại bài học và thử lại."}
-                    </div>
-                  )}
+                <CardContent>
+                  <QuizSection
+                    quiz={lessonQuiz}
+                    userId={currentUser.id}
+                    onPassed={handleQuizPassed}
+                  />
                 </CardContent>
               </Card>
             )}
 
-            {/* Assignment Tab */}
+            {/* Assignment Tab (pattern cũ — ghi chú text) */}
             {activeTab === "assignment" && assignment && (
               <Card>
                 <CardContent className="space-y-4">
@@ -486,7 +658,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
           </motion.div>
         </motion.div>
 
-        {/* Right Sidebar — Lesson List */}
+        {/* Right Sidebar — Lesson List (có khoá tuần tự) */}
         <motion.div
           className="lg:w-[30%] lg:max-w-xs"
           initial={{ opacity: 0, x: 16 }}
@@ -496,14 +668,32 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
           <Card className="sticky top-6">
             <CardContent>
               <h3 className="text-sm font-semibold text-gold mb-3">
-                {dbModuleTitle || "Danh sách bài học"}
+                {lesson.module_title || "Danh sách bài học"}
               </h3>
               <div className="space-y-0.5 max-h-[60vh] overflow-y-auto">
-                {moduleLessons.map((l) => {
-                  const lp = progressList.find((p) => p.lesson_id === l.id);
+                {moduleLessons.map((l: CourseLessonRow) => {
+                  const lp = data.progressMap.get(l.id);
                   const status = lp?.status || (lp?.completed ? "completed" : "not_started");
                   const watchCount = lp?.watch_count || 0;
                   const isCurrent = l.id === lessonId;
+                  const isUnlocked = data.unlock.unlockedLessonIds.has(l.id);
+
+                  if (!isUnlocked) {
+                    // Bài khoá: hiện tiêu đề + icon khoá + tooltip
+                    return (
+                      <div
+                        key={l.id}
+                        title="Hoàn thành bài trước để mở"
+                        className="flex items-center gap-2 rounded-md px-2 py-2 text-xs text-muted-foreground/50 cursor-not-allowed"
+                      >
+                        <Lock size={16} className="shrink-0 text-muted-foreground/40" />
+                        <span className="flex-1 truncate">{l.title}</span>
+                        <span className="text-[10px] whitespace-nowrap opacity-70">
+                          {formatDuration(l.duration_sec)}
+                        </span>
+                      </div>
+                    );
+                  }
 
                   const statusIcon =
                     status === "completed" ? (

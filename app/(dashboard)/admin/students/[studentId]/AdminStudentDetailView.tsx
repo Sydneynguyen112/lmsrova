@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+// Chi tiết học viên phía admin (Phase 03): đồng bộ tính năng bản mentor —
+// khối trạng thái + đổi tag (admin gắn thêm được hoan_tien) + ghi chú lần chạm + banner đề xuất.
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -13,15 +15,43 @@ import {
   ClipboardList,
   AlertTriangle,
   Users,
+  Flag,
+  History,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import {
   getEnrollmentsByUser,
   getSubmissionsByUser,
-  getNotesByUser,
   getOnboardingSurveyByUser,
-  createNote,
 } from "@/lib/api";
+import {
+  getStudentRoadmapRow,
+  getStatusEvents,
+  getProfileNames,
+  getTouchNotesByUser,
+  createTouchNote,
+  countNotesSince,
+  setStudentStatusManual,
+  toggleReadyForCoaching,
+  type StudentRoadmapRow,
+  type StatusEvent,
+  type TouchNote,
+} from "@/lib/api-mentor";
+import {
+  STATUS_LABELS,
+  STATUS_STYLES,
+  FLAG_LABELS,
+  FLAG_STYLES,
+  MANUAL_STATUSES,
+  ADMIN_ONLY_STATUSES,
+  REASON_REQUIRED,
+  CHANNEL_LABELS,
+  NOTE_TYPE_LABELS,
+  type StudentStatus,
+  type NoteChannel,
+  type NoteType,
+} from "@/lib/status-labels";
 import { formatDate, formatRelativeTime } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -34,6 +64,14 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const classificationStyles: Record<string, string> = {
   newbie: "bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30",
@@ -43,15 +81,6 @@ const classificationStyles: Record<string, string> = {
 };
 const classificationLabels: Record<string, string> = {
   newbie: "Newbie", beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced",
-};
-const riskStyles: Record<string, string> = {
-  normal: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-  at_risk: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
-  watch: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
-  churned: "bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/30",
-};
-const riskLabels: Record<string, string> = {
-  normal: "Bình thường", at_risk: "Nguy cơ", watch: "Theo dõi", churned: "Đã rời",
 };
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
@@ -83,12 +112,12 @@ interface DbAssignment {
   title: string;
 }
 
-interface DbNote {
-  id: string;
-  author_id: string;
-  content: string;
-  created_at: string;
-}
+// profiles có thêm cột phase 01 mà lib/auth Profile chưa khai báo
+type StudentProfile = Profile & {
+  status?: StudentStatus | null;
+  status_changed_at?: string | null;
+  ready_for_coaching?: boolean;
+};
 
 interface Props {
   studentId: string;
@@ -96,18 +125,51 @@ interface Props {
 
 export function AdminStudentDetailView({ studentId }: Props) {
   const currentUser = useCurrentUser("admin");
-  const [student, setStudent] = useState<Profile | null>(null);
+  const [student, setStudent] = useState<StudentProfile | null>(null);
   const [mentorName, setMentorName] = useState<string | null>(null);
   const [enrollmentList, setEnrollmentList] = useState<DbEnrollment[]>([]);
   const [submissionList, setSubmissionList] = useState<DbSubmission[]>([]);
-  const [notes, setNotes] = useState<DbNote[]>([]);
-  const [noteAuthors, setNoteAuthors] = useState<Profile[]>([]);
+  const [notes, setNotes] = useState<TouchNote[]>([]);
+  const [authorNames, setAuthorNames] = useState<Map<string, string>>(new Map());
   const [assignments, setAssignments] = useState<DbAssignment[]>([]);
   const [courses, setCourses] = useState<DbCourse[]>([]);
   const [survey, setSurvey] = useState<Profile["onboarding_survey"] | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Khối trạng thái lộ trình
+  const [roadmap, setRoadmap] = useState<StudentRoadmapRow | null>(null);
+  const [events, setEvents] = useState<StatusEvent[]>([]);
+  const [changerNames, setChangerNames] = useState<Map<string, string>>(new Map());
+  const [touchesSinceCham, setTouchesSinceCham] = useState(0);
+  const [savingCoaching, setSavingCoaching] = useState(false);
+
+  // Modal đổi tag
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [targetStatus, setTargetStatus] = useState<StudentStatus | null>(null);
+  const [statusReason, setStatusReason] = useState("");
+  const [savingStatus, setSavingStatus] = useState(false);
+
+  // Form ghi chú lần chạm
   const [noteText, setNoteText] = useState("");
+  const [noteChannel, setNoteChannel] = useState<NoteChannel | "">("");
+  const [noteType, setNoteType] = useState<NoteType | "">("");
   const [savingNote, setSavingNote] = useState(false);
+
+  const loadStatusBlock = useCallback(async () => {
+    const [row, evts] = await Promise.all([
+      getStudentRoadmapRow(studentId),
+      getStatusEvents(studentId, 10),
+    ]);
+    setRoadmap(row);
+    setEvents(evts);
+    const names = await getProfileNames(evts.map((e) => e.changed_by).filter((id): id is string => !!id));
+    setChangerNames(names);
+    if (row?.status === "cham" && row.status_changed_at) {
+      setTouchesSinceCham(await countNotesSince(studentId, row.status_changed_at));
+    } else {
+      setTouchesSinceCham(0);
+    }
+  }, [studentId]);
 
   useEffect(() => {
     async function load() {
@@ -116,50 +178,46 @@ export function AdminStudentDetailView({ studentId }: Props) {
         setLoading(false);
         return;
       }
-      setStudent(studentData as Profile);
+      setStudent(studentData as StudentProfile);
 
-      const [
-        enrollments,
-        submissions,
-        notesData,
-        surveyData,
-      ] = await Promise.all([
+      const [enrollments, submissions, notesData, surveyData] = await Promise.all([
         getEnrollmentsByUser(studentId),
         getSubmissionsByUser(studentId),
-        getNotesByUser(studentId),
+        getTouchNotesByUser(studentId),
         getOnboardingSurveyByUser(studentId),
       ]);
       setEnrollmentList(enrollments as DbEnrollment[]);
       setSubmissionList(submissions as DbSubmission[]);
-      setNotes(notesData as DbNote[]);
+      setNotes(notesData);
       setSurvey(surveyData);
+
+      await loadStatusBlock();
 
       const courseIds = Array.from(new Set((enrollments as DbEnrollment[]).map((e) => e.course_id)));
       const assignmentIds = Array.from(new Set((submissions as DbSubmission[]).map((s) => s.assignment_id)));
-      const authorIds = Array.from(new Set((notesData as DbNote[]).map((n) => n.author_id)));
 
       const [
         { data: coursesData },
         { data: assignmentsData },
-        { data: authorsData },
+        authorNameMap,
         mentorResult,
       ] = await Promise.all([
         courseIds.length > 0 ? supabase.from("courses").select("id, title").in("id", courseIds) : Promise.resolve({ data: [] as DbCourse[] }),
         assignmentIds.length > 0 ? supabase.from("assignments").select("id, title").in("id", assignmentIds) : Promise.resolve({ data: [] as DbAssignment[] }),
-        authorIds.length > 0 ? supabase.from("profiles").select("*").in("id", authorIds) : Promise.resolve({ data: [] as Profile[] }),
+        getProfileNames(notesData.map((n) => n.author_id)),
         studentData.mentor_id
           ? supabase.from("profiles").select("full_name").eq("id", studentData.mentor_id).single()
           : Promise.resolve({ data: null }),
       ]);
       if (coursesData) setCourses(coursesData as DbCourse[]);
       if (assignmentsData) setAssignments(assignmentsData as DbAssignment[]);
-      if (authorsData) setNoteAuthors(authorsData as Profile[]);
+      setAuthorNames(authorNameMap);
       if (mentorResult.data) setMentorName(mentorResult.data.full_name);
 
       setLoading(false);
     }
     load();
-  }, [studentId]);
+  }, [studentId, loadStatusBlock]);
 
   if (!currentUser || loading) {
     return (
@@ -185,24 +243,87 @@ export function AdminStudentDetailView({ studentId }: Props) {
     return courses.find((c) => c.id === courseId)?.title;
   }
 
+  const currentStatus: StudentStatus = (roadmap?.status || student.status || "dung_tien_do") as StudentStatus;
+  const readyForCoaching = roadmap?.ready_for_coaching ?? student.ready_for_coaching ?? false;
+
+  // Banner máy đề xuất: chậm ≥14 ngày (từ status_changed_at) + đã chạm ≥3 lần từ mốc đó
+  const statusChangedAt = roadmap?.status_changed_at || student.status_changed_at || null;
+  const daysInCham =
+    currentStatus === "cham" && statusChangedAt
+      ? Math.floor((Date.now() - new Date(statusChangedAt).getTime()) / 86400_000)
+      : 0;
+  const suggestRoiBo = currentStatus === "cham" && daysInCham >= 14 && touchesSinceCham >= 3;
+
+  const allStatuses = Object.keys(STATUS_LABELS) as StudentStatus[];
+  // Admin: được gắn thêm hoan_tien
+  const allowedStatuses: StudentStatus[] = [...MANUAL_STATUSES, ...ADMIN_ONLY_STATUSES];
+
+  const openStatusModal = (preset?: StudentStatus) => {
+    setTargetStatus(preset ?? null);
+    setStatusReason("");
+    setStatusModalOpen(true);
+  };
+
+  const handleSaveStatus = async () => {
+    if (!targetStatus || savingStatus) return;
+    const needReason = REASON_REQUIRED.includes(targetStatus);
+    if (needReason && !statusReason.trim()) return;
+    setSavingStatus(true);
+    try {
+      await setStudentStatusManual({
+        userId: studentId,
+        status: targetStatus,
+        reason: statusReason.trim() || null,
+        changedBy: currentUser.id,
+        prevStatus: currentStatus,
+      });
+      setStudent((prev) => (prev ? { ...prev, status: targetStatus } : prev));
+      setStatusModalOpen(false);
+      await loadStatusBlock();
+    } catch (err) {
+      console.error("Đổi trạng thái thất bại:", err);
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+
+  const handleToggleCoaching = async () => {
+    if (savingCoaching) return;
+    setSavingCoaching(true);
+    try {
+      await toggleReadyForCoaching(studentId, !readyForCoaching);
+      setStudent((prev) => (prev ? { ...prev, ready_for_coaching: !readyForCoaching } : prev));
+      setRoadmap((prev) => (prev ? { ...prev, ready_for_coaching: !readyForCoaching } : prev));
+    } catch (err) {
+      console.error("Đổi Sẵn sàng Coaching thất bại:", err);
+    } finally {
+      setSavingCoaching(false);
+    }
+  };
+
   const handleAddNote = async () => {
-    if (!noteText.trim() || !currentUser) return;
+    if (!noteText.trim() || !noteChannel || !noteType || savingNote) return;
     setSavingNote(true);
     try {
-      const newNote = await createNote({
+      const newNote = await createTouchNote({
         user_id: studentId,
         author_id: currentUser.id,
         content: noteText.trim(),
+        channel: noteChannel,
+        note_type: noteType,
       });
-      setNotes((prev) => [newNote as DbNote, ...prev]);
-      if (!noteAuthors.some((a) => a.id === currentUser.id)) {
-        setNoteAuthors((prev) => [...prev, currentUser]);
-      }
+      setNotes((prev) => [newNote, ...prev]);
+      setAuthorNames((prev) => new Map(prev).set(currentUser.id, currentUser.full_name));
       setNoteText("");
+      setNoteChannel("");
+      setNoteType("");
+      if (currentStatus === "cham") setTouchesSinceCham((c) => c + 1);
     } finally {
       setSavingNote(false);
     }
   };
+
+  const needReason = targetStatus ? REASON_REQUIRED.includes(targetStatus) : false;
 
   return (
     <PageTransition>
@@ -217,6 +338,26 @@ export function AdminStudentDetailView({ studentId }: Props) {
           </Link>
         </motion.div>
 
+        {/* Banner máy đề xuất gắn Rời bỏ */}
+        {suggestRoiBo && (
+          <motion.div variants={item}>
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <p className="flex-1 text-sm text-amber-700 dark:text-amber-300">
+                <span className="font-semibold">Máy đề xuất gắn Rời bỏ</span> — chậm {daysInCham} ngày,
+                đã chạm {touchesSinceCham} lần. Máy không tự gắn, người phụ trách quyết định.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => openStatusModal("roi_bo")}
+                className="bg-amber-500 hover:bg-amber-500/90 text-black font-semibold shrink-0"
+              >
+                Gắn Rời bỏ
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
         {/* Profile card */}
         <motion.div variants={item}>
           <Card className="gold-border-glow">
@@ -230,11 +371,15 @@ export function AdminStudentDetailView({ studentId }: Props) {
                   <div>
                     <h2 className="text-xl font-bold text-foreground">{student.full_name}</h2>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <Badge className={STATUS_STYLES[currentStatus]}>
+                        {STATUS_LABELS[currentStatus]}
+                      </Badge>
+                      {roadmap?.is_ket && <Badge className={FLAG_STYLES.ket}>{FLAG_LABELS.ket}</Badge>}
+                      {roadmap?.is_cho_cham && (
+                        <Badge className={FLAG_STYLES.cho_cham}>{FLAG_LABELS.cho_cham}</Badge>
+                      )}
                       <Badge variant="outline" className={classificationStyles[student.classification || "newbie"]}>
                         {classificationLabels[student.classification || "newbie"]}
-                      </Badge>
-                      <Badge variant="outline" className={riskStyles[student.risk_tag || "normal"]}>
-                        {riskLabels[student.risk_tag || "normal"]}
                       </Badge>
                     </div>
                   </div>
@@ -253,6 +398,108 @@ export function AdminStudentDetailView({ studentId }: Props) {
                     </span>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Khối trạng thái lộ trình */}
+        <motion.div variants={item}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Flag className="h-4 w-4 text-gold" />
+                Trạng thái lộ trình
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge className={STATUS_STYLES[currentStatus]}>
+                  {STATUS_LABELS[currentStatus]}
+                </Badge>
+                {roadmap?.is_ket && <Badge className={FLAG_STYLES.ket}>{FLAG_LABELS.ket}</Badge>}
+                {roadmap?.is_cho_cham && (
+                  <Badge className={FLAG_STYLES.cho_cham}>{FLAG_LABELS.cho_cham}</Badge>
+                )}
+                {roadmap?.current_stage_title && (
+                  <span className="text-sm text-muted-foreground">
+                    Chặng: <span className="text-foreground font-medium">{roadmap.current_stage_title}</span>
+                    {roadmap.days_in_stage !== null && ` · ${Math.floor(Number(roadmap.days_in_stage))} ngày`}
+                    {Number(roadmap.days_late) > 0 && (
+                      <span className="text-red-500"> · trễ {Math.floor(Number(roadmap.days_late))} ngày</span>
+                    )}
+                  </span>
+                )}
+                <div className="ml-auto flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleToggleCoaching}
+                    disabled={savingCoaching}
+                    className={
+                      readyForCoaching
+                        ? "border-gold/60 bg-gold/10 text-gold"
+                        : "border-border text-muted-foreground"
+                    }
+                  >
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                    {readyForCoaching ? "Sẵn sàng Coaching" : "Chưa sẵn sàng Coaching"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => openStatusModal()}
+                    className="bg-gold hover:bg-gold/90 text-black font-semibold"
+                  >
+                    Đổi trạng thái
+                  </Button>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Lịch sử status_events */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <History className="h-3.5 w-3.5" /> Lịch sử thay đổi (10 gần nhất)
+                </p>
+                {events.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-3">
+                    Chưa có thay đổi trạng thái nào
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {events.map((ev) => (
+                      <div
+                        key={ev.id}
+                        className="rounded-lg border border-border/50 bg-muted/20 p-3 flex flex-wrap items-center gap-2 text-sm"
+                      >
+                        {ev.from_status && (
+                          <>
+                            <Badge className={STATUS_STYLES[ev.from_status]}>
+                              {STATUS_LABELS[ev.from_status]}
+                            </Badge>
+                            <span className="text-muted-foreground">→</span>
+                          </>
+                        )}
+                        <Badge className={STATUS_STYLES[ev.to_status]}>
+                          {STATUS_LABELS[ev.to_status]}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {ev.changed_by
+                            ? changerNames.get(ev.changed_by) || "Không rõ"
+                            : "Máy"}
+                          {" · "}
+                          {formatRelativeTime(ev.created_at)}
+                        </span>
+                        {ev.reason && (
+                          <span className="w-full text-xs text-muted-foreground italic border-l-2 border-gold/30 pl-2">
+                            {ev.reason}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -338,42 +585,74 @@ export function AdminStudentDetailView({ studentId }: Props) {
           </motion.div>
         </div>
 
-        {/* Notes */}
+        {/* Ghi chú lần chạm */}
         <motion.div variants={item}>
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Ghi chú</CardTitle>
+              <CardTitle className="text-lg">Ghi chú lần chạm</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Thêm ghi chú..."
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleAddNote(); }}
-                  className="flex-1"
-                />
-                <Button onClick={handleAddNote} disabled={!noteText.trim() || savingNote} className="bg-gold hover:bg-gold/90 text-black">
-                  <Send className="h-4 w-4" />
-                </Button>
+              <div className="space-y-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    value={noteChannel}
+                    onChange={(e) => setNoteChannel(e.target.value as NoteChannel | "")}
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-gold/50"
+                  >
+                    <option value="" disabled>Kênh chạm *</option>
+                    {(Object.keys(CHANNEL_LABELS) as NoteChannel[]).map((c) => (
+                      <option key={c} value={c}>{CHANNEL_LABELS[c]}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={noteType}
+                    onChange={(e) => setNoteType(e.target.value as NoteType | "")}
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-gold/50"
+                  >
+                    <option value="" disabled>Loại chạm *</option>
+                    {(Object.keys(NOTE_TYPE_LABELS) as NoteType[]).map((t) => (
+                      <option key={t} value={t}>{NOTE_TYPE_LABELS[t]}</option>
+                    ))}
+                  </select>
+                  <Input
+                    placeholder="Nội dung lần chạm..."
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAddNote(); }}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleAddNote}
+                    disabled={!noteText.trim() || !noteChannel || !noteType || savingNote}
+                    className="bg-gold hover:bg-gold/90 text-black"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Mỗi ghi chú = 1 lần chạm — máy đếm cho đề xuất Rời bỏ và chỉ số chạm trong 48h.
+                </p>
               </div>
               <Separator />
               {notes.length === 0 ? (
                 <p className="text-muted-foreground text-sm text-center py-4">Chưa có ghi chú</p>
               ) : (
                 <div className="space-y-3">
-                  {notes.map((note) => {
-                    const author = noteAuthors.find((u) => u.id === note.author_id);
-                    return (
-                      <div key={note.id} className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium text-gold">{author?.full_name || "Admin"}</p>
-                          <p className="text-xs text-muted-foreground">{formatRelativeTime(note.created_at)}</p>
-                        </div>
-                        <p className="text-sm text-foreground">{note.content}</p>
+                  {notes.map((note) => (
+                    <div key={note.id} className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs font-medium text-gold">{authorNames.get(note.author_id) || "Admin"}</p>
+                        <Badge className="bg-sky-500/15 text-sky-600 dark:text-sky-400 text-[10px]">
+                          {CHANNEL_LABELS[note.channel] || note.channel}
+                        </Badge>
+                        <Badge className="bg-violet-500/15 text-violet-600 dark:text-violet-400 text-[10px]">
+                          {NOTE_TYPE_LABELS[note.note_type] || note.note_type}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground ml-auto">{formatRelativeTime(note.created_at)}</p>
                       </div>
-                    );
-                  })}
+                      <p className="text-sm text-foreground">{note.content}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -434,6 +713,72 @@ export function AdminStudentDetailView({ studentId }: Props) {
             </Card>
           </motion.div>
         )}
+
+        {/* Modal đổi trạng thái */}
+        <Dialog open={statusModalOpen} onOpenChange={setStatusModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Đổi trạng thái học viên</DialogTitle>
+              <DialogDescription>
+                Tag máy gắn (Chậm, Quay lại, Tốt nghiệp) không gắn tay được. Rời bỏ / Tạm dừng / Hoàn tiền bắt buộc nhập lý do.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {allStatuses.map((s) => {
+                  const allowed = allowedStatuses.includes(s) && s !== currentStatus;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={!allowed}
+                      onClick={() => setTargetStatus(s)}
+                      className={`rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
+                        targetStatus === s
+                          ? "ring-2 ring-gold " + STATUS_STYLES[s]
+                          : STATUS_STYLES[s]
+                      } ${!allowed ? "opacity-30 cursor-not-allowed" : "cursor-pointer hover:ring-1 hover:ring-gold/50"}`}
+                      title={!allowedStatuses.includes(s) ? "Tag máy gắn — không gắn tay" : undefined}
+                    >
+                      {STATUS_LABELS[s]}
+                    </button>
+                  );
+                })}
+              </div>
+              {targetStatus && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Lý do {needReason ? "(bắt buộc)" : "(không bắt buộc)"}
+                  </label>
+                  <textarea
+                    value={statusReason}
+                    onChange={(e) => setStatusReason(e.target.value)}
+                    placeholder="Vd: học viên yêu cầu hoàn tiền vì lý do cá nhân..."
+                    rows={3}
+                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-gold/50 resize-none"
+                  />
+                  {needReason && !statusReason.trim() && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Tag này bắt buộc nhập lý do mới lưu được.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStatusModalOpen(false)}>
+                Huỷ
+              </Button>
+              <Button
+                onClick={handleSaveStatus}
+                disabled={!targetStatus || (needReason && !statusReason.trim()) || savingStatus}
+                className="bg-gold hover:bg-gold/90 text-black font-semibold"
+              >
+                {savingStatus ? "Đang lưu..." : "Lưu trạng thái"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </motion.div>
     </PageTransition>
   );

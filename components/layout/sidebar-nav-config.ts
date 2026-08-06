@@ -8,6 +8,8 @@ import {
   Sprout,
   Shield,
   NotebookPen,
+  BarChart3,
+  GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "@/lib/types";
@@ -24,6 +26,7 @@ export const studentNav: NavItem[] = [
   { href: "/student", label: "Dashboard", icon: LayoutDashboard, requiresEnrollment: true },
   { href: "/student/courses", label: "Khoá học", icon: BookOpen },
   { href: "/student/submissions", label: "Bài nộp", icon: FileText, requiresEnrollment: true },
+  { href: "/student/graduation", label: "Bài tốt nghiệp", icon: GraduationCap, requiresEnrollment: true },
   { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
   { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
   { href: "/student/review", label: "Đánh giá Mentor", icon: Star, requiresEnrollment: true },
@@ -44,6 +47,7 @@ export const adminNav: NavItem[] = [
   { href: "/admin/students", label: "Quản lý Học viên", icon: Users },
   { href: "/admin/mentors", label: "Quản lý Mentor", icon: Star },
   { href: "/admin/courses", label: "Quản lý Khoá học", icon: BookOpen },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/forms", label: "Biểu mẫu", icon: FileText },
   { href: "/admin/blog", label: "Vườn ươm tâm thức", icon: Sprout },
   { href: "/admin/profile", label: "Hồ sơ", icon: User },

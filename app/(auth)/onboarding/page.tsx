@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getStoredUserId } from "@/lib/auth";
+import { initStudentRoadmap, checkAndCompleteStages } from "@/lib/roadmap";
 
 // â”€â”€ Question definitions derived from mock-data answers â”€â”€
 
@@ -251,6 +252,10 @@ export default function OnboardingPage() {
           .from("profiles")
           .update({ classification, onboarding_survey })
           .eq("id", userId);
+
+        // Phase 02: survey xong = khoi tao lo trinh + qua chang onboarding
+        await initStudentRoadmap(userId, "c-pro");
+        await checkAndCompleteStages(userId, "c-pro");
       }
     } catch (err) {
       console.error("Failed to save onboarding survey:", err);
