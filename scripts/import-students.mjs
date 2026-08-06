@@ -166,13 +166,13 @@ for (const file of files) {
         profileId = existing.id;
         await sb.from("profiles").update({
           full_name: name || undefined, phone: phone || undefined,
-          external_code: code || undefined, source: "import-sheet",
+          external_code: code || undefined, source: "external", // DB constraint chỉ cho ('lms','comay','admin','external') — nhận diện import qua external_code
           mentor_id: existing.mentor_id || mentorId,
         }).eq("id", profileId);
       } else {
         const insert = {
           full_name: name || code || email, email, phone, role: "student",
-          external_code: code || null, source: "import-sheet", mentor_id: mentorId,
+          external_code: code || null, source: "external", mentor_id: mentorId,
         };
         if (authUserId) insert.id = authUserId; // profile.id = auth uid nếu tạo mới được
         const { data: p, error: pErr } = await sb.from("profiles").insert(insert).select("id").single();
