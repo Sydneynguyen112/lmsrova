@@ -24,9 +24,12 @@ export default function SignInPage() {
     try {
       const profile = await signInWithPassword(form.email, form.password);
       setLoading(false);
-      if (profile.role === "admin" || profile.role === "super_admin") router.push("/admin");
-      else if (profile.role === "mentor") router.push("/mentor");
-      else router.push("/student");
+      if (profile.role === "admin" || profile.role === "super_admin" || profile.role === "mentor") {
+        // Khu quản trị đã dời sang app riêng
+        window.location.href = "https://rova-ops.vercel.app";
+      } else {
+        router.push("/student");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không đăng nhập được");
       setLoading(false);

@@ -24,9 +24,10 @@ export default function AuthCallbackPage() {
 
         if (isNewUser && profile.role === "student") {
           router.push("/onboarding");
-        } else if (profile.role === "admin" || profile.role === "super_admin") router.push("/admin");
-        else if (profile.role === "mentor") router.push("/mentor");
-        else router.push("/student");
+        } else if (profile.role === "admin" || profile.role === "super_admin" || profile.role === "mentor") {
+          // Khu quản trị đã dời sang app riêng
+          window.location.href = "https://rova-ops.vercel.app";
+        } else router.push("/student");
       } catch {
         setStatus("Có lỗi xảy ra. Đang chuyển hướng...");
         setTimeout(() => router.push("/sign-in"), 2000);
