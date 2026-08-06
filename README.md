@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ROVA LMS
 
-## Getting Started
+Nền tảng học Trading của ROVA — khóa PRO với lộ trình 10 chặng, bài tập chấm bởi mentor, quiz, form tốt nghiệp và dashboard analytics.
 
-First, run the development server:
+- **Production:** https://lmsrova.vercel.app (auto-deploy từ branch `main` qua Vercel)
+- **Database + Auth:** Supabase (app gọi trực tiếp từ client, không có API server riêng)
+- **Video:** Bunny Stream
+
+## Tech stack
+
+- Next.js 16 (App Router) + React 19 + TypeScript
+- Tailwind CSS 4 + shadcn/ui
+- `@supabase/supabase-js` — mọi truy vấn nằm trong `lib/api*.ts`
+
+## Chạy local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tạo file `.env.local` ở root với 2 biến (lấy từ Supabase Dashboard → Settings → API):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<project-id>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable/anon key>
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev    # http://localhost:3000
+npm run build  # kiểm tra build trước khi push
+```
 
-## Learn More
+## Cấu trúc chính
 
-To learn more about Next.js, take a look at the following resources:
+| Đường dẫn | Nội dung |
+|---|---|
+| `app/(marketing)/` | Trang public: chủ, khóa học, bảng giá, mentor, form đăng ký |
+| `app/(auth)/` | Đăng nhập (Google OAuth + email/password), đăng ký, onboarding survey |
+| `app/(dashboard)/student/` | Học viên: video, nộp bài, quiz, tiến độ, form tốt nghiệp |
+| `app/(dashboard)/mentor/` | Mentor: chấm bài, theo dõi học viên, ghi chú chăm sóc |
+| `app/(dashboard)/admin/` | Admin: quản lý user/khóa học/form, analytics |
+| `lib/` | Supabase client, API layer (`api-*.ts`), roadmap engine, auth |
+| `plans/` | Kế hoạch triển khai từng đợt tính năng |
+| `scripts/` | Script vận hành (vd. import học viên từ Google Sheets) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Database schema
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Schema quản lý bằng các file SQL ở root, **chạy tay trong Supabase Dashboard → SQL Editor** theo thứ tự:
 
-## Deploy on Vercel
+1. `supabase-setup.sql` — bảng nền (profiles, courses, lessons, submissions...)
+2. `supabase-roadmap-analytics.sql` — lộ trình 10 chặng, trạng thái học viên, quiz, forms, ghi chú (đã bao gồm nội dung của `supabase-quiz-notes.sql` và `supabase-onboarding-survey.sql`)
+3. `supabase-analytics-views.sql` — 6 views cho trang `/admin/analytics`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Sau bước 2, bật extension **pg_cron** (Dashboard → Database → Extensions) rồi chạy dòng `cron.schedule` được ghi chú ở cuối file để engine trạng thái tự chạy mỗi giờ.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+⚠️ Code mới chỉ chạy đúng khi SQL tương ứng đã được chạy trên Supabase — thêm bảng/cột trong code thì phải chạy SQL trước khi deploy.
+
+## Deploy
+
+Xem [DEPLOY.md](DEPLOY.md). Ngắn gọn: push lên `main` → Vercel tự build và deploy.
