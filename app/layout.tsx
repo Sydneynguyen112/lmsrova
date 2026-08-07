@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   title: "ROVA LMS — Học Trading Chuyên Nghiệp",
   description:
     "Nền tảng học Trading/Forex online từ A-Z cùng mentor chuyên nghiệp. Bắt đầu hành trình trở thành Trader có lợi nhuận.",
+  // PWA: cài được lên màn hình chính, nhận Web Push (iPhone bắt buộc cài mới nhận push)
+  manifest: "/manifest.json",
+  icons: { apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "ROVA LMS" },
 };
 
 export default function RootLayout({

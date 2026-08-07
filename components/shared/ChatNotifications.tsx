@@ -9,6 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import { registerPushSubscription } from "@/lib/push";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { ChatMessage } from "@/lib/api-chat";
 
@@ -32,6 +33,14 @@ export function ChatNotifications() {
       setShowPrompt(true);
     }
   }, []);
+
+  // Đã cấp quyền từ trước → đảm bảo thiết bị này có push subscription (Web Push khi đóng web)
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== "student") return;
+    if ("Notification" in window && Notification.permission === "granted") {
+      registerPushSubscription(currentUser.id);
+    }
+  }, [currentUser]);
 
   // Badge "(N)" trên tiêu đề tab
   useEffect(() => {
@@ -93,7 +102,11 @@ export function ChatNotifications() {
   async function enableNoti() {
     setShowPrompt(false);
     const p = await Notification.requestPermission();
-    if (p !== "granted") localStorage.setItem(DISMISS_KEY, "1");
+    if (p !== "granted") {
+      localStorage.setItem(DISMISS_KEY, "1");
+      return;
+    }
+    if (currentUser) registerPushSubscription(currentUser.id);
   }
 
   function dismissPrompt() {
