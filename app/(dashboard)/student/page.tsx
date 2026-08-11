@@ -17,12 +17,14 @@ import {
   Construction,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
 import { getSubmissionsByUser } from "@/lib/api";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { LockedFeature } from "@/components/shared/LockedFeature";
+import { PendingApprovalModal } from "@/components/shared/PendingApprovalModal";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,6 +84,7 @@ function getDailyQuote() {
 }
 
 export default function StudentDashboardPage() {
+  const router = useRouter();
   const currentUser = useCurrentUser("student");
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -107,6 +110,13 @@ export default function StudentDashboardPage() {
     load();
   }, [currentUser]);
 
+  // Đã được duyệt nhưng chưa làm bài test đầu vào → đưa sang video onboarding
+  useEffect(() => {
+    if (!currentUser || loading || currentUser.onboarding_survey) return;
+    const approved = enrollments.some((e) => e.status === "active" || e.status === "completed");
+    if (approved) router.replace("/onboarding-video");
+  }, [currentUser, loading, enrollments, router]);
+
   if (!currentUser || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -122,10 +132,13 @@ export default function StudentDashboardPage() {
 
   if (!hasEnrollments) {
     return (
-      <LockedFeature
-        title="Dashboard"
-        description="Dashboard học tập sẽ được mở khi bạn đăng ký khoá học."
-      />
+      <>
+        <LockedFeature
+          title="Dashboard"
+          description="Dashboard học tập sẽ được mở khi bạn đăng ký khoá học."
+        />
+        <PendingApprovalModal email={currentUser.email} fullName={currentUser.full_name} />
+      </>
     );
   }
 

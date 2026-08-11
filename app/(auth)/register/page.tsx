@@ -64,7 +64,7 @@ export default function RegisterPage() {
 
     localStorage.setItem("rova_current_user_id", profile.id);
     setLoading(false);
-    router.push("/onboarding-video");
+    router.push("/student");
   };
 
   const handleGoogleRegister = async () => {

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getStoredUserId, type Profile } from "@/lib/auth";
+import { isApproved } from "@/lib/approval";
 import { getPublishedIntakeForm, submitIntake } from "@/lib/api-intake";
 import { getFallbackQuestions } from "@/lib/intake-fallback";
 import {
@@ -60,6 +61,11 @@ export default function OnboardingPage() {
       // Đã làm bài rồi (blob legacy tồn tại) → không bắt làm lại
       if (p.onboarding_survey) {
         router.replace("/student");
+        return;
+      }
+      // Chưa được admin/mentor duyệt → về trang chủ xem thông báo chờ duyệt
+      if (!(await isApproved(userId))) {
+        if (!cancelled) router.replace("/student");
         return;
       }
       setProfile(p as Profile);

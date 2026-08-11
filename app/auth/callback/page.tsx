@@ -23,7 +23,7 @@ export default function AuthCallbackPage() {
         setStatus(`Xin chào ${profile.full_name}! Đang chuyển hướng...`);
 
         if (isNewUser && profile.role === "student") {
-          router.push("/onboarding-video");
+          router.push("/student");
         } else if (profile.role === "admin" || profile.role === "super_admin" || profile.role === "mentor") {
           // Khu quản trị đã dời sang app riêng
           window.location.href = "https://rova-ops.vercel.app";
