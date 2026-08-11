@@ -13,7 +13,6 @@ import {
   ChevronDown,
   ChevronUp,
   MessageSquare,
-  Lock,
 } from "lucide-react";
 
 import { getSubmissionsByUser } from "@/lib/api";
@@ -114,10 +113,6 @@ interface Props {
   stageQuiz: QuizRow | null;
   stageQuizPassed: boolean;
   userId: string;
-  /** % thời lượng video đã xem (0-1) — chưa đủ ngưỡng thì khoá phần nộp */
-  watchedRatio: number;
-  /** Ngưỡng % phải xem mới được nộp bài */
-  watchGate: number;
   /** Nộp xong / quiz chặng đạt → cha load lại unlock data (bộ đếm + mở bài kế) */
   onProgress: () => void;
 }
@@ -130,8 +125,6 @@ export function AssignmentPanel({
   stageQuiz,
   stageQuizPassed,
   userId,
-  watchedRatio,
-  watchGate,
   onProgress,
 }: Props) {
   const [models, setModels] = useState<ModelSlot[]>(emptySlots());
@@ -213,10 +206,6 @@ export function AssignmentPanel({
     100,
     Math.round((counts.correct / stage.required_correct_images) * 100)
   );
-  // Đề bài luôn xem được; chỉ phần NỘP bị khoá tới khi xem đủ ngưỡng
-  const watchGatePassed = watchedRatio >= watchGate;
-  const watchedPercent = Math.min(100, Math.round(watchedRatio * 100));
-  const gatePercent = Math.round(watchGate * 100);
 
   return (
     <div className="space-y-4">
@@ -366,32 +355,8 @@ export function AssignmentPanel({
         </Card>
       ))}
 
-      {/* ─── Chưa xem đủ ngưỡng: hiện đề bài nhưng khoá phần nộp ─── */}
-      {!stageCompleted && !watchGatePassed && (
-        <Card className="border-dashed">
-          <CardContent className="py-8 text-center space-y-3">
-            <Lock className="h-8 w-8 text-muted-foreground/60 mx-auto" />
-            <div>
-              <p className="font-semibold text-foreground">
-                Xem hết {gatePercent}% video để mở phần nộp bài
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Bạn đã xem {watchedPercent}% — cứ xem tiếp, ô nộp bài sẽ tự mở.
-              </p>
-            </div>
-            <div className="h-2 max-w-xs mx-auto rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gold/60 transition-all"
-                style={{ width: `${Math.min(100, Math.round((watchedRatio / watchGate) * 100))}%` }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ─── Khung nộp ảnh (ẩn khi đã qua chặng hoặc chưa xem đủ) ─── */}
+      {/* ─── Khung nộp ảnh (ẩn khi đã qua chặng) ─── */}
       {!stageCompleted &&
-        watchGatePassed &&
         (justSubmitted ? (
           <Card className="border-emerald-500/30">
             <CardContent className="py-10 text-center space-y-2">
@@ -514,8 +479,6 @@ export function AssignmentPanel({
                 quiz={stageQuiz}
                 userId={userId}
                 heading={`Quiz chặng — ${stage.title}`}
-                locked={!watchGatePassed}
-                lockedNote={`Xem hết ${gatePercent}% video để làm quiz — bạn đã xem ${watchedPercent}%.`}
                 onPassed={handleQuizPassed}
               />
             </CardContent>

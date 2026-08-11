@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Send, RotateCcw, Lock } from "lucide-react";
+import { Send, RotateCcw } from "lucide-react";
 
 import { createQuizAttempt } from "@/lib/api";
 import type { QuizRow } from "@/lib/api-student";
@@ -15,20 +15,10 @@ export interface QuizSectionProps {
   quiz: QuizRow;
   userId: string;
   heading?: string;
-  /** Chưa xem đủ video: vẫn cho đọc câu hỏi, khoá chọn đáp án và nộp */
-  locked?: boolean;
-  lockedNote?: string;
   onPassed?: () => void;
 }
 
-export function QuizSection({
-  quiz,
-  userId,
-  heading,
-  locked = false,
-  lockedNote,
-  onPassed,
-}: QuizSectionProps) {
+export function QuizSection({ quiz, userId, heading, onPassed }: QuizSectionProps) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -80,13 +70,6 @@ export function QuizSection({
         </p>
       </div>
 
-      {locked && (
-        <div className="flex items-start gap-2 rounded-lg border border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-          <Lock className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>{lockedNote || "Xem đủ video để mở phần làm bài."}</span>
-        </div>
-      )}
-
       {quiz.questions.map((q, qIndex) => (
         <div key={qIndex} className="space-y-2">
           <p className="text-sm font-medium text-foreground">
@@ -110,15 +93,14 @@ export function QuizSection({
                   className={cn(
                     "flex items-center gap-3 rounded-lg border p-3 text-sm cursor-pointer transition-colors",
                     optClass,
-                    (submitted || locked) && "cursor-default",
-                    locked && "opacity-60"
+                    submitted && "cursor-default"
                   )}
                 >
                   <input
                     type="radio"
                     name={`quiz-${quiz.id}-q-${qIndex}`}
                     checked={isSelected}
-                    disabled={submitted || locked}
+                    disabled={submitted}
                     onChange={() =>
                       setAnswers((prev) => ({ ...prev, [qIndex]: oIndex }))
                     }
@@ -135,9 +117,7 @@ export function QuizSection({
       {!submitted ? (
         <Button
           onClick={handleSubmit}
-          disabled={
-            locked || submitting || Object.keys(answers).length < quiz.questions.length
-          }
+          disabled={submitting || Object.keys(answers).length < quiz.questions.length}
           className="bg-gold text-black hover:bg-gold/90"
         >
           <Send className="h-4 w-4 mr-2" />

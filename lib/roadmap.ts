@@ -5,11 +5,8 @@ import { supabase } from "./supabase";
 
 export const WATCH_THRESHOLD = 0.5; // xem >=50% thời lượng = xong bài
 
-// Ngưỡng RIÊNG để được LÀM BÀI (nộp bài tập + làm quiz) — cao hơn ngưỡng xong bài.
-// Đề bài và câu hỏi vẫn hiện để học viên biết sắp phải làm gì, chỉ khoá thao tác.
-// Tách riêng có chủ đích: nâng WATCH_THRESHOLD lên 0.7 sẽ khiến học viên đã
-// xem 50-70% bị tính là chưa xong và BỊ KHOÁ LẠI những bài đang học dở.
-export const WORK_WATCH_THRESHOLD = 0.7;
+// KHÔNG có ngưỡng xem cho việc làm bài: học viên nộp bài tập và làm quiz được
+// bất cứ lúc nào, không cần xem hết video trước.
 
 export interface RoadmapStage {
   id: string;
