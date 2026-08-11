@@ -28,7 +28,12 @@ import {
   type CourseLessonRow,
   type QuizRow,
 } from "@/lib/api-student";
-import { checkAndCompleteStages, flushWatchProgress, type RoadmapStage } from "@/lib/roadmap";
+import {
+  checkAndCompleteStages,
+  flushWatchProgress,
+  ASSIGNMENT_WATCH_THRESHOLD,
+  type RoadmapStage,
+} from "@/lib/roadmap";
 import { cn, formatDuration } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -250,6 +255,12 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
 
   const startAt = data.progressMap.get(lessonId)?.last_position_sec || 0;
 
+  // Tỉ lệ đã xem — duration chưa có thì coi như đủ, tránh khoá oan (giống isLessonWatched)
+  const watchedSeconds = data.progressMap.get(lessonId)?.watched_seconds || 0;
+  const watchedRatio = lesson.duration_sec
+    ? Math.min(1, watchedSeconds / lesson.duration_sec)
+    : 1;
+
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; show: boolean }[] = [
     { key: "materials", label: "Tài liệu", icon: <FileText className="h-4 w-4" />, show: true },
     { key: "quiz", label: "Quiz", icon: <HelpCircle className="h-4 w-4" />, show: !!lessonQuiz },
@@ -417,6 +428,8 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                 stageQuiz={stageQuiz}
                 stageQuizPassed={stageQuizPassed}
                 userId={currentUser.id}
+                watchedRatio={watchedRatio}
+                watchGate={ASSIGNMENT_WATCH_THRESHOLD}
                 onProgress={handleStageProgress}
               />
             )}

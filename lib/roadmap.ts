@@ -5,6 +5,11 @@ import { supabase } from "./supabase";
 
 export const WATCH_THRESHOLD = 0.5; // xem >=50% thời lượng = xong bài
 
+// Ngưỡng RIÊNG để được nộp bài tập — cao hơn ngưỡng xong bài.
+// Tách riêng có chủ đích: nâng WATCH_THRESHOLD lên 0.7 sẽ khiến học viên đã
+// xem 50-70% bị tính là chưa xong và BỊ KHOÁ LẠI những bài đang học dở.
+export const ASSIGNMENT_WATCH_THRESHOLD = 0.7;
+
 export interface RoadmapStage {
   id: string;
   course_id: string;
@@ -104,8 +109,13 @@ export async function getLessonQuizMap(lessonIds: string[]): Promise<Map<string,
 }
 
 // ─── Luật mở khoá video tuần tự ───
-// done(bài N) = xem >=50% + quiz bài N passed (nếu có) + nếu N là video đầu chặng bài tập
-// thì CẢ chặng đó phải completed. Bài N+1 mở khi mọi bài trước done.
+// done(bài N) khi MỘT trong hai:
+//   (a) xem >=50% + quiz bài N passed (nếu có) + nếu N mở đầu chặng bài tập thì chặng completed
+//   (b) bài N nằm ở hoặc trước chặng xa nhất đã hoàn thành
+// Nhánh (b) có 2 lý do: học viên làm bài tập + quiz đạt thì qua chặng dù chưa xem hết video;
+// và học viên import từ hệ cũ có stage_progress nhưng KHÔNG có giây xem nào — không có (b)
+// thì toàn bộ video của họ bị khoá dù đã học xong ngoài đời.
+// Bài N+1 mở khi mọi bài trước done.
 
 export interface LessonLite {
   id: string;
@@ -143,12 +153,24 @@ export function computeUnlockState(input: UnlockInput): UnlockState {
   for (const s of stages)
     if (s.completion_type === "assignment_quiz" && s.lesson_id) stageByLesson.set(s.lesson_id, s);
 
+  // Vị trí bài học của chặng XA NHẤT đã hoàn thành — mọi bài từ đó trở về trước coi như xong.
+  // Chặng nào chưa nối lesson_id thì không tính được, bỏ qua (không khoá oan ai).
+  let completedThroughIndex = -1;
+  for (const s of stages) {
+    if (!completedStageIds.has(s.id)) continue;
+    const anchors = s.lesson_id ? [s.lesson_id] : s.lesson_ids || [];
+    for (const anchorId of anchors) {
+      const idx = lessons.findIndex((l) => l.id === anchorId);
+      if (idx > completedThroughIndex) completedThroughIndex = idx;
+    }
+  }
+
   const unlocked = new Set<string>();
   const done = new Set<string>();
   let firstLocked: string | null = null;
   let previousAllDone = true;
 
-  for (const lesson of lessons) {
+  lessons.forEach((lesson, index) => {
     if (previousAllDone) unlocked.add(lesson.id);
     else if (firstLocked === null) firstLocked = lesson.id;
 
@@ -158,9 +180,12 @@ export function computeUnlockState(input: UnlockInput): UnlockState {
     const stage = stageByLesson.get(lesson.id);
     if (lessonDone && stage && !completedStageIds.has(stage.id)) lessonDone = false;
 
+    // Đã qua chặng phủ bài này → xong, bất kể đã xem bao nhiêu
+    if (index <= completedThroughIndex) lessonDone = true;
+
     if (lessonDone) done.add(lesson.id);
     previousAllDone = previousAllDone && lessonDone;
-  }
+  });
   return { unlockedLessonIds: unlocked, doneLessonIds: done, firstLockedLessonId: firstLocked };
 }
 
