@@ -18,6 +18,10 @@ const env = Object.fromEntries(
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 const WIRE = [
+  // Chặng "Xem video" ứng với bài đầu tiên — không nối thì học viên đã qua chặng
+  // này vẫn kẹt ở Chương 1 và không với tới bài tập ở Chương 2.
+  // (Điều kiện qua chặng first_lesson không dùng lesson_id, chỉ dùng để mở khoá.)
+  ["xem_video", { lesson_id: "l-mov3plq8-mgab" }, "Chương 1: Lời chào mừng"],
   ["nen_chu", { lesson_id: "l-msonwa80-ggne" }, "Chương 2: Nến"],
   ["cau_truc", { lesson_id: "l-msonwa80-st7y" }, "Chương 3: Cấu trúc thị trường"],
   ["tu_duy", { lesson_id: "l-msonwa80-tpap" }, "Chương 4: Tư duy phương pháp 3 hộp"],

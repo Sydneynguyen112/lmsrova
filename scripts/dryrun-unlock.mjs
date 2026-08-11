@@ -20,6 +20,7 @@ const WATCH_THRESHOLD = 0.5;
 
 // Bảng ghép đề xuất (giống supabase-wire-stages.sql)
 const PROPOSED = {
+  xem_video: "l-mov3plq8-mgab", // Chương 1: Lời chào mừng
   nen_chu: "l-msonwa80-ggne",
   cau_truc: "l-msonwa80-st7y",
   tu_duy: "l-msonwa80-tpap",
