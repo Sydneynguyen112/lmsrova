@@ -20,6 +20,7 @@ export default function RegisterPage() {
     password: "",
   });
 
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -182,6 +183,35 @@ export default function RegisterPage() {
             </button>
           </div>
         </div>
+
+        {/* Terms agreement */}
+        <label className="flex items-start gap-2.5 cursor-pointer select-none pt-1">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            required
+            className="mt-0.5 h-4 w-4 rounded border-gold-shadow/40 accent-[var(--color-gold)] cursor-pointer"
+          />
+          <span className="text-sm text-muted-foreground leading-relaxed">
+            Tôi đồng ý với{" "}
+            <Link
+              href="/terms"
+              target="_blank"
+              className="text-gold hover:underline font-medium"
+            >
+              Điều khoản dịch vụ
+            </Link>{" "}
+            và{" "}
+            <Link
+              href="/privacy"
+              target="_blank"
+              className="text-gold hover:underline font-medium"
+            >
+              Chính sách bảo mật
+            </Link>
+          </span>
+        </label>
 
         {/* Submit */}
         <Button
