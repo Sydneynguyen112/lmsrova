@@ -514,6 +514,8 @@ export function AssignmentPanel({
                 quiz={stageQuiz}
                 userId={userId}
                 heading={`Quiz chặng — ${stage.title}`}
+                locked={!watchGatePassed}
+                lockedNote={`Xem hết ${gatePercent}% video để làm quiz — bạn đã xem ${watchedPercent}%.`}
                 onPassed={handleQuizPassed}
               />
             </CardContent>

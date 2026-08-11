@@ -31,7 +31,7 @@ import {
 import {
   checkAndCompleteStages,
   flushWatchProgress,
-  ASSIGNMENT_WATCH_THRESHOLD,
+  WORK_WATCH_THRESHOLD,
   type RoadmapStage,
 } from "@/lib/roadmap";
 import { cn, formatDuration } from "@/lib/utils";
@@ -67,6 +67,9 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const [stageQuiz, setStageQuiz] = useState<QuizRow | null>(null);
   const [assignment, setAssignment] = useState<AssignmentRow | null>(null);
   const [redirecting, setRedirecting] = useState(false);
+  // Giây xem cộng dồn NGAY trong phiên — unlockData chỉ nạp lại khi qua chặng,
+  // không có state này thì ngưỡng mở phần nộp bài chỉ cập nhật sau khi tải lại trang.
+  const [liveWatchedSec, setLiveWatchedSec] = useState(0);
 
   // duration thật của video (từ DB, hoặc backfill từ metadata player)
   const durationRef = useRef(0);
@@ -114,6 +117,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
       if (lesson) {
         durationRef.current = lesson.duration_sec || 0;
         setVideoCompleted(!!data.progressMap.get(lessonId)?.completed);
+        setLiveWatchedSec(data.progressMap.get(lessonId)?.watched_seconds || 0);
       }
 
       // Quiz theo bài học (quizzes.lesson_id)
@@ -169,6 +173,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const handleFlush = useCallback(
     (addedSeconds: number, positionSec: number) => {
       if (!currentUser) return;
+      setLiveWatchedSec((prev) => prev + Math.max(0, addedSeconds));
       flushWatchProgress(currentUser.id, lessonId, addedSeconds, positionSec, durationRef.current)
         .then(({ justCompleted }) => {
           if (justCompleted) {
@@ -256,10 +261,14 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const startAt = data.progressMap.get(lessonId)?.last_position_sec || 0;
 
   // Tỉ lệ đã xem — duration chưa có thì coi như đủ, tránh khoá oan (giống isLessonWatched)
-  const watchedSeconds = data.progressMap.get(lessonId)?.watched_seconds || 0;
+  const watchedSeconds = Math.max(
+    liveWatchedSec,
+    data.progressMap.get(lessonId)?.watched_seconds || 0
+  );
   const watchedRatio = lesson.duration_sec
     ? Math.min(1, watchedSeconds / lesson.duration_sec)
     : 1;
+  const workGatePassed = watchedRatio >= WORK_WATCH_THRESHOLD;
 
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; show: boolean }[] = [
     { key: "materials", label: "Tài liệu", icon: <FileText className="h-4 w-4" />, show: true },
@@ -412,6 +421,8 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                   <QuizSection
                     quiz={lessonQuiz}
                     userId={currentUser.id}
+                    locked={!workGatePassed}
+                    lockedNote={`Xem hết ${Math.round(WORK_WATCH_THRESHOLD * 100)}% video để làm quiz — bạn đã xem ${Math.round(watchedRatio * 100)}%.`}
                     onPassed={handleStageProgress}
                   />
                 </CardContent>
@@ -429,7 +440,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                 stageQuizPassed={stageQuizPassed}
                 userId={currentUser.id}
                 watchedRatio={watchedRatio}
-                watchGate={ASSIGNMENT_WATCH_THRESHOLD}
+                watchGate={WORK_WATCH_THRESHOLD}
                 onProgress={handleStageProgress}
               />
             )}
