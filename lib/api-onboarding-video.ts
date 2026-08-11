@@ -1,5 +1,5 @@
 // API cho video onboarding bắt buộc (SQL: supabase-onboarding-video.sql)
-// - Cài đặt video (app_settings, key "onboarding_video") — admin chỉnh ở /admin/settings
+// - Cài đặt video (app_settings, key "onboarding_video") — admin đánh dấu bài học ở /admin/courses (repo rova-ops)
 // - Tiến độ xem của học viên (3 cột onboarding_video_* trong profiles)
 import { supabase } from "./supabase";
 
