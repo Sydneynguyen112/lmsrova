@@ -132,6 +132,26 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
     );
   }
 
+  // Form khám bệnh chỉ dành cho học viên đã đăng nhập — làm trong LMS để được
+  // chấm điểm và lưu hồ sơ. Không cho nộp ẩn danh (né pipeline chấm điểm).
+  if (form.form_type === "intake") {
+    return (
+      <div className="min-h-screen bg-[var(--neutral-bg)] dark:bg-[var(--dark-bg)] flex items-center justify-center p-4">
+        <div className="text-center space-y-4 max-w-md">
+          <p className="text-lg font-semibold text-foreground">Bài test này dành cho học viên ROVA.</p>
+          <p className="text-sm text-muted-foreground">
+            Đăng nhập LMS để làm bài và nhận kết quả phân tích dành riêng cho bạn.
+          </p>
+          <Link href="/sign-in">
+            <Button variant="outline" className="border-[var(--gold-primary)]/50 text-[var(--gold-primary)]">
+              Đăng nhập để làm bài
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (submitted) {
     return (
       <div className="min-h-screen bg-[var(--neutral-bg)] dark:bg-[var(--dark-bg)] flex items-center justify-center p-4">

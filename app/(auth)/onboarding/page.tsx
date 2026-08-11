@@ -1,475 +1,423 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from "react";
+// Bài test khám bệnh — onboarding mới thay khảo sát 8 câu cũ.
+// Plan: plans/260807-intake-assessment/plan.md
+// Câu hỏi soạn từ rova-ops (form builder, form_type='intake'); chưa có form
+// published thì dùng bộ fallback trong code — luồng không bao giờ chết.
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ArrowRight,
-  ArrowLeft,
-  CheckCircle2,
-  Brain,
-  Target,
-  BarChart3,
-  Monitor,
-  LineChart,
-  Dice5,
-  Wallet,
-  Smartphone,
-} from "lucide-react";
+import { ArrowRight, ArrowLeft, Loader2, Stethoscope, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { getStoredUserId } from "@/lib/auth";
-import { initStudentRoadmap, checkAndCompleteStages } from "@/lib/roadmap";
+import { getStoredUserId, type Profile } from "@/lib/auth";
+import { getPublishedIntakeForm, submitIntake } from "@/lib/api-intake";
 import { getOnboardingVideoSetting } from "@/lib/api-onboarding-video";
+import { getFallbackQuestions } from "@/lib/intake-fallback";
+import {
+  parseMeta,
+  SECTION_LABELS,
+  type IntakeQuestion,
+  type StudentVisibleResult,
+} from "@/lib/intake-scoring";
+import { BirthDateStep } from "@/components/intake/BirthDateStep";
+import { IntakeResultScreen } from "@/components/intake/IntakeResultScreen";
 
-// â”€â”€ Question definitions derived from mock-data answers â”€â”€
+type PageState = "loading" | "intro" | "form" | "computing" | "result";
 
-interface ScoredOption {
-  score: number;
-  label: string;
-}
-
-interface ScoredQuestion {
-  type: "scored";
-  id: string;
-  icon: React.ElementType;
-  title: string;
-  subtitle: string;
-  options: ScoredOption[];
-}
-
-interface TextQuestion {
-  type: "text";
-  id: string;
-  icon: React.ElementType;
-  title: string;
-  subtitle: string;
-  placeholder: string;
-}
-
-type Question = ScoredQuestion | TextQuestion;
-
-const questions: Question[] = [
-  {
-    type: "scored",
-    id: "self_learning",
-    icon: Brain,
-    title: "Kháº£ nÄƒng tá»± há»c",
-    subtitle: "Khi gáº·p má»™t khÃ¡i niá»‡m má»›i mÃ  báº¡n chÆ°a hiá»ƒu rÃµ, báº¡n thÆ°á»ng lÃ m gÃ¬?",
-    options: [
-      { score: 1, label: "Xem láº¡i má»™t vÃ i láº§n, náº¿u váº«n chÆ°a rÃµ thÃ¬ chuyá»ƒn sang pháº§n khÃ¡c" },
-      { score: 2, label: "Há»i báº¡n bÃ¨ hoáº·c tÃ¬m video khÃ¡c giáº£i thÃ­ch Ä‘Æ¡n giáº£n hÆ¡n" },
-      { score: 3, label: "Tá»± tÃ¬m hiá»ƒu thÃªm rá»“i má»›i tiáº¿p tá»¥c" },
-      { score: 4, label: "Ghi láº¡i vÃ  tÃ¬m cÃ¡ch hiá»ƒu rÃµ, rá»“i má»›i sang bÃ i tiáº¿p" },
-    ],
-  },
-  {
-    type: "scored",
-    id: "motivation",
-    icon: Target,
-    title: "Äá»™ng lá»±c há»c Trading",
-    subtitle: "Äiá»u gÃ¬ thÃºc Ä‘áº©y báº¡n tÃ¬m Ä‘áº¿n ROVA?",
-    options: [
-      { score: 1, label: "TÃ² mÃ², muá»‘n thá»­ xem trading cÃ³ kiáº¿m tiá»n Ä‘Æ°á»£c khÃ´ng" },
-      { score: 2, label: "Äang cáº§n thu nháº­p nhanh, muá»‘n há»c vÃ  Ã¡p dá»¥ng sá»›m" },
-      { score: 3, label: "Äang gáº·p váº¥n Ä‘á» trong giao dá»‹ch, muá»‘n cÃ³ phÆ°Æ¡ng phÃ¡p rÃµ rÃ ng" },
-      { score: 4, label: "ÄÃ£ cÃ³ Ã½ Ä‘á»‹nh há»c bÃ i báº£n, Ä‘i Ä‘Æ°á»ng dÃ i" },
-    ],
-  },
-  {
-    type: "scored",
-    id: "tradingview_skill",
-    icon: BarChart3,
-    title: "Ká»¹ nÄƒng TradingView",
-    subtitle: "Báº¡n Ä‘Ã£ sá»­ dá»¥ng TradingView á»Ÿ má»©c nÃ o?",
-    options: [
-      { score: 1, label: "ChÆ°a biáº¿t, chÆ°a cÃ³ tÃ i khoáº£n TradingView" },
-      { score: 2, label: "ÄÃ£ tá»«ng dÃ¹ng, chá»§ yáº¿u má»Ÿ lÃªn xem giÃ¡" },
-      { score: 3, label: "Biáº¿t váº½ Ä‘Æ°á»ng, Ä‘Ã¡nh dáº¥u vÃ¹ng giÃ¡, thÃªm indicator" },
-      { score: 4, label: "CÃ³ layout riÃªng vÃ  sá»­ dá»¥ng thÆ°á»ng xuyÃªn Ä‘á»ƒ phÃ¢n tÃ­ch" },
-    ],
-  },
-  {
-    type: "scored",
-    id: "device",
-    icon: Monitor,
-    title: "Thiáº¿t bá»‹ há»c táº­p",
-    subtitle: "Báº¡n thÆ°á»ng dÃ¹ng thiáº¿t bá»‹ gÃ¬ Ä‘á»ƒ há»c vÃ  giao dá»‹ch?",
-    options: [
-      { score: 1, label: "Chá»‰ dÃ¹ng Ä‘iá»‡n thoáº¡i, chÆ°a cÃ³ mÃ¡y tÃ­nh" },
-      { score: 2, label: "Chá»§ yáº¿u dÃ¹ng Ä‘iá»‡n thoáº¡i, cÃ³ mÃ¡y tÃ­nh nhÆ°ng khÃ´ng thÆ°á»ng xuyÃªn" },
-      { score: 3, label: "Chá»§ yáº¿u dÃ¹ng mÃ¡y tÃ­nh Ä‘á»ƒ há»c vÃ  giao dá»‹ch" },
-      { score: 4, label: "ThÃ nh tháº¡o mÃ¡y tÃ­nh vÃ  á»©ng dá»¥ng Ä‘iá»‡n thoáº¡i" },
-    ],
-  },
-  {
-    type: "scored",
-    id: "trading_method",
-    icon: LineChart,
-    title: "PhÆ°Æ¡ng phÃ¡p giao dá»‹ch",
-    subtitle: "Hiá»‡n táº¡i báº¡n giao dá»‹ch theo phÆ°Æ¡ng phÃ¡p nÃ o?",
-    options: [
-      { score: 1, label: "ChÆ°a cÃ³ phÆ°Æ¡ng phÃ¡p, chá»§ yáº¿u vÃ o lá»‡nh theo cáº£m tÃ­nh" },
-      { score: 2, label: "ÄÃ£ thá»­ qua nhiá»u phÆ°Æ¡ng phÃ¡p, chÆ°a kiá»ƒm chá»©ng rÃµ" },
-      { score: 3, label: "Äang táº­p trung giao dá»‹ch theo má»™t phÆ°Æ¡ng phÃ¡p" },
-      { score: 4, label: "ÄÃ£ cÃ³ phÆ°Æ¡ng phÃ¡p riÃªng, Ä‘ang tá»‘i Æ°u" },
-    ],
-  },
-  {
-    type: "scored",
-    id: "probability_thinking",
-    icon: Dice5,
-    title: "TÆ° duy xÃ¡c suáº¥t",
-    subtitle: "Khi báº¡n thua lá»— liÃªn tiáº¿p 3 lá»‡nh, báº¡n thÆ°á»ng lÃ m gÃ¬?",
-    options: [
-      { score: 1, label: "Xem láº¡i thá»‹ trÆ°á»ng vÃ  Ä‘iá»u chá»‰nh cÃ¡ch vÃ o lá»‡nh" },
-      { score: 2, label: "Táº¡m dá»«ng má»™t thá»i gian Ä‘á»ƒ quan sÃ¡t" },
-      { score: 3, label: "Xem láº¡i cÃ¡c lá»‡nh Ä‘Ã£ vÃ o Ä‘á»ƒ hiá»ƒu Ä‘iá»u gÃ¬ chÆ°a á»•n" },
-      { score: 4, label: "Tiáº¿p tá»¥c giao dá»‹ch nhÆ° bÃ¬nh thÆ°á»ng vÃ  theo dÃµi" },
-    ],
-  },
-  {
-    type: "text",
-    id: "income_status",
-    icon: Wallet,
-    title: "TÃ¬nh tráº¡ng thu nháº­p",
-    subtitle: "MÃ´ táº£ ngáº¯n gá»n tÃ¬nh tráº¡ng tÃ i chÃ­nh hiá»‡n táº¡i cá»§a báº¡n",
-    placeholder: "VÃ­ dá»¥: CÃ³ thu nháº­p á»•n Ä‘á»‹nh hÃ ng thÃ¡ng, trading lÃ  thÃªm",
-  },
-  {
-    type: "text",
-    id: "device_detail",
-    icon: Smartphone,
-    title: "Chi tiáº¿t thiáº¿t bá»‹",
-    subtitle: "Báº¡n Ä‘ang dÃ¹ng thiáº¿t bá»‹ gÃ¬ cá»¥ thá»ƒ?",
-    placeholder: "VÃ­ dá»¥: MacBook Pro, iPhone 15, setup 2 mÃ n hÃ¬nh...",
-  },
-];
-
-function classifyScore(totalScore: number, hasAnyOne: boolean): string {
-  if (hasAnyOne || totalScore <= 10) return "newbie";
-  if (totalScore <= 14) return "beginner";
-  if (totalScore <= 19) return "intermediate";
-  return "advanced";
-}
-
-const classificationInfo: Record<string, { label: string; color: string; description: string }> = {
-  newbie: {
-    label: "Newbie",
-    color: "text-gray-700 dark:text-gray-300",
-    description: "Báº¡n má»›i báº¯t Ä‘áº§u hÃ nh trÃ¬nh Trading. ROVA sáº½ hÆ°á»›ng dáº«n báº¡n tá»«ng bÆ°á»›c tá»« cÆ¡ báº£n nháº¥t!",
-  },
-  beginner: {
-    label: "Beginner",
-    color: "text-blue-700 dark:text-blue-300",
-    description: "Báº¡n Ä‘Ã£ cÃ³ ná»n táº£ng ban Ä‘áº§u. HÃ£y cÃ¹ng ROVA xÃ¢y dá»±ng phÆ°Æ¡ng phÃ¡p giao dá»‹ch vá»¯ng cháº¯c!",
-  },
-  intermediate: {
-    label: "Intermediate",
-    color: "text-amber-700 dark:text-amber-300",
-    description: "Báº¡n cÃ³ kiáº¿n thá»©c khÃ¡ tá»‘t. ROVA sáº½ giÃºp báº¡n tá»‘i Æ°u chiáº¿n lÆ°á»£c vÃ  quáº£n lÃ½ rá»§i ro!",
-  },
-  advanced: {
-    label: "Advanced",
-    color: "text-green-700 dark:text-green-300",
-    description: "Báº¡n lÃ  trader cÃ³ kinh nghiá»‡m. ROVA sáº½ Ä‘á»“ng hÃ nh nÃ¢ng cáº¥p há»‡ thá»‘ng giao dá»‹ch cá»§a báº¡n!",
-  },
-};
+const HOURS = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`);
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const [pageState, setPageState] = useState<PageState>("loading");
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [formId, setFormId] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<IntakeQuestion[]>([]);
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number | string>>({});
-  const [showResult, setShowResult] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
+  const [visible, setVisible] = useState<StudentVisibleResult | null>(null);
 
-  // Video onboarding bắt buộc: học viên mới chưa xem xong (khi video đã cấu hình)
-  // thì quay về xem trước rồi mới được làm khảo sát
   useEffect(() => {
-    async function guardVideoFirst() {
+    let cancelled = false;
+
+    async function load() {
       const userId = getStoredUserId();
-      if (!userId) return;
-      const [{ data: profile }, setting] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("role, onboarding_survey, onboarding_video_watched_at")
-          .eq("id", userId)
-          .single(),
+      if (!userId) {
+        router.replace("/sign-in");
+        return;
+      }
+      const [{ data: p }, intakeForm, videoSetting] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", userId).single(),
+        getPublishedIntakeForm(),
         getOnboardingVideoSetting(),
       ]);
-      if (
-        profile?.role === "student" &&
-        !profile.onboarding_survey &&
-        setting.video_id &&
-        !profile.onboarding_video_watched_at
-      ) {
-        router.replace("/onboarding-video");
+      if (cancelled) return;
+      if (!p) {
+        router.replace("/sign-in");
+        return;
       }
+      // Đã làm bài rồi (blob legacy tồn tại) → không bắt làm lại
+      if (p.onboarding_survey) {
+        router.replace("/student");
+        return;
+      }
+      // Video onboarding bắt buộc: chưa xem xong thì xem trước rồi mới được làm bài
+      if (p.role === "student" && videoSetting.video_id && !p.onboarding_video_watched_at) {
+        router.replace("/onboarding-video");
+        return;
+      }
+      setProfile(p as Profile);
+      if (intakeForm && intakeForm.questions.length > 0) {
+        setFormId(intakeForm.form.id);
+        setQuestions(intakeForm.questions);
+      } else {
+        // Chưa có form intake published — dùng bộ câu hỏi dựng sẵn
+        console.warn("Chưa có form khám bệnh published — dùng bộ câu hỏi fallback.");
+        setFormId(null);
+        setQuestions(getFallbackQuestions());
+      }
+      setPageState("intro");
     }
-    guardVideoFirst();
-  }, [router]);
 
-  const totalSteps = questions.length;
-  const currentQuestion = questions[step];
-  const progress = ((step + (showResult ? 1 : 0)) / totalSteps) * 100;
+    load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const currentAnswer = answers[currentQuestion?.id];
-  const canNext =
-    currentQuestion?.type === "scored"
-      ? typeof currentAnswer === "number"
-      : typeof currentAnswer === "string" && (currentAnswer as string).trim().length > 0;
+  const question = questions[step];
+  const meta = question ? parseMeta(question) : null;
+  // Câu nhạy cảm hoặc không bắt buộc → được phép bỏ qua
+  const skippable = !!meta && (meta.sensitive || !question.required);
+  const hasAnswer = !!question && !!answers[question.id]?.trim();
+  const progress = questions.length > 0 ? Math.round(((step + 1) / questions.length) * 100) : 0;
 
-  const handleSelect = (value: number | string) => {
-    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }));
-  };
+  // Chip section — chỉ hiện khi đổi section so với câu trước
+  const sectionLabel = meta?.section ? SECTION_LABELS[meta.section] : null;
+  const prevMeta = step > 0 ? parseMeta(questions[step - 1]) : null;
+  const sectionChanged = !prevMeta || prevMeta.section !== meta?.section;
 
-  const handleNext = () => {
-    if (step < totalSteps - 1) {
+  function setAnswer(questionId: string, value: string) {
+    setAnswers((prev) => ({ ...prev, [questionId]: value }));
+  }
+
+  function toggleCheckbox(questionId: string, option: string) {
+    setAnswers((prev) => {
+      const current = prev[questionId] ? prev[questionId].split("|||") : [];
+      const updated = current.includes(option)
+        ? current.filter((o) => o !== option)
+        : [...current, option];
+      return { ...prev, [questionId]: updated.join("|||") };
+    });
+  }
+
+  function handleSkip() {
+    if (!question) return;
+    setAnswers((prev) => {
+      const next = { ...prev };
+      delete next[question.id]; // bỏ qua = không ghi gì
+      return next;
+    });
+    advance();
+  }
+
+  function advance() {
+    setError("");
+    if (step < questions.length - 1) {
       setStep(step + 1);
     } else {
-      setShowResult(true);
+      handleFinish();
     }
-  };
+  }
 
-  const handleBack = () => {
-    if (showResult) {
-      setShowResult(false);
-    } else if (step > 0) {
-      setStep(step - 1);
-    }
-  };
+  function handleBack() {
+    setError("");
+    if (step > 0) setStep(step - 1);
+  }
 
-  // Calculate results
-  const scoredQuestions = questions.filter((q) => q.type === "scored");
-  const totalScore = scoredQuestions.reduce(
-    (sum, q) => sum + (typeof answers[q.id] === "number" ? (answers[q.id] as number) : 0),
-    0
-  );
-  const hasAnyOne = scoredQuestions.some((q) => answers[q.id] === 1);
-  const classification = classifyScore(totalScore, hasAnyOne);
-  const result = classificationInfo[classification];
-
-  const [saving, setSaving] = useState(false);
-
-  const handleFinish = async () => {
-    setSaving(true);
-    try {
-      const userId = getStoredUserId();
-      if (userId) {
-        // Build full survey object â€” scored q lÆ°u {score, answer}, text q lÆ°u string
-        const surveyAnswers: Record<string, { score: number; answer: string } | string> = {};
-        for (const q of questions) {
-          const v = answers[q.id];
-          if (q.type === "scored" && typeof v === "number") {
-            const opt = q.options.find((o) => o.score === v);
-            surveyAnswers[q.id] = { score: v, answer: opt?.label ?? "" };
-          } else if (q.type === "text" && typeof v === "string") {
-            surveyAnswers[q.id] = v;
-          }
-        }
-        const onboarding_survey = {
-          answers: surveyAnswers,
-          total_score: totalScore,
-          has_any_one: hasAnyOne,
-          classification,
-          completed_at: new Date().toISOString(),
-        };
-        await supabase
-          .from("profiles")
-          .update({ classification, onboarding_survey })
-          .eq("id", userId);
-
-        // Phase 02: survey xong = khoi tao lo trinh + qua chang onboarding
-        await initStudentRoadmap(userId, "c-mov3c81m-fdq2");
-        await checkAndCompleteStages(userId, "c-mov3c81m-fdq2");
+  async function handleFinish() {
+    if (!profile) return;
+    // Câu bắt buộc (không nhạy cảm) phải có câu trả lời
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const m = parseMeta(q);
+      if (q.required && !m.sensitive && !answers[q.id]?.trim()) {
+        setStep(i);
+        setError(`Vui lòng trả lời câu hỏi "${q.question_text}"`);
+        return;
       }
-    } catch (err) {
-      console.error("Failed to save onboarding survey:", err);
     }
-    router.push("/student");
-  };
 
-  return (
-    <div className="w-full max-w-2xl mx-auto">
-      {/* Progress bar */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-muted-foreground">
-            {showResult ? "Káº¿t quáº£" : `CÃ¢u ${step + 1} / ${totalSteps}`}
-          </span>
-          <span className="text-sm text-gold font-medium">
-            {Math.round(progress)}%
-          </span>
+    setPageState("computing");
+    const startedAt = Date.now();
+    const { computed, error: submitError } = await submitIntake(profile, formId, questions, answers);
+    if (submitError) {
+      console.error("submitIntake error:", submitError);
+      setPageState("form");
+      setError("Có lỗi xảy ra khi lưu bài. Vui lòng thử lại.");
+      return;
+    }
+    // Giữ màn "đang phân tích" tối thiểu 1.2s cho cảm giác được "khám" thật
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < 1200) {
+      await new Promise((r) => setTimeout(r, 1200 - elapsed));
+    }
+    setVisible(computed.student_visible);
+    setPageState("result");
+  }
+
+  /* ─── Render ─── */
+
+  if (pageState === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-gold" />
+      </div>
+    );
+  }
+
+  if (pageState === "intro") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center space-y-5"
+      >
+        <div className="w-16 h-16 rounded-full bg-gold/10 border border-gold/40 flex items-center justify-center mx-auto">
+          <Stethoscope className="h-8 w-8 text-gold" />
         </div>
-        <div className="h-1.5 rounded-full bg-gold/10 overflow-hidden">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold gold-gradient-text">Khám sức khỏe giao dịch</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Trước khi bắt đầu, ROVA muốn hiểu bạn — con người, hành trình giao dịch
+            và hoàn cảnh hiện tại — để mentor đồng hành đúng cách với riêng bạn.
+          </p>
+        </div>
+        <div className="rounded-xl bg-card border border-border p-4 text-left space-y-2">
+          <p className="text-xs text-muted-foreground">• Khoảng {questions.length} câu hỏi, mất chừng 3–5 phút</p>
+          <p className="text-xs text-muted-foreground">• Không có câu trả lời đúng hay sai — hãy chọn điều giống bạn nhất</p>
+          <p className="text-xs text-muted-foreground">• Câu hỏi riêng tư đều có nút bỏ qua, và chỉ mentor của bạn xem được</p>
+        </div>
+        <Button
+          onClick={() => setPageState("form")}
+          className="bg-gold hover:bg-gold/90 text-black font-semibold py-6 rounded-xl text-base w-full"
+        >
+          Bắt đầu khám <ArrowRight className="h-5 w-5 ml-2" />
+        </Button>
+      </motion.div>
+    );
+  }
+
+  if (pageState === "computing") {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex flex-col items-center justify-center min-h-[40vh] gap-4 text-center"
+      >
+        <Loader2 className="h-10 w-10 animate-spin text-gold" />
+        <p className="text-sm text-muted-foreground">Đang phân tích hồ sơ của bạn...</p>
+      </motion.div>
+    );
+  }
+
+  if (pageState === "result" && visible) {
+    return (
+      <IntakeResultScreen visible={visible} onDone={() => router.push("/student")} />
+    );
+  }
+
+  // pageState === "form"
+  return (
+    <div className="w-full">
+      {/* Thanh tiến độ */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-muted-foreground">
+            Câu {step + 1}/{questions.length}
+          </span>
+          <span className="text-xs text-gold tabular-nums">{progress}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <motion.div
-            className="h-full rounded-full bg-gold"
-            initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="h-full rounded-full gold-gradient"
           />
         </div>
       </div>
 
       <AnimatePresence mode="wait">
-        {!showResult ? (
-          <motion.div
-            key={`step-${step}`}
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -30 }}
-            transition={{ duration: 0.3 }}
-            className="rounded-2xl border border-gold-shadow/30 bg-card p-8 md:p-10"
-          >
-            {/* Question */}
-            <h2 className="text-xl md:text-2xl font-bold text-foreground leading-snug mb-10">
-              {currentQuestion.subtitle}
-            </h2>
+        <motion.div
+          key={question?.id || step}
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -24 }}
+          transition={{ duration: 0.25 }}
+          className="space-y-4"
+        >
+          {sectionLabel && sectionChanged && (
+            <span className="inline-block rounded-full border border-gold/30 bg-gold/5 px-3 py-1 text-[11px] font-medium text-gold uppercase tracking-wide">
+              {sectionLabel}
+            </span>
+          )}
 
-            {/* Options or Text Input */}
-            {currentQuestion.type === "scored" ? (
-              <div className="space-y-4">
-                {currentQuestion.options.map((option) => {
-                  const isSelected = answers[currentQuestion.id] === option.score;
-                  return (
-                    <motion.button
-                      key={option.score}
-                      onClick={() => handleSelect(option.score)}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      className={cn(
-                        "w-full text-left px-5 py-4 rounded-xl border transition-all duration-200",
-                        isSelected
-                          ? "border-gold/50 bg-gold/10 gold-border-glow"
-                          : "border-gold-shadow/30 bg-background hover:border-gold/20 hover:bg-gold/5"
-                      )}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={cn(
-                            "w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors",
-                            isSelected
-                              ? "border-gold bg-gold"
-                              : "border-muted-foreground/30"
-                          )}
-                        >
-                          {isSelected && (
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="w-2 h-2 rounded-full bg-gold-black"
-                            />
-                          )}
-                        </div>
-                        <span
-                          className={cn(
-                            "text-[15px] leading-relaxed",
-                            isSelected ? "text-foreground font-medium" : "text-muted-foreground"
-                          )}
-                        >
-                          {option.label}
-                        </span>
-                      </div>
-                    </motion.button>
-                  );
-                })}
-              </div>
-            ) : (
-              <Input
-                placeholder={currentQuestion.placeholder}
-                value={(answers[currentQuestion.id] as string) || ""}
-                onChange={(e) => handleSelect(e.target.value)}
-                className="bg-background border-gold-shadow/30 focus:border-gold/50 py-6 text-base"
-              />
-            )}
+          <h2 className="text-lg font-semibold text-foreground leading-snug">
+            {question?.question_text}
+            {question?.required && !meta?.sensitive && <span className="text-red-400"> *</span>}
+          </h2>
 
-            {/* Navigation */}
-            <div className="flex items-center justify-between mt-10 pt-6 border-t border-gold-shadow/20">
-              <Button
-                variant="ghost"
-                onClick={handleBack}
-                disabled={step === 0}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft size={16} className="mr-2" />
-                Quay láº¡i
-              </Button>
-              <Button
-                onClick={handleNext}
-                disabled={!canNext}
-                className="bg-gold hover:bg-gold-medium text-gold-black font-semibold px-8 py-5"
-              >
-                {step === totalSteps - 1 ? "Xem káº¿t quáº£" : "Tiáº¿p theo"}
-                <ArrowRight size={16} className="ml-2" />
-              </Button>
-            </div>
-          </motion.div>
-        ) : (
-          /* â”€â”€ Result Screen â”€â”€ */
-          <motion.div
-            key="result"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="rounded-2xl border border-gold-shadow/30 bg-card p-6 md:p-8 text-center"
-          >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="w-20 h-20 rounded-full bg-gold/10 border-2 border-gold/30 flex items-center justify-center mx-auto mb-6"
+          {/* Ngày sinh */}
+          {meta?.semantic === "birth_date" && question && (
+            <BirthDateStep
+              value={answers[question.id] || ""}
+              onChange={(iso) => setAnswer(question.id, iso)}
+            />
+          )}
+
+          {/* Giờ sinh (tùy chọn) */}
+          {meta?.semantic === "birth_time" && question && (
+            <select
+              value={answers[question.id] || ""}
+              onChange={(e) => setAnswer(question.id, e.target.value)}
+              className="w-full rounded-lg border border-border bg-card p-2.5 text-sm text-foreground focus:border-gold focus:outline-none"
             >
-              <CheckCircle2 size={36} className="text-gold" />
-            </motion.div>
+              <option value="">Không nhớ giờ sinh</option>
+              {HOURS.map((h) => (
+                <option key={h} value={h}>{h}</option>
+              ))}
+            </select>
+          )}
 
-            <h2 className="text-2xl font-bold text-foreground mb-2">
-              HoÃ n thÃ nh kháº£o sÃ¡t!
-            </h2>
-            <p className="text-muted-foreground mb-8">
-              Dá»±a trÃªn cÃ¢u tráº£ lá»i cá»§a báº¡n, Ä‘Ã¢y lÃ  káº¿t quáº£ phÃ¢n loáº¡i:
-            </p>
-
-            {/* Score display */}
-            <div className="inline-flex items-center gap-6 rounded-2xl border border-gold/20 bg-gold/5 px-8 py-5 mb-6">
-              <div className="text-center">
-                <div className="text-4xl font-extrabold text-gold">{totalScore}</div>
-                <div className="text-xs text-muted-foreground mt-1">Tá»•ng Ä‘iá»ƒm</div>
-              </div>
-              <div className="w-px h-12 bg-gold/20" />
-              <div className="text-center">
-                <div className={cn("text-2xl font-bold", result.color)}>
-                  {result.label}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">PhÃ¢n loáº¡i</div>
-              </div>
+          {/* Các loại câu hỏi thường */}
+          {!meta?.semantic && question?.question_type === "radio" && (
+            <div className="space-y-2">
+              {question.options?.map((opt, j) => (
+                <motion.button
+                  key={j}
+                  type="button"
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setAnswer(question.id, opt)}
+                  className={cn(
+                    "w-full text-left rounded-xl border p-3.5 text-sm transition-all",
+                    answers[question.id] === opt
+                      ? "border-gold bg-gold/10 text-foreground"
+                      : "border-border hover:border-gold/40 text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {opt}
+                </motion.button>
+              ))}
             </div>
+          )}
 
-            <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
-              {result.description}
+          {!meta?.semantic && question?.question_type === "checkbox" && (
+            <div className="space-y-2">
+              {question.options?.map((opt, j) => {
+                const checked = (answers[question.id] || "").split("|||").includes(opt);
+                return (
+                  <button
+                    key={j}
+                    type="button"
+                    onClick={() => toggleCheckbox(question.id, opt)}
+                    className={cn(
+                      "w-full text-left rounded-xl border p-3.5 text-sm transition-all",
+                      checked
+                        ? "border-gold bg-gold/10 text-foreground"
+                        : "border-border hover:border-gold/40 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {!meta?.semantic && question?.question_type === "select" && (
+            <select
+              value={answers[question.id] || ""}
+              onChange={(e) => setAnswer(question.id, e.target.value)}
+              className="w-full rounded-lg border border-border bg-card p-2.5 text-sm text-foreground focus:border-gold focus:outline-none"
+            >
+              <option value="">Chọn...</option>
+              {question.options?.map((opt, j) => (
+                <option key={j} value={opt}>{opt}</option>
+              ))}
+            </select>
+          )}
+
+          {!meta?.semantic && question?.question_type === "text" && (
+            <Input
+              value={answers[question.id] || ""}
+              onChange={(e) => setAnswer(question.id, e.target.value)}
+              placeholder="Câu trả lời của bạn"
+            />
+          )}
+
+          {!meta?.semantic && question?.question_type === "textarea" && (
+            <textarea
+              value={answers[question.id] || ""}
+              onChange={(e) => setAnswer(question.id, e.target.value)}
+              placeholder="Câu trả lời của bạn"
+              rows={4}
+              className="w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-gold focus:outline-none resize-none"
+            />
+          )}
+
+          {!meta?.semantic && question?.question_type === "rating" && (
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button key={s} type="button" onClick={() => setAnswer(question.id, String(s))}>
+                  <Star
+                    className={cn(
+                      "h-8 w-8 transition-colors",
+                      parseInt(answers[question.id] || "0") >= s
+                        ? "text-amber-400 fill-amber-400"
+                        : "text-muted-foreground/30"
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+              {error}
             </p>
+          )}
 
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Button
-                variant="ghost"
-                onClick={handleBack}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft size={16} className="mr-2" />
-                Xem láº¡i cÃ¢u tráº£ lá»i
+          {/* Điều hướng */}
+          <div className="flex items-center gap-2 pt-2">
+            {step > 0 && (
+              <Button variant="ghost" onClick={handleBack} className="text-muted-foreground">
+                <ArrowLeft className="h-4 w-4 mr-1" /> Quay lại
               </Button>
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              {skippable && !hasAnswer && (
+                <Button
+                  variant="ghost"
+                  onClick={handleSkip}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Không muốn chia sẻ
+                </Button>
+              )}
               <Button
-                onClick={handleFinish}
-                disabled={saving}
-                className="bg-gold hover:bg-gold-medium text-gold-black font-bold px-8 py-5 rounded-xl"
+                onClick={advance}
+                disabled={!hasAnswer && !skippable}
+                className="bg-gold hover:bg-gold/90 text-black font-semibold"
               >
-                {saving ? "Äang lÆ°u..." : "Báº¯t Ä‘áº§u há»c ngay"}
-                {!saving && <ArrowRight size={16} className="ml-2" />}
+                {step === questions.length - 1 ? "Xem kết quả" : "Tiếp tục"}
+                <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
-          </motion.div>
-        )}
+          </div>
+        </motion.div>
       </AnimatePresence>
     </div>
   );

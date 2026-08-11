@@ -3,7 +3,7 @@
 // KHÔNG đụng lib/api.ts — file này gom riêng logic forms.
 import { supabase } from "./supabase";
 
-export type FormType = "survey" | "onboarding" | "graduation";
+export type FormType = "survey" | "onboarding" | "graduation" | "intake";
 export type FormStatus = "draft" | "published";
 export type Grade = "khong_dat" | "tot" | "xuat_sac";
 
