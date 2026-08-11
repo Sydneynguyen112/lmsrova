@@ -78,11 +78,14 @@ export function QuizSection({ quiz, userId, heading, onPassed }: QuizSectionProp
           <div className="space-y-1.5 pl-4">
             {q.options.map((opt, oIndex) => {
               const isSelected = answers[qIndex] === oIndex;
-              const isCorrect = q.correct === oIndex;
               let optClass = "border-gold-shadow/30";
               if (submitted) {
-                if (isCorrect) optClass = "border-green-500 bg-green-500/10";
-                else if (isSelected && !isCorrect) optClass = "border-red-500 bg-red-500/10";
+                // Chỉ chấm ô đã chọn. Tô cả đáp án đúng sẽ làm lượt "Làm lại" mất giá trị.
+                if (isSelected)
+                  optClass =
+                    q.correct === oIndex
+                      ? "border-green-500 bg-green-500/10"
+                      : "border-red-500 bg-red-500/10";
               } else if (isSelected) {
                 optClass = "border-gold bg-gold/10";
               }
