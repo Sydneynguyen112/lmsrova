@@ -22,6 +22,7 @@ export interface Profile {
   onboarding_video_seconds?: number;
   onboarding_video_position?: number;
   onboarding_video_watched_at?: string | null;
+  learning_pace?: "fast" | "steady" | null;
 }
 
 export interface OnboardingSurvey {

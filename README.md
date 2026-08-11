@@ -51,6 +51,7 @@ Schema quản lý bằng các file SQL ở root, **chạy tay trong Supabase Das
 2. `supabase-roadmap-analytics.sql` — lộ trình 10 chặng, trạng thái học viên, quiz, forms, ghi chú (đã bao gồm nội dung của `supabase-quiz-notes.sql` và `supabase-onboarding-survey.sql`)
 3. `supabase-analytics-views.sql` — 6 views cho trang `/admin/analytics`
 4. `supabase-onboarding-video.sql` — video onboarding bắt buộc (bảng `app_settings` + 3 cột theo dõi xem trong `profiles`)
+5. `supabase-daily-todo.sql` — todolist hằng ngày (cột `profiles.learning_pace` — nhịp học tự chọn)
 
 Sau bước 2, bật extension **pg_cron** (Dashboard → Database → Extensions) rồi chạy dòng `cron.schedule` được ghi chú ở cuối file để engine trạng thái tự chạy mỗi giờ.
 

@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DailyTodoCard } from "@/components/student/DailyTodoCard";
 
 interface Course {
   id: string;
@@ -250,6 +251,15 @@ export default function StudentDashboardPage() {
           <p className="text-muted-foreground mt-1">
             Tiếp tục hành trình trading của bạn.
           </p>
+        </motion.div>
+
+        {/* ── Hôm nay làm gì (todolist theo nhịp học) ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.03 }}
+        >
+          <DailyTodoCard user={currentUser} courseId={activeEnrollments[0].course_id} />
         </motion.div>
 
         {/* ── Daily Quote ── */}
