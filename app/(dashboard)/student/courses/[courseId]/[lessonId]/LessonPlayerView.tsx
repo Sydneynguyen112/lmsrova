@@ -11,15 +11,13 @@ import {
   CheckCircle2,
   PlayCircle,
   Circle,
-  Send,
   Lock,
   ImagePlus,
-  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { getAssignmentsByCourse, createQuizAttempt, createSubmission } from "@/lib/api";
+import { getAssignmentsByCourse } from "@/lib/api";
 import {
   loadStudentUnlockData,
   firstOpenLessonId,
@@ -38,160 +36,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { VideoPlayer, VideoPlaceholder } from "@/components/shared/VideoPlayer";
+import { QuizSection } from "./QuizSection";
+import { AssignmentPanel, type AssignmentRow } from "./AssignmentPanel";
 
 type TabKey = "materials" | "quiz" | "assignment";
-
-interface AssignmentRow {
-  id: string;
-  course_id: string;
-  title: string;
-  description: string | null;
-  instructions: string | null;
-  materials: { name: string; url: string; type: string }[];
-  order_index: number;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// QuizSection — UI quiz dùng chung: quiz theo bài học VÀ quiz chặng (tái dùng ở
-// trang Bài nộp). Trượt cho làm lại ngay, mọi lượt đều lưu quiz_attempts.
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface QuizSectionProps {
-  quiz: QuizRow;
-  userId: string;
-  heading?: string;
-  onPassed?: () => void;
-}
-
-export function QuizSection({ quiz, userId, heading, onPassed }: QuizSectionProps) {
-  const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  const getScore = () => {
-    if (quiz.questions.length === 0) return 0;
-    let correct = 0;
-    quiz.questions.forEach((q, i) => {
-      if (answers[i] === q.correct) correct++;
-    });
-    return Math.round((correct / quiz.questions.length) * 100);
-  };
-
-  const handleSubmit = async () => {
-    if (submitting) return;
-    setSubmitting(true);
-    const score = getScore();
-    const passed = score >= quiz.pass_score;
-    try {
-      await createQuizAttempt({
-        quiz_id: quiz.id,
-        user_id: userId,
-        answers: quiz.questions.map((_, i) => answers[i] ?? -1),
-        score,
-        passed,
-      });
-      setSubmitted(true);
-      if (passed) onPassed?.();
-    } catch (err) {
-      console.error("Không lưu được lượt làm quiz:", err);
-    }
-    setSubmitting(false);
-  };
-
-  const handleRetry = () => {
-    setAnswers({});
-    setSubmitted(false);
-  };
-
-  const score = getScore();
-  const passed = score >= quiz.pass_score;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="font-semibold text-foreground">{heading || quiz.title}</h3>
-        <p className="text-xs text-muted-foreground mt-1">
-          Đạt {quiz.pass_score}% để vượt qua · Trượt được làm lại ngay
-        </p>
-      </div>
-
-      {quiz.questions.map((q, qIndex) => (
-        <div key={qIndex} className="space-y-2">
-          <p className="text-sm font-medium text-foreground">
-            {qIndex + 1}. {q.question}
-          </p>
-          <div className="space-y-1.5 pl-4">
-            {q.options.map((opt, oIndex) => {
-              const isSelected = answers[qIndex] === oIndex;
-              const isCorrect = q.correct === oIndex;
-              let optClass = "border-gold-shadow/30";
-              if (submitted) {
-                if (isCorrect) optClass = "border-green-500 bg-green-500/10";
-                else if (isSelected && !isCorrect) optClass = "border-red-500 bg-red-500/10";
-              } else if (isSelected) {
-                optClass = "border-gold bg-gold/10";
-              }
-
-              return (
-                <label
-                  key={oIndex}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border p-3 text-sm cursor-pointer transition-colors",
-                    optClass,
-                    submitted && "cursor-default"
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name={`quiz-${quiz.id}-q-${qIndex}`}
-                    checked={isSelected}
-                    disabled={submitted}
-                    onChange={() =>
-                      setAnswers((prev) => ({ ...prev, [qIndex]: oIndex }))
-                    }
-                    className="accent-gold"
-                  />
-                  <span>{opt}</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-
-      {!submitted ? (
-        <Button
-          onClick={handleSubmit}
-          disabled={submitting || Object.keys(answers).length < quiz.questions.length}
-          className="bg-gold text-black hover:bg-gold/90"
-        >
-          <Send className="h-4 w-4 mr-2" />
-          {submitting ? "Đang nộp..." : "Nộp bài"}
-        </Button>
-      ) : (
-        <div className="space-y-3">
-          <div
-            className={cn(
-              "rounded-lg p-4 text-sm font-medium",
-              passed
-                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                : "bg-red-500/10 text-red-700 dark:text-red-400"
-            )}
-          >
-            Kết quả: {score}% —{" "}
-            {passed ? "Bạn đã vượt qua!" : "Chưa đạt. Hãy xem lại bài học và thử lại."}
-          </div>
-          {!passed && (
-            <Button onClick={handleRetry} variant="outline" size="sm">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Làm lại
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LessonPlayerView
@@ -206,8 +54,6 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const currentUser = useCurrentUser("student");
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>("materials");
-  const [assignmentNote, setAssignmentNote] = useState("");
-  const [assignmentSubmitted, setAssignmentSubmitted] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
   const [dbCourse, setDbCourse] = useState<{ id: string; title: string } | null>(null);
   const [unlockData, setUnlockData] = useState<StudentUnlockData | null>(null);
@@ -285,13 +131,15 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
         setStageQuiz(null);
       }
 
-      // Assignment tab cũ: match assignment theo order_index (pattern hiện có)
-      if (lesson) {
+      // Bài tập của chặng — nguồn đúng là roadmap_stages.assignment_id.
+      // (order_index của lesson đánh theo từng module nên không dùng để ghép được.)
+      if (stage?.assignment_id) {
         const courseAssignments = (await getAssignmentsByCourse(courseId)) as AssignmentRow[];
         if (!cancelled) {
-          const matched = courseAssignments.find((a) => a.order_index === lesson.order_index);
-          setAssignment(matched ?? null);
+          setAssignment(courseAssignments.find((a) => a.id === stage.assignment_id) ?? null);
         }
+      } else {
+        setAssignment(null);
       }
     }
     load();
@@ -334,7 +182,8 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
     incrementWatchCount(currentUser.id, lessonId);
   }, [currentUser, lessonId]);
 
-  const handleQuizPassed = useCallback(() => {
+  // Nộp ảnh xong / quiz đạt → check qua chặng rồi load lại bộ đếm + trạng thái mở khoá
+  const handleStageProgress = useCallback(() => {
     if (!currentUser) return;
     checkAndCompleteStages(currentUser.id, courseId).then(refreshUnlock);
   }, [currentUser, courseId, refreshUnlock]);
@@ -393,27 +242,19 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const stageCounts = currentStage?.assignment_id
     ? data.imageCounts.get(currentStage.assignment_id) || { correct: 0, pending: 0, incorrect: 0 }
     : null;
-  const stageQuizUnlocked =
-    !!currentStage && !!stageCounts && stageCounts.correct >= currentStage.required_correct_images;
   const stageQuizPassed = !!currentStage?.quiz_id && data.passedQuizIds.has(currentStage.quiz_id);
+
+  // Bài tập làm ngay trong bài học — chấm báo trên tab khi chặng còn dở
+  const hasAssignment = !!assignment && !!currentStage;
+  const assignmentPending = hasAssignment && !stageCompleted;
 
   const startAt = data.progressMap.get(lessonId)?.last_position_sec || 0;
 
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; show: boolean }[] = [
     { key: "materials", label: "Tài liệu", icon: <FileText className="h-4 w-4" />, show: true },
     { key: "quiz", label: "Quiz", icon: <HelpCircle className="h-4 w-4" />, show: !!lessonQuiz },
-    { key: "assignment", label: "Bài tập", icon: <PenTool className="h-4 w-4" />, show: !!assignment },
+    { key: "assignment", label: "Bài tập", icon: <PenTool className="h-4 w-4" />, show: hasAssignment },
   ];
-
-  const handleAssignmentSubmit = async () => {
-    setAssignmentSubmitted(true);
-    if (!currentUser || !assignment) return;
-    await createSubmission({
-      assignment_id: assignment.id,
-      user_id: currentUser.id,
-      note: assignmentNote.trim(),
-    });
-  };
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
@@ -460,64 +301,32 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
             </motion.div>
           )}
 
-          {/* ─── Chặng bài tập: bộ đếm ảnh + quiz chặng ─── */}
-          {currentStage && (
+          {/* ─── Dải tóm tắt chặng — bấm mở thẳng tab Bài tập, không rời trang ─── */}
+          {currentStage && stageCounts && (
             <Card className={cn(stageCompleted ? "border-emerald-500/30" : "border-gold/30")}>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div>
-                    <h3 className="font-semibold text-foreground">
-                      Chặng: {currentStage.title}
-                    </h3>
-                    {stageCounts && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {stageCounts.correct}/{currentStage.required_correct_images} ảnh được chấm
-                        đúng · {stageCounts.pending} chờ chấm · {stageCounts.incorrect} cần làm lại
-                      </p>
-                    )}
-                  </div>
-                  {stageCompleted ? (
-                    <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Đã qua chặng
-                    </Badge>
-                  ) : (
-                    <Link href="/student/submissions">
-                      <Button size="sm" variant="outline" className="border-gold/40 text-gold">
-                        <ImagePlus className="h-4 w-4 mr-2" />
-                        Nộp ảnh bài tập
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-
-                {/* Đủ 20 ảnh đúng → mở quiz chặng */}
-                {!stageCompleted && stageQuizUnlocked && (
-                  stageQuizPassed ? (
-                    <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Đã đạt quiz chặng — hệ thống đang ghi nhận qua chặng.
-                    </div>
-                  ) : stageQuiz ? (
-                    <div className="border-t border-gold-shadow/30 pt-4">
-                      <QuizSection
-                        quiz={stageQuiz}
-                        userId={currentUser.id}
-                        heading={`Quiz chặng — ${currentStage.title}`}
-                        onPassed={handleQuizPassed}
-                      />
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Quiz chặng chưa được cấu hình — liên hệ mentor để mở chặng tiếp theo.
-                    </p>
-                  )
-                )}
-
-                {!stageCompleted && !stageQuizUnlocked && stageCounts && (
-                  <p className="text-xs text-muted-foreground">
-                    Đủ {currentStage.required_correct_images} ảnh được chấm đúng sẽ mở quiz chặng.
+              <CardContent className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <h3 className="font-semibold text-foreground">Chặng: {currentStage.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {stageCounts.correct}/{currentStage.required_correct_images} ảnh được chấm
+                    đúng · {stageCounts.pending} chờ chấm · {stageCounts.incorrect} cần làm lại
                   </p>
+                </div>
+                {stageCompleted ? (
+                  <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Đã qua chặng
+                  </Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-gold/40 text-gold"
+                    onClick={() => setActiveTab("assignment")}
+                  >
+                    <ImagePlus className="h-4 w-4 mr-2" />
+                    Làm bài tập ngay
+                  </Button>
                 )}
               </CardContent>
             </Card>
@@ -540,6 +349,9 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                 >
                   {tab.icon}
                   {tab.label}
+                  {tab.key === "assignment" && assignmentPending && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-gold" />
+                  )}
                 </button>
               ))}
           </div>
@@ -589,71 +401,24 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                   <QuizSection
                     quiz={lessonQuiz}
                     userId={currentUser.id}
-                    onPassed={handleQuizPassed}
+                    onPassed={handleStageProgress}
                   />
                 </CardContent>
               </Card>
             )}
 
-            {/* Assignment Tab (pattern cũ — ghi chú text) */}
-            {activeTab === "assignment" && assignment && (
-              <Card>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-foreground">
-                      {assignment.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">
-                      {assignment.description}
-                    </p>
-                  </div>
-
-                  {assignment.materials && assignment.materials.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                        Tài liệu tham khảo
-                      </p>
-                      {assignment.materials.map((mat, i) => (
-                        <a
-                          key={i}
-                          href={mat.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-sm text-gold hover:underline"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          {mat.name}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  {!assignmentSubmitted ? (
-                    <>
-                      <textarea
-                        value={assignmentNote}
-                        onChange={(e) => setAssignmentNote(e.target.value)}
-                        placeholder="Ghi chú bài làm của bạn..."
-                        rows={5}
-                        className="w-full rounded-lg border border-gold-shadow/30 bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-gold focus:outline-none resize-none"
-                      />
-                      <Button
-                        onClick={handleAssignmentSubmit}
-                        disabled={!assignmentNote.trim()}
-                        className="bg-gold text-black hover:bg-gold/90"
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        Nộp bài tập
-                      </Button>
-                    </>
-                  ) : (
-                    <div className="rounded-lg bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Bài tập đã được nộp. Mentor sẽ chấm sớm!
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+            {/* Bài tập — đề bài, bộ đếm chặng, nộp ảnh, quiz chặng trong một mạch */}
+            {activeTab === "assignment" && assignment && currentStage && stageCounts && (
+              <AssignmentPanel
+                assignment={assignment}
+                stage={currentStage}
+                counts={stageCounts}
+                stageCompleted={stageCompleted}
+                stageQuiz={stageQuiz}
+                stageQuizPassed={stageQuizPassed}
+                userId={currentUser.id}
+                onProgress={handleStageProgress}
+              />
             )}
           </motion.div>
         </motion.div>

@@ -125,7 +125,7 @@ export function buildDailyTodo(
           kind: "waiting",
           title: lesson.title,
           detail: `Bài tập đang chờ mentor chấm (${correct}/${required} ảnh đạt)`,
-          href: "/student/submissions",
+          href,
         });
       } else if (correct < required) {
         items.push({

@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   BookOpen,
-  FileText,
   User,
   Star,
   Sprout,
@@ -23,7 +22,6 @@ export interface NavItem {
 export const studentNav: NavItem[] = [
   { href: "/student", label: "Dashboard", icon: LayoutDashboard, requiresEnrollment: true },
   { href: "/student/courses", label: "Khoá học", icon: BookOpen },
-  { href: "/student/submissions", label: "Bài nộp", icon: FileText, requiresEnrollment: true },
   { href: "/student/graduation", label: "Bài tốt nghiệp", icon: GraduationCap, requiresEnrollment: true },
   { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
   { href: "/student/messages", label: "Chat với Mentor", icon: MessageCircle, requiresEnrollment: true },
