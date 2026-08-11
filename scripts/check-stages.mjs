@@ -18,13 +18,24 @@ const supabase = createClient(
   env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-const [{ data: stages }, { data: lessons }, { data: progress }] = await Promise.all([
-  supabase.from("roadmap_stages").select("*").order("order_index"),
-  supabase
-    .from("lessons")
-    .select("id, title, order_index, modules!inner(order_index)"),
-  supabase.from("student_stage_progress").select("stage_id, completed_at"),
+// PHẢI phân trang — student_stage_progress vài nghìn dòng, mặc định chỉ trả 1000.
+async function fetchAll(table, select) {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from(table).select(select).range(from, from + 999);
+    if (error) throw new Error(`${table}: ${error.message}`);
+    rows.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return rows;
+}
+
+const [stages, lessons, progress] = await Promise.all([
+  fetchAll("roadmap_stages", "*"),
+  fetchAll("lessons", "id, title, order_index, modules!inner(order_index)"),
+  fetchAll("student_stage_progress", "stage_id, completed_at"),
 ]);
+stages.sort((a, b) => a.order_index - b.order_index);
 
 const lessonById = new Map(lessons.map((l) => [l.id, l]));
 

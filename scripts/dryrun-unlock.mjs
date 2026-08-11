@@ -37,15 +37,29 @@ const PROPOSED_GROUP = {
   ],
 };
 
-const [{ data: stages }, { data: rawLessons }, { data: progress }, { data: lp }, { data: quizzes }, { data: attempts }] =
-  await Promise.all([
-    supabase.from("roadmap_stages").select("*").eq("course_id", COURSE_ID).order("order_index"),
-    supabase.from("lessons").select("id, title, duration_sec, order_index, modules!inner(order_index, course_id)").eq("modules.course_id", COURSE_ID),
-    supabase.from("student_stage_progress").select("user_id, stage_id, completed_at"),
-    supabase.from("lesson_progress").select("user_id, lesson_id, watched_seconds"),
-    supabase.from("quizzes").select("id, lesson_id"),
-    supabase.from("quiz_attempts").select("user_id, quiz_id, passed").eq("passed", true),
-  ]);
+// PHẢI phân trang: student_stage_progress có vài nghìn dòng, Supabase mặc định
+// chỉ trả 1000 dòng đầu — thiếu trang là ra số liệu sai hoàn toàn.
+async function fetchAll(table, select, filter) {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    let q = supabase.from(table).select(select).range(from, from + 999);
+    if (filter) q = filter(q);
+    const { data, error } = await q;
+    if (error) throw new Error(`${table}: ${error.message}`);
+    rows.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return rows;
+}
+
+const [stages, rawLessons, progress, lp, quizzes, attempts] = await Promise.all([
+  fetchAll("roadmap_stages", "*", (q) => q.eq("course_id", COURSE_ID).order("order_index")),
+  fetchAll("lessons", "id, title, duration_sec, order_index, modules!inner(order_index, course_id)", (q) => q.eq("modules.course_id", COURSE_ID)),
+  fetchAll("student_stage_progress", "user_id, stage_id, completed_at"),
+  fetchAll("lesson_progress", "user_id, lesson_id, watched_seconds"),
+  fetchAll("quizzes", "id, lesson_id"),
+  fetchAll("quiz_attempts", "user_id, quiz_id, passed", (q) => q.eq("passed", true)),
+]);
 
 const lessons = rawLessons
   .sort((a, b) => a.modules.order_index - b.modules.order_index || a.order_index - b.order_index)
