@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   BookOpen,
   User,
-  Star,
   Sprout,
   NotebookPen,
   GraduationCap,
@@ -24,7 +23,6 @@ export const studentNav: NavItem[] = [
   { href: "/student/graduation", label: "Bài tốt nghiệp", icon: GraduationCap, requiresEnrollment: true },
   { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
   { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
-  { href: "/student/review", label: "Đánh giá Mentor", icon: Star, requiresEnrollment: true },
   { href: "/student/profile", label: "Hồ sơ", icon: User },
 ];
 

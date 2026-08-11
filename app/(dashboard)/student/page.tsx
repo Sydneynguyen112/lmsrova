@@ -9,8 +9,6 @@ import {
   ChevronRight,
   Sparkles,
   MessageCircle,
-  Send,
-  Star,
   XCircle,
   Clock,
   Quote,
@@ -21,15 +19,14 @@ import {
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { cn, formatPrice } from "@/lib/utils";
-import { useCurrentUser, type Profile } from "@/lib/auth";
-import { getSubmissionsByUser, getReviewsByMentor } from "@/lib/api";
+import { useCurrentUser } from "@/lib/auth";
+import { getSubmissionsByUser } from "@/lib/api";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { LockedFeature } from "@/components/shared/LockedFeature";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DailyTodoCard } from "@/components/student/DailyTodoCard";
 
 interface Course {
@@ -60,15 +57,6 @@ interface SubmissionRow {
   submitted_at: string;
 }
 
-interface MentorReviewRow {
-  id: string;
-  mentor_id: string;
-  student_id: string;
-  rating: number;
-  feedback: string;
-  created_at: string;
-}
-
 // ── Quotes động lực ──
 const quotes = [
   { text: "Kỷ luật là cầu nối giữa mục tiêu và thành quả.", author: "Jim Rohn" },
@@ -97,16 +85,8 @@ export default function StudentDashboardPage() {
   const currentUser = useCurrentUser("student");
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [mentor, setMentor] = useState<Profile | null>(null);
   const [mySubmissions, setMySubmissions] = useState<SubmissionRow[]>([]);
-  const [mentorReviews, setMentorReviews] = useState<MentorReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Mentor review state
-  const [rating, setRating] = useState(0);
-  const [hoveredStar, setHoveredStar] = useState(0);
-  const [feedback, setFeedback] = useState("");
-  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -120,15 +100,6 @@ export default function StudentDashboardPage() {
       setCourses((c || []) as Course[]);
       setEnrollments((e || []) as Enrollment[]);
       setMySubmissions(submissions as SubmissionRow[]);
-
-      if (currentUser!.mentor_id) {
-        const [{ data: m }, reviews] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", currentUser!.mentor_id).single(),
-          getReviewsByMentor(currentUser!.mentor_id),
-        ]);
-        setMentor((m as Profile) ?? null);
-        setMentorReviews(reviews as MentorReviewRow[]);
-      }
 
       setLoading(false);
     }
@@ -167,25 +138,6 @@ export default function StudentDashboardPage() {
   const correctCount = gradedSubmissions.filter((s) => s.annotated_image_urls && s.annotated_image_urls.length > 0).length;
   const incorrectCount = totalGraded - correctCount;
 
-  // ── Mentor info ──
-  const mentorInitials = mentor
-    ? mentor.full_name.split(" ").map((n: string) => n[0]).join("").slice(-2)
-    : "";
-
-  // Existing reviews
-  const existingReviews = mentor
-    ? mentorReviews.filter((r) => r.student_id === currentUser.id)
-    : [];
-  const hasReviewed = existingReviews.length > 0;
-  const lastReview = hasReviewed ? existingReviews[existingReviews.length - 1] : null;
-
-  const handleReviewSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (rating === 0 || !feedback.trim()) return;
-    setReviewSubmitted(true);
-  };
-
-  const ratingLabels = ["", "Rất không hài lòng", "Không hài lòng", "Bình thường", "Hài lòng", "Rất hài lòng"];
   const dailyQuote = getDailyQuote();
 
   // ── Streaks: tính chuỗi ngày hoạt động ──
@@ -455,135 +407,6 @@ export default function StudentDashboardPage() {
             );
           })}
         </motion.div>
-
-        {/* ── Mentor Review Section ── */}
-        {mentor && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="space-y-3"
-          >
-            <h2 className="text-lg font-semibold text-gold flex items-center gap-2">
-              <Star className="h-5 w-5" />
-              Đánh giá Mentor
-            </h2>
-
-            <Card>
-              <CardContent className="space-y-5">
-                {/* Mentor info */}
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-12 w-12">
-                    {mentor.avatar_url && <AvatarImage src={mentor.avatar_url} />}
-                    <AvatarFallback className="bg-gold/15 text-gold font-semibold">
-                      {mentorInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                      Mentor của bạn
-                    </p>
-                    <p className="font-semibold text-foreground">{mentor.full_name}</p>
-                  </div>
-                </div>
-
-                {/* Previous review */}
-                {hasReviewed && lastReview && !reviewSubmitted && (
-                  <div className="rounded-lg border border-border p-3 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Đánh giá trước đó</p>
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={cn("h-4 w-4", i < lastReview.rating
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "fill-none text-muted-foreground/30"
-                          )}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-sm text-muted-foreground italic">
-                      &ldquo;{lastReview.feedback}&rdquo;
-                    </p>
-                  </div>
-                )}
-
-                {/* Review form or success */}
-                {reviewSubmitted ? (
-                  <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-4 text-center space-y-2">
-                    <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
-                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                      Cảm ơn bạn đã đánh giá!
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => { setReviewSubmitted(false); setRating(0); setFeedback(""); }}
-                    >
-                      Viết đánh giá mới
-                    </Button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleReviewSubmit} className="space-y-4">
-                    {/* Stars */}
-                    <div>
-                      <p className="text-sm font-medium text-foreground mb-2">
-                        {hasReviewed ? "Cập nhật đánh giá" : "Đánh giá mentor"}
-                      </p>
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: 5 }).map((_, i) => {
-                          const val = i + 1;
-                          const isActive = val <= (hoveredStar || rating);
-                          return (
-                            <button
-                              key={i}
-                              type="button"
-                              onMouseEnter={() => setHoveredStar(val)}
-                              onMouseLeave={() => setHoveredStar(0)}
-                              onClick={() => setRating(val)}
-                              className="p-0.5 transition-transform hover:scale-110"
-                            >
-                              <Star
-                                className={cn("h-7 w-7 transition-colors", isActive
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : "fill-none text-muted-foreground/30"
-                                )}
-                              />
-                            </button>
-                          );
-                        })}
-                        {(hoveredStar || rating) > 0 && (
-                          <span className="text-xs text-gold ml-2 font-medium">
-                            {ratingLabels[hoveredStar || rating]}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Feedback */}
-                    <textarea
-                      placeholder="Chia sẻ trải nghiệm học tập, điều bạn thích, góp ý cải thiện..."
-                      value={feedback}
-                      onChange={(e) => setFeedback(e.target.value)}
-                      rows={3}
-                      required
-                      className="w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-gold/50 resize-none"
-                    />
-
-                    <Button
-                      type="submit"
-                      disabled={rating === 0 || !feedback.trim()}
-                      className="bg-gold hover:bg-gold/90 text-black font-semibold"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      {hasReviewed ? "Gửi đánh giá mới" : "Gửi đánh giá"}
-                    </Button>
-                  </form>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
 
         {/* ── Unenrolled courses — 2 columns ── */}
         {unenrolledCourses.length > 0 && (

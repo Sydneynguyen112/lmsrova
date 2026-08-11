@@ -126,15 +126,6 @@ export interface Submission {
   submitted_at: string;
 }
 
-export interface MentorReview {
-  id: string;
-  mentor_id: string;
-  student_id: string;
-  rating: number;
-  feedback: string;
-  created_at: string;
-}
-
 export interface UserNote {
   id: string;
   user_id: string;

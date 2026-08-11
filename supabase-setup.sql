@@ -7,7 +7,6 @@
 DROP TABLE IF EXISTS blog_likes CASCADE;
 DROP TABLE IF EXISTS blog_comments CASCADE;
 DROP TABLE IF EXISTS blog_posts CASCADE;
-DROP TABLE IF EXISTS mentor_reviews CASCADE;
 DROP TABLE IF EXISTS lesson_progress CASCADE;
 DROP TABLE IF EXISTS submissions CASCADE;
 DROP TABLE IF EXISTS enrollments CASCADE;
@@ -115,15 +114,6 @@ CREATE TABLE lesson_progress (
 -- ALTER TABLE lesson_progress ADD COLUMN IF NOT EXISTS watch_count INT DEFAULT 0;
 -- ALTER TABLE lesson_progress ADD COLUMN IF NOT EXISTS last_watched_at TIMESTAMPTZ;
 
-CREATE TABLE mentor_reviews (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mentor_id UUID REFERENCES profiles(id),
-  student_id UUID REFERENCES profiles(id),
-  rating INT CHECK (rating >= 1 AND rating <= 5),
-  feedback TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
 CREATE TABLE blog_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
@@ -204,7 +194,6 @@ ALTER TABLE assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lesson_progress ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mentor_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_likes ENABLE ROW LEVEL SECURITY;
@@ -217,7 +206,6 @@ CREATE POLICY "allow_all_assignments" ON assignments FOR ALL USING (true) WITH C
 CREATE POLICY "allow_all_submissions" ON submissions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_enrollments" ON enrollments FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_lesson_progress" ON lesson_progress FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_mentor_reviews" ON mentor_reviews FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_blog_posts" ON blog_posts FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_blog_comments" ON blog_comments FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_blog_likes" ON blog_likes FOR ALL USING (true) WITH CHECK (true);

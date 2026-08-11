@@ -120,29 +120,6 @@ export async function markLessonComplete(userId: string, lessonId: string) {
   return data;
 }
 
-// ─── MENTOR REVIEWS ───
-export async function getReviewsByMentor(mentorId: string) {
-  const { data } = await supabase.from("mentor_reviews").select("*").eq("mentor_id", mentorId).order("created_at", { ascending: false });
-  return data || [];
-}
-
-export async function getAvgRating(mentorId: string) {
-  const reviews = await getReviewsByMentor(mentorId);
-  if (reviews.length === 0) return 0;
-  return Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) * 10) / 10;
-}
-
-export async function createReview(review: {
-  mentor_id: string;
-  student_id: string;
-  rating: number;
-  feedback: string;
-}) {
-  const { data, error } = await supabase.from("mentor_reviews").insert(review).select().single();
-  if (error) throw error;
-  return data;
-}
-
 // ─── BLOG ───
 export async function getPublishedPosts() {
   const { data } = await supabase.from("blog_posts").select("*").eq("published", true).order("created_at", { ascending: false });
@@ -246,44 +223,4 @@ export async function getOnboardingSurveyByUser(userId: string) {
 export async function getRecentSubmissions(limit = 10) {
   const { data } = await supabase.from("submissions").select("*").order("submitted_at", { ascending: false }).limit(limit);
   return data ?? [];
-}
-
-// ─── MENTOR REVIEWS (extra) ───
-export async function getReviewsPerDay(mentorId: string, days = 14) {
-  const since = new Date();
-  since.setDate(since.getDate() - (days - 1));
-  since.setHours(0, 0, 0, 0);
-
-  const { data } = await supabase
-    .from("mentor_reviews")
-    .select("created_at")
-    .eq("mentor_id", mentorId)
-    .gte("created_at", since.toISOString());
-
-  const counts = new Map<string, number>();
-  for (let i = 0; i < days; i++) {
-    const d = new Date(since);
-    d.setDate(d.getDate() + i);
-    counts.set(d.toISOString().slice(0, 10), 0);
-  }
-
-  for (const row of data ?? []) {
-    const key = new Date(row.created_at).toISOString().slice(0, 10);
-    if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-
-  return Array.from(counts.entries()).map(([date, count]) => ({ date, count }));
-}
-
-export async function getTodayReviewCount(mentorId: string) {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const { count } = await supabase
-    .from("mentor_reviews")
-    .select("*", { count: "exact", head: true })
-    .eq("mentor_id", mentorId)
-    .gte("created_at", startOfDay.toISOString());
-
-  return count ?? 0;
 }

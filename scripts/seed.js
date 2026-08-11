@@ -9,7 +9,7 @@ async function seed() {
   console.log("🌱 Seeding ROVA LMS database...\n");
 
   // ─── 1. PROFILES (admin → mentors → students) ───
-  console.log("1/8 Profiles...");
+  console.log("1/7 Profiles...");
 
   // Admin first
   const { data: admin } = await sb.from("profiles").insert({
@@ -57,7 +57,7 @@ async function seed() {
   console.log(`   ✓ ${3 + studentRows.length} profiles`);
 
   // ─── 2. COURSES ───
-  console.log("2/8 Courses...");
+  console.log("2/7 Courses...");
   await sb.from("courses").insert([
     {
       id: "c-pro",
@@ -79,12 +79,12 @@ async function seed() {
   console.log("   ✓ 2 courses");
 
   // ─── 3. MODULES ───
-  console.log("3/8 Modules...");
+  console.log("3/7 Modules...");
   await sb.from("modules").insert({ id: "m-pro-all", course_id: "c-pro", title: "Toàn bộ bài học", order_index: 1 });
   console.log("   ✓ 1 module");
 
   // ─── 4. LESSONS ───
-  console.log("4/8 Lessons...");
+  console.log("4/7 Lessons...");
   const lessons = [
     { id: "l-pro-01", module_id: "m-pro-all", title: "Giới thiệu khoá học & Tư duy đúng về Trading", duration_sec: 720, order_index: 1 },
     { id: "l-pro-02", module_id: "m-pro-all", title: "Cách đọc biểu đồ nến Nhật", duration_sec: 840, order_index: 2 },
@@ -103,7 +103,7 @@ async function seed() {
   console.log(`   ✓ ${lessons.length} lessons`);
 
   // ─── 5. ASSIGNMENTS ───
-  console.log("5/8 Assignments...");
+  console.log("5/7 Assignments...");
   await sb.from("assignments").insert([
     {
       id: "a-pro-nen", course_id: "c-pro", order_index: 1,
@@ -144,7 +144,7 @@ async function seed() {
   console.log("   ✓ 5 assignments");
 
   // ─── 6. ENROLLMENTS ───
-  console.log("6/8 Enrollments...");
+  console.log("6/7 Enrollments...");
   await sb.from("enrollments").insert([
     { user_id: studentMap["huy@gmail.com"], course_id: "c-pro", status: "active", progress_pct: 58.3 },
     { user_id: studentMap["mai@gmail.com"], course_id: "c-pro", status: "active", progress_pct: 75.0 },
@@ -156,20 +156,8 @@ async function seed() {
   ]);
   console.log("   ✓ 7 enrollments");
 
-  // ─── 7. MENTOR REVIEWS ───
-  console.log("7/8 Reviews...");
-  await sb.from("mentor_reviews").insert([
-    { mentor_id: mentor1.id, student_id: studentMap["huy@gmail.com"], rating: 5, feedback: "Anh Thành giải thích rất dễ hiểu, reply nhanh." },
-    { mentor_id: mentor1.id, student_id: studentMap["mai@gmail.com"], rating: 4, feedback: "Mentor nhiệt tình, đôi khi reply hơi chậm cuối tuần." },
-    { mentor_id: mentor1.id, student_id: studentMap["duc@gmail.com"], rating: 5, feedback: "Giải thích Price Action rõ ràng." },
-    { mentor_id: mentor2.id, student_id: studentMap["trang@gmail.com"], rating: 5, feedback: "Chị Linh rất kiên nhẫn, phân tích chi tiết." },
-    { mentor_id: mentor2.id, student_id: studentMap["long@gmail.com"], rating: 5, feedback: "Mentoring chiến lược rất hay." },
-    { mentor_id: mentor2.id, student_id: studentMap["anh@gmail.com"], rating: 4, feedback: "Hướng dẫn tỉ mỉ, thích cách phân tích chart." },
-  ]);
-  console.log("   ✓ 6 reviews");
-
-  // ─── 8. BLOG POSTS ───
-  console.log("8/8 Blog posts...");
+  // ─── 7. BLOG POSTS ───
+  console.log("7/7 Blog posts...");
   await sb.from("blog_posts").insert([
     {
       title: "Tâm lý giao dịch: Làm sao để không FOMO?",
