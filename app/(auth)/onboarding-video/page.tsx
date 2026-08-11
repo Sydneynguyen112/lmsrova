@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Map, ClipboardList, ListTodo, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Map, ClipboardList, ListTodo, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/shared/VideoPlayer";
@@ -47,7 +47,6 @@ export default function OnboardingVideoPage() {
   const [watchedSec, setWatchedSec] = useState(0);
   const [durationSec, setDurationSec] = useState(0);
   const [ended, setEnded] = useState(false);
-  const [unlocked, setUnlocked] = useState(false);
   const seededRef = useRef(false); // đã nạp giây xem từ profile chưa
   const markedRef = useRef(false); // đã ghi watched_at chưa (tránh ghi lặp)
 
@@ -63,7 +62,6 @@ export default function OnboardingVideoPage() {
     if (!currentUser || seededRef.current) return;
     seededRef.current = true;
     setWatchedSec(currentUser.onboarding_video_seconds || 0);
-    if (currentUser.onboarding_video_watched_at) setUnlocked(true);
   }, [currentUser]);
 
   // Quyết định ai phải ở lại trang này, ai đi tiếp
@@ -85,17 +83,15 @@ export default function OnboardingVideoPage() {
     }
   }, [currentUser, settingLoaded, videoId, rewatch, router]);
 
-  // Mở khóa khi: video chạy đến hết + tổng giây xem thật đủ 80% thời lượng
+  // Ghi nhận đã xem đủ 80% — chỉ để thống kê, không còn chặn bước tiếp theo
   useEffect(() => {
-    if (unlocked || rewatch || !ended || !durationSec || !currentUser) return;
+    if (rewatch || !ended || !durationSec || !currentUser) return;
+    if (markedRef.current || currentUser.onboarding_video_watched_at) return;
     if (watchedSec >= durationSec * ONBOARDING_VIDEO_WATCH_RATIO) {
-      setUnlocked(true);
-      if (!markedRef.current) {
-        markedRef.current = true;
-        markOnboardingVideoWatched(currentUser.id);
-      }
+      markedRef.current = true;
+      markOnboardingVideoWatched(currentUser.id);
     }
-  }, [ended, watchedSec, durationSec, unlocked, rewatch, currentUser]);
+  }, [ended, watchedSec, durationSec, rewatch, currentUser]);
 
   const handleFlush = (addedSeconds: number, positionSec: number) => {
     if (!currentUser) return;
@@ -107,8 +103,6 @@ export default function OnboardingVideoPage() {
   const percent = durationSec
     ? Math.min(100, Math.round((watchedSec / durationSec) * 100))
     : 0;
-  const endedButNotEnough =
-    ended && !unlocked && durationSec > 0 && !rewatch;
 
   if (!currentUser || !settingLoaded || (!videoId && !rewatch)) {
     return (
@@ -170,30 +164,19 @@ export default function OnboardingVideoPage() {
 
         {!rewatch && (
           <div className="space-y-3">
-            {endedButNotEnough && (
-              <div className="flex items-start gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-3">
-                <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-orange-500">
-                  Có vẻ bạn đã tua qua khá nhiều đoạn. Hãy xem lại các phần đã bỏ
-                  qua — nút Tiếp tục sẽ tự mở khi bạn xem đủ.
-                </p>
-              </div>
-            )}
             <Button
               className="w-full"
               size="lg"
-              disabled={!unlocked}
               onClick={() => router.push("/onboarding")}
             >
-              {unlocked ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Tiếp tục — làm khảo sát đầu vào
-                </>
-              ) : (
-                <>Xem hết video để tiếp tục{durationSec > 0 ? ` (đã xem ${percent}%)` : ""}</>
-              )}
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Tiếp tục — làm khảo sát đầu vào
             </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Bạn có thể vừa xem vừa làm — bấm Tiếp tục bất cứ lúc nào
+              {durationSec > 0 ? ` (đã xem ${percent}%)` : ""}. Video xem lại
+              được trong trang Hồ sơ.
+            </p>
           </div>
         )}
 

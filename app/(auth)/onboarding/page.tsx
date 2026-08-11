@@ -14,7 +14,6 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getStoredUserId, type Profile } from "@/lib/auth";
 import { getPublishedIntakeForm, submitIntake } from "@/lib/api-intake";
-import { getOnboardingVideoSetting } from "@/lib/api-onboarding-video";
 import { getFallbackQuestions } from "@/lib/intake-fallback";
 import {
   parseMeta,
@@ -49,10 +48,9 @@ export default function OnboardingPage() {
         router.replace("/sign-in");
         return;
       }
-      const [{ data: p }, intakeForm, videoSetting] = await Promise.all([
+      const [{ data: p }, intakeForm] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).single(),
         getPublishedIntakeForm(),
-        getOnboardingVideoSetting(),
       ]);
       if (cancelled) return;
       if (!p) {
@@ -62,11 +60,6 @@ export default function OnboardingPage() {
       // Đã làm bài rồi (blob legacy tồn tại) → không bắt làm lại
       if (p.onboarding_survey) {
         router.replace("/student");
-        return;
-      }
-      // Video onboarding bắt buộc: chưa xem xong thì xem trước rồi mới được làm bài
-      if (p.role === "student" && videoSetting.video_id && !p.onboarding_video_watched_at) {
-        router.replace("/onboarding-video");
         return;
       }
       setProfile(p as Profile);
