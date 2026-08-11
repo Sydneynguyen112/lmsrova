@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getStoredUserId } from "@/lib/auth";
 import { initStudentRoadmap, checkAndCompleteStages } from "@/lib/roadmap";
+import { getOnboardingVideoSetting } from "@/lib/api-onboarding-video";
 
 // â”€â”€ Question definitions derived from mock-data answers â”€â”€
 
@@ -182,6 +183,32 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number | string>>({});
   const [showResult, setShowResult] = useState(false);
+
+  // Video onboarding bắt buộc: học viên mới chưa xem xong (khi video đã cấu hình)
+  // thì quay về xem trước rồi mới được làm khảo sát
+  useEffect(() => {
+    async function guardVideoFirst() {
+      const userId = getStoredUserId();
+      if (!userId) return;
+      const [{ data: profile }, setting] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("role, onboarding_survey, onboarding_video_watched_at")
+          .eq("id", userId)
+          .single(),
+        getOnboardingVideoSetting(),
+      ]);
+      if (
+        profile?.role === "student" &&
+        !profile.onboarding_survey &&
+        setting.video_id &&
+        !profile.onboarding_video_watched_at
+      ) {
+        router.replace("/onboarding-video");
+      }
+    }
+    guardVideoFirst();
+  }, [router]);
 
   const totalSteps = questions.length;
   const currentQuestion = questions[step];

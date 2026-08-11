@@ -19,6 +19,9 @@ export interface Profile {
   last_active_date: string;
   created_at: string;
   onboarding_survey?: OnboardingSurvey | null;
+  onboarding_video_seconds?: number;
+  onboarding_video_position?: number;
+  onboarding_video_watched_at?: string | null;
 }
 
 export interface OnboardingSurvey {
