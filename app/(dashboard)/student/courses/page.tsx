@@ -339,19 +339,11 @@ export default function StudentCoursesPage() {
                       ) : (
                         <p className="text-base font-semibold text-gold">{course.price_label || "Liên hệ"}</p>
                       )}
-                      {course.price ? (
-                        <Link href={`/student/checkout/${course.id}`}>
-                          <Button className="bg-gold hover:bg-gold/90 text-black font-semibold">
-                            Đăng ký ngay
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Link href="https://m.me/rova" target="_blank">
-                          <Button variant="outline" className="border-gold/50 text-gold hover:bg-gold/10">
-                            <MessageCircle className="h-4 w-4 mr-1" /> Tư vấn
-                          </Button>
-                        </Link>
-                      )}
+                      <Link href="https://m.me/rova" target="_blank">
+                        <Button variant="outline" className="border-gold/50 text-gold hover:bg-gold/10">
+                          <MessageCircle className="h-4 w-4 mr-1" /> Tư vấn
+                        </Button>
+                      </Link>
                     </div>
                   </CardContent>
                 </Card>

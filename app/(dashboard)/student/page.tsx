@@ -444,19 +444,11 @@ export default function StudentDashboardPage() {
                       <p className="text-lg font-bold text-gold">
                         {course.price ? formatPrice(course.price) : course.price_label}
                       </p>
-                      {course.price ? (
-                        <Link href={`/student/checkout/${course.id}`}>
-                          <Button size="sm" className="bg-gold hover:bg-gold/90 text-black font-semibold">
-                            Đăng ký ngay
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Link href="https://m.me/rova" target="_blank">
-                          <Button size="sm" variant="outline" className="border-gold/50 text-gold">
-                            <MessageCircle className="h-3.5 w-3.5 mr-1" /> Tư vấn
-                          </Button>
-                        </Link>
-                      )}
+                      <Link href="https://m.me/rova" target="_blank">
+                        <Button size="sm" variant="outline" className="border-gold/50 text-gold">
+                          <MessageCircle className="h-3.5 w-3.5 mr-1" /> Tư vấn
+                        </Button>
+                      </Link>
                     </div>
                   </CardContent>
                 </Card>
