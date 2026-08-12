@@ -148,7 +148,7 @@ export async function loadStudentUnlockData(
   userId: string,
   courseId: string
 ): Promise<StudentUnlockData> {
-  const [stages, stageProgress, lessons, progressMap, passedQuizIds, imageCounts] =
+  const [stages, stageProgress, lessons, progressMap, passedQuizIds, imageCounts, courseRow] =
     await Promise.all([
       getRoadmapStages(courseId),
       getStageProgress(userId),
@@ -156,6 +156,7 @@ export async function loadStudentUnlockData(
       getLessonProgressMap(userId),
       getPassedQuizIds(userId),
       getImageCountsByAssignment(userId),
+      supabase.from("courses").select("price, price_label").eq("id", courseId).single(),
     ]);
   const lessonQuizMap = await getLessonQuizMap(lessons.map((l) => l.id));
 
@@ -175,6 +176,13 @@ export async function loadStudentUnlockData(
     stages,
     progress: stageProgress,
   });
+
+  // Khoá miễn phí: bỏ khoá tuần tự, mở toàn bộ bài (done vẫn tính theo giây xem thật)
+  const c = courseRow.data as { price: number | null; price_label: string | null } | null;
+  if (c && !c.price && c.price_label === "Miễn phí") {
+    unlock.unlockedLessonIds = new Set(lessons.map((l) => l.id));
+    unlock.firstLockedLessonId = null;
+  }
 
   return {
     stages,
