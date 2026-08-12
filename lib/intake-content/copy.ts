@@ -49,6 +49,22 @@ export const INTAKE_COPY = {
     adviceTitle: "Lời khuyên dành riêng cho bạn",
     doneButton: "Bắt đầu học ngay →",
   },
+
+  // Khối gợi ý bước học kế tiếp — phần ý nghĩa onboarding gộp vào bài khám bệnh
+  nextStep: {
+    title: "Bước kế tiếp của bạn",
+    // {current} = số thứ tự chặng đang làm, {total} = tổng chặng, {title} = tên chặng
+    stageLabel: "Chặng {current}/{total} — {title}",
+    // {done} = số chặng ĐÃ XONG (nhỏ hơn {current} đúng 1)
+    stageCount: "{done}/{total} chặng",
+    finished: "Bạn đã đi hết lộ trình 🎉",
+    noTask: "Chưa có việc nào chờ bạn — vào trang chủ để bắt đầu.",
+    paceTitle: "Chọn nhịp học của bạn",
+    paceHint:
+      "Bạn cầm lái — hệ thống sẽ gợi ý việc mỗi ngày theo nhịp bạn chọn. " +
+      "Đổi lại lúc nào cũng được.",
+    paceSuggested: "Gợi ý cho bạn",
+  },
 } as const;
 
 // Thay {khoá} trong chuỗi copy bằng giá trị thật.

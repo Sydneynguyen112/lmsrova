@@ -42,6 +42,42 @@ Hệ quả:
 
 Commit: `2e8f578 refactor(intake): gom nội dung bài test khám bệnh vào lib/intake-content`
 
+### 1.3 Gộp ý nghĩa onboarding vào bài khám bệnh
+
+**Bối cảnh:** việc gộp thực ra đã xong từ `fcd3e06` — bài khám bệnh *đã thay*
+khảo sát 8 câu, route `/onboarding` chính là bài khám bệnh. Còn sót lại 2 mảnh:
+
+**Mảnh 1 — khối "Bước kế tiếp" trên màn kết quả (LMS).**
+Onboarding lẽ ra phải "gợi ý lộ trình học tập tiếp theo" — video chào mừng còn
+hứa sẵn câu này với học viên ([onboarding-video/page.tsx:26](../../app/(auth)/onboarding-video/page.tsx))
+— nhưng phần đó chưa hề tồn tại. Đã dựng:
+- `lib/intake-next-step.ts` — `getIntakeNextStep()`, gọi sau `submitIntake` (lúc
+  đó chặng 1 vừa xong, chặng 2 đã mở). Dùng lại `buildDailyTodo` + `suggestPace`
+  có sẵn, **không bịa lộ trình riêng**. Tự nuốt lỗi → hỏng thì chỉ mất khối gợi ý.
+- Màn kết quả hiện thêm: "Chặng 2/10 — Xem video" + thanh tiến độ · việc kế tiếp
+  bấm vào đi thẳng bài học · chọn nhịp học ngay tại chỗ (gợi ý sẵn theo trình độ).
+- Nút cuối đi thẳng vào việc kế tiếp thay vì về trang chủ.
+- Học viên chọn nhịp tại đây → `DailyTodoCard` ngoài trang chủ không hỏi lại.
+- 5 công tắc mới trong `display.ts`: `showNextStep` (tắt cả khối) ·
+  `showStageProgress` · `showNextTask` · `showPacePicker` · `ctaGoesToLesson`.
+
+> **Giới hạn phải nói thẳng:** lộ trình hiện **giống hệt nhau cho mọi học viên** —
+> 10 chặng cố định, cùng thứ tự, cùng `target_days`. `isStageConditionMet()`
+> không đọc `classification` / `personality_group` / `dimension_scores`.
+> Toàn bộ ảnh hưởng của trình độ là: highlight sẵn một nút nhịp học, và nhịp đó
+> quyết định hiện **3 hay 2** việc mỗi ngày (cùng danh sách, cùng thứ tự).
+> Muốn cá nhân hoá thật (chiều yếu → đẩy bài tương ứng lên trước, hoặc nới
+> `target_days` cho newbie) thì phải **tạo mới dữ liệu ánh xạ** — hiện không tồn
+> tại ở bảng nào, file nào. Khối UI đã dựng sẵn để cắm mapping vào sau.
+
+**Mảnh 2 — `form_type='onboarding'` mồ côi (ops).**
+Loại form này không code nào bên LMS đọc, nhưng trang public `/forms/[formId]`
+vẫn bắt nhập tên+SĐT và hiện "Mentor của ROVA sẽ liên hệ" — tức nó đang đóng vai
+**form thu lead**. Đã đổi nhãn cho đúng việc nó làm, không đụng DB, form cũ không hỏng:
+- Danh sách tạo form: "Onboarding · Hiện khi học viên đăng ký" → **"Khảo sát thu
+  lead · Form công khai, bắt nhập tên + SĐT"**
+- Badge: "Onboarding" → **"Thu lead"** (cả trang danh sách và trang chi tiết)
+
 ### 1.3 Kiểm chứng
 - `tsc --noEmit` sạch · `npm run build` pass (17 route).
 - Script tạm chạy **29/29 assert** rồi xoá:
@@ -185,5 +221,6 @@ chất cung nào. Ops chỉ chọn *mã nhóm* và hiện *nhãn ngắn*.
 | Can chi theo năm dương | Người sinh tháng 1 / đầu tháng 2 lệch 1 con giáp — v1 chấp nhận, ghi ở [astro.ts:48](../../lib/astro.ts) |
 | RLS `allow_all` | Dữ liệu nhạy cảm đang world-readable như mọi bảng khác. Khi siết RLS: `intake_results` + `form_answers` ưu tiên số 1 |
 | Panel admin chưa chặn blob giả | `AdminStudentDetailView.tsx:688` render `total_score` / "Có điểm 1" từ blob legacy mà **thiếu** guard `source === "intake"` (bản mentor có guard ở `StudentDetailView.tsx:755`). Admin đang thấy số tổng hợp giả như thể là điểm khảo sát 8 câu cũ |
-| `form_type='onboarding'` mồ côi | Vẫn tạo được form loại này bên ops nhưng **không code nào bên LMS đọc**. Mô tả "Hiện khi học viên đăng ký" giờ sai sự thật |
-| Chặng tốt nghiệp thiếu `form_id` | `supabase-wire-stages.sql:41` — form tốt nghiệp chưa được tạo |
+| Chặng tốt nghiệp thiếu `form_id` | `supabase-wire-stages.sql:41` — form tốt nghiệp chưa được tạo. Học viên đi hết 9 chặng sẽ thấy việc "Form tốt nghiệp" trỏ vào chặng chết |
+| Khối "Bước kế tiếp" chưa test end-to-end | Đã unit-test phần toán số chặng (13/13), nhưng chưa chạy thật được vì bảng `intake_results` chưa tồn tại trên Supabase |
+| Cá nhân hoá lộ trình thật | Cần dữ liệu ánh xạ *chiều yếu → học gì trước* hoặc `target_days` theo trình độ. Chưa tồn tại ở đâu cả — xem mục 1.3 |

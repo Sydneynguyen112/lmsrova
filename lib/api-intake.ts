@@ -12,7 +12,7 @@ import {
 } from "./intake-scoring";
 
 // Course id lộ trình chính — giữ NGUYÊN giá trị onboarding cũ đang dùng
-const ROADMAP_COURSE_ID = "c-mov3c81m-fdq2";
+export const ROADMAP_COURSE_ID = "c-mov3c81m-fdq2";
 
 export interface IntakeForm {
   form: FormRow;

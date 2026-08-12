@@ -38,6 +38,13 @@ export const INTAKE_DISPLAY = {
   showDimensionBars: true,  // "Nền tảng giao dịch hiện tại" — 4 thanh %
   showDimensionPct: true,   // con số % bên phải mỗi thanh; false → chỉ còn thanh
   showAdvice: true,         // khối "Lời khuyên dành riêng cho bạn"
+
+  /* ─── Khối "Bước kế tiếp" (phần ý nghĩa onboarding gộp vào) ─── */
+  showNextStep: true,       // TẮT cả khối → màn kết quả về đúng như trước
+  showStageProgress: true,  // "Chặng 2/10 — Xem video" + thanh tiến độ
+  showNextTask: true,       // nút việc kế tiếp, bấm vào đi thẳng bài học
+  showPacePicker: true,     // chọn nhịp học ngay tại đây thay vì đợi ra trang chủ
+  ctaGoesToLesson: true,    // nút cuối đi vào bài học; false → về trang chủ
 } as const;
 
 export type IntakeDisplayConfig = typeof INTAKE_DISPLAY;

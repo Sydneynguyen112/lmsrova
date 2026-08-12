@@ -7,9 +7,17 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
-import { Sparkles, TrendingUp, ShieldCheck, AlertTriangle } from "lucide-react";
+import {
+  Sparkles, TrendingUp, ShieldCheck, AlertTriangle,
+  Compass, PlayCircle, ClipboardCheck, Upload, Hourglass, GraduationCap,
+  ArrowRight, Zap, Footprints,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import type { StudentVisibleResult } from "@/lib/intake-scoring";
+import type { IntakeNextStep } from "@/lib/intake-next-step";
+import { PACE_INFO, type LearningPace, type TodoItem } from "@/lib/daily-todo";
 import {
   INTAKE_DISPLAY as D,
   INTAKE_COPY,
@@ -18,14 +26,35 @@ import {
 } from "@/lib/intake-content";
 
 const C = INTAKE_COPY.result;
+const N = INTAKE_COPY.nextStep;
+
+const KIND_ICON: Record<TodoItem["kind"], typeof PlayCircle> = {
+  watch: PlayCircle,
+  quiz: ClipboardCheck,
+  assignment: Upload,
+  waiting: Hourglass,
+  graduation: GraduationCap,
+};
 
 interface IntakeResultScreenProps {
   visible: StudentVisibleResult;
   onDone: () => void;
   saving?: boolean;
+  /** null = chưa tải xong hoặc khoá chưa có lộ trình → ẩn khối gợi ý */
+  nextStep?: IntakeNextStep | null;
+  /** Nhịp học viên vừa chọn tại màn này; null = chưa chọn */
+  pace?: LearningPace | null;
+  onPickPace?: (p: LearningPace) => void;
 }
 
-export function IntakeResultScreen({ visible, onDone, saving }: IntakeResultScreenProps) {
+export function IntakeResultScreen({
+  visible,
+  onDone,
+  saving,
+  nextStep,
+  pace,
+  onPickPace,
+}: IntakeResultScreenProps) {
   useEffect(() => {
     if (!D.confetti) return;
     confetti({ particleCount: 90, spread: 75, origin: { y: 0.5 } });
@@ -167,6 +196,107 @@ export function IntakeResultScreen({ visible, onDone, saving }: IntakeResultScre
         <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
           <p className="text-xs font-semibold text-gold mb-1">{C.adviceTitle}</p>
           <p className="text-sm text-foreground leading-relaxed">{p.advice}</p>
+        </div>
+      )}
+
+      {/* Bước kế tiếp — gợi ý lộ trình học ngay sau khi khám xong */}
+      {D.showNextStep && nextStep && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <Compass className="h-3.5 w-3.5 text-gold" /> {N.title}
+          </p>
+
+          {/* Chặng hiện tại */}
+          {D.showStageProgress && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-foreground truncate">
+                  {nextStep.stageTitle
+                    ? fillCopy(N.stageLabel, {
+                        current: nextStep.stageDone + 1,
+                        total: nextStep.stageTotal,
+                        title: nextStep.stageTitle,
+                      })
+                    : N.finished}
+                </span>
+                <span className="text-[11px] text-muted-foreground shrink-0">
+                  {fillCopy(N.stageCount, {
+                    done: nextStep.stageDone,
+                    total: nextStep.stageTotal,
+                  })}
+                </span>
+              </div>
+              <Progress
+                value={(nextStep.stageDone / Math.max(1, nextStep.stageTotal)) * 100}
+              />
+            </div>
+          )}
+
+          {/* MỘT việc kế tiếp */}
+          {D.showNextTask &&
+            (nextStep.primary ? (
+              <a href={nextStep.primary.href} className="block">
+                <div className="flex items-center gap-2.5 rounded-lg border border-gold/40 bg-gold/5 px-3 py-2.5 transition-colors hover:border-gold/70">
+                  {(() => {
+                    const Icon = KIND_ICON[nextStep.primary.kind];
+                    return <Icon className="h-4 w-4 text-gold shrink-0" />;
+                  })()}
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-foreground truncate">
+                      {nextStep.primary.title}
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      {nextStep.primary.detail}
+                    </span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 text-gold ml-auto shrink-0" />
+                </div>
+              </a>
+            ) : (
+              <p className="text-xs text-muted-foreground">{N.noTask}</p>
+            ))}
+
+          {/* Chọn nhịp học */}
+          {D.showPacePicker && onPickPace && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-foreground">{N.paceTitle}</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">{N.paceHint}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(Object.keys(PACE_INFO) as LearningPace[]).map((option) => {
+                  const Icon = option === "fast" ? Zap : Footprints;
+                  const suggested = option === nextStep.suggestedPace;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => onPickPace(option)}
+                      className={cn(
+                        "rounded-lg border p-3 text-left transition-colors hover:border-gold/60",
+                        pace === option
+                          ? "border-gold bg-gold/10"
+                          : suggested
+                            ? "border-gold/50 bg-gold/5"
+                            : "border-border"
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <Icon className="h-3.5 w-3.5 text-gold" />
+                        {PACE_INFO[option].label}
+                        {suggested && (
+                          <span className="text-[10px] font-medium text-gold bg-gold/10 rounded-full px-1.5 py-0.5">
+                            {N.paceSuggested}
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-[11px] text-muted-foreground mt-1">
+                        {PACE_INFO[option].desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

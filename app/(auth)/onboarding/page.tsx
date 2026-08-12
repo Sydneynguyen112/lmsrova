@@ -17,6 +17,8 @@ import { supabase } from "@/lib/supabase";
 import { getStoredUserId, type Profile } from "@/lib/auth";
 import { isApproved } from "@/lib/approval";
 import { getPublishedIntakeForm, submitIntake } from "@/lib/api-intake";
+import { getIntakeNextStep, type IntakeNextStep } from "@/lib/intake-next-step";
+import { saveLearningPace, type LearningPace } from "@/lib/daily-todo";
 import {
   getFallbackQuestions,
   SECTION_LABELS,
@@ -46,6 +48,8 @@ export default function OnboardingPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [visible, setVisible] = useState<StudentVisibleResult | null>(null);
+  const [nextStep, setNextStep] = useState<IntakeNextStep | null>(null);
+  const [pace, setPace] = useState<LearningPace | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,13 +169,28 @@ export default function OnboardingPage() {
       setError(INTAKE_COPY.form.submitError);
       return;
     }
+    // Gợi ý bước kế tiếp — chạy song song với màn "đang phân tích".
+    // Tự nuốt lỗi, không có thì màn kết quả chỉ ẩn khối gợi ý.
+    const nextStepPromise = D.showNextStep
+      ? getIntakeNextStep(profile.id, computed.classification)
+      : Promise.resolve(null);
+
     // Giữ màn "đang phân tích" tối thiểu computingMinMs cho cảm giác được "khám" thật
     const elapsed = Date.now() - startedAt;
     if (D.showComputingScreen && elapsed < D.computingMinMs) {
       await new Promise((r) => setTimeout(r, D.computingMinMs - elapsed));
     }
+    setNextStep(await nextStepPromise);
     setVisible(computed.student_visible);
     setPageState("result");
+  }
+
+  // Học viên chọn nhịp ngay tại màn kết quả → trang chủ không hỏi lại nữa.
+  // Lưu nền: lỗi (vd chưa chạy SQL learning_pace) không chặn dùng trong phiên này.
+  function handlePickPace(p: LearningPace) {
+    if (!profile) return;
+    setPace(p);
+    saveLearningPace(profile.id, p).catch(() => {});
   }
 
   /* ─── Render ─── */
@@ -233,8 +252,17 @@ export default function OnboardingPage() {
   }
 
   if (pageState === "result" && visible) {
+    // Nút cuối đi thẳng vào việc kế tiếp nếu có; không thì về trang chủ như cũ
+    const doneHref =
+      D.ctaGoesToLesson && nextStep?.primary ? nextStep.primary.href : "/student";
     return (
-      <IntakeResultScreen visible={visible} onDone={() => router.push("/student")} />
+      <IntakeResultScreen
+        visible={visible}
+        nextStep={nextStep}
+        pace={pace}
+        onPickPace={handlePickPace}
+        onDone={() => router.push(doneHref)}
+      />
     );
   }
 
