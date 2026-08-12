@@ -7,13 +7,7 @@ import { Stethoscope, ChevronRight } from "lucide-react";
 import { getIntakeResult } from "@/lib/api-intake";
 import type { StudentVisibleResult } from "@/lib/intake-scoring";
 import { Card, CardContent } from "@/components/ui/card";
-
-const CLASSIFICATION_LABELS: Record<string, string> = {
-  newbie: "Người mới bắt đầu",
-  beginner: "Sơ cấp",
-  intermediate: "Trung cấp",
-  advanced: "Nâng cao",
-};
+import { CLASSIFICATION_LABELS } from "@/lib/intake-content";
 
 export function IntakeResultCard({ userId }: { userId: string }) {
   const [visible, setVisible] = useState<StudentVisibleResult | null>(null);
