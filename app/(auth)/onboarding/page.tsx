@@ -4,6 +4,8 @@
 // Plan: plans/260807-intake-assessment/plan.md
 // Câu hỏi soạn từ rova-ops (form builder, form_type='intake'); chưa có form
 // published thì dùng bộ fallback trong code — luồng không bao giờ chết.
+// ⚠️ Không viết chữ trong file này. Chữ ở lib/intake-content/copy.ts,
+// bật/tắt từng khối ở lib/intake-content/display.ts.
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,10 +17,15 @@ import { supabase } from "@/lib/supabase";
 import { getStoredUserId, type Profile } from "@/lib/auth";
 import { isApproved } from "@/lib/approval";
 import { getPublishedIntakeForm, submitIntake } from "@/lib/api-intake";
-import { getFallbackQuestions } from "@/lib/intake-fallback";
+import {
+  getFallbackQuestions,
+  SECTION_LABELS,
+  INTAKE_DISPLAY as D,
+  INTAKE_COPY,
+  fillCopy,
+} from "@/lib/intake-content";
 import {
   parseMeta,
-  SECTION_LABELS,
   type IntakeQuestion,
   type StudentVisibleResult,
 } from "@/lib/intake-scoring";
@@ -78,7 +85,7 @@ export default function OnboardingPage() {
         setFormId(null);
         setQuestions(getFallbackQuestions());
       }
-      setPageState("intro");
+      setPageState(D.showIntro ? "intro" : "form");
     }
 
     load();
@@ -144,24 +151,24 @@ export default function OnboardingPage() {
       const m = parseMeta(q);
       if (q.required && !m.sensitive && !answers[q.id]?.trim()) {
         setStep(i);
-        setError(`Vui lòng trả lời câu hỏi "${q.question_text}"`);
+        setError(fillCopy(INTAKE_COPY.form.requiredError, { question: q.question_text }));
         return;
       }
     }
 
-    setPageState("computing");
+    if (D.showComputingScreen) setPageState("computing");
     const startedAt = Date.now();
     const { computed, error: submitError } = await submitIntake(profile, formId, questions, answers);
     if (submitError) {
       console.error("submitIntake error:", submitError);
       setPageState("form");
-      setError("Có lỗi xảy ra khi lưu bài. Vui lòng thử lại.");
+      setError(INTAKE_COPY.form.submitError);
       return;
     }
-    // Giữ màn "đang phân tích" tối thiểu 1.2s cho cảm giác được "khám" thật
+    // Giữ màn "đang phân tích" tối thiểu computingMinMs cho cảm giác được "khám" thật
     const elapsed = Date.now() - startedAt;
-    if (elapsed < 1200) {
-      await new Promise((r) => setTimeout(r, 1200 - elapsed));
+    if (D.showComputingScreen && elapsed < D.computingMinMs) {
+      await new Promise((r) => setTimeout(r, D.computingMinMs - elapsed));
     }
     setVisible(computed.student_visible);
     setPageState("result");
@@ -188,22 +195,25 @@ export default function OnboardingPage() {
           <Stethoscope className="h-8 w-8 text-gold" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold gold-gradient-text">Khám sức khỏe giao dịch</h1>
+          <h1 className="text-2xl font-bold gold-gradient-text">{INTAKE_COPY.intro.title}</h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Trước khi bắt đầu, ROVA muốn hiểu bạn — con người, hành trình giao dịch
-            và hoàn cảnh hiện tại — để mentor đồng hành đúng cách với riêng bạn.
+            {INTAKE_COPY.intro.subtitle}
           </p>
         </div>
-        <div className="rounded-xl bg-card border border-border p-4 text-left space-y-2">
-          <p className="text-xs text-muted-foreground">• Khoảng {questions.length} câu hỏi, mất chừng 3–5 phút</p>
-          <p className="text-xs text-muted-foreground">• Không có câu trả lời đúng hay sai — hãy chọn điều giống bạn nhất</p>
-          <p className="text-xs text-muted-foreground">• Câu hỏi riêng tư đều có nút bỏ qua, và chỉ mentor của bạn xem được</p>
-        </div>
+        {D.showIntroBullets && (
+          <div className="rounded-xl bg-card border border-border p-4 text-left space-y-2">
+            {INTAKE_COPY.intro.bullets.map((b) => (
+              <p key={b} className="text-xs text-muted-foreground">
+                • {fillCopy(b, { count: questions.length })}
+              </p>
+            ))}
+          </div>
+        )}
         <Button
           onClick={() => setPageState("form")}
           className="bg-gold hover:bg-gold/90 text-black font-semibold py-6 rounded-xl text-base w-full"
         >
-          Bắt đầu khám <ArrowRight className="h-5 w-5 ml-2" />
+          {INTAKE_COPY.intro.startButton} <ArrowRight className="h-5 w-5 ml-2" />
         </Button>
       </motion.div>
     );
@@ -217,7 +227,7 @@ export default function OnboardingPage() {
         className="flex flex-col items-center justify-center min-h-[40vh] gap-4 text-center"
       >
         <Loader2 className="h-10 w-10 animate-spin text-gold" />
-        <p className="text-sm text-muted-foreground">Đang phân tích hồ sơ của bạn...</p>
+        <p className="text-sm text-muted-foreground">{INTAKE_COPY.computing.message}</p>
       </motion.div>
     );
   }
@@ -232,21 +242,23 @@ export default function OnboardingPage() {
   return (
     <div className="w-full">
       {/* Thanh tiến độ */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-muted-foreground">
-            Câu {step + 1}/{questions.length}
-          </span>
-          <span className="text-xs text-gold tabular-nums">{progress}%</span>
+      {D.showProgressBar && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground">
+              {fillCopy(INTAKE_COPY.form.progress, { step: step + 1, total: questions.length })}
+            </span>
+            <span className="text-xs text-gold tabular-nums">{progress}%</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <motion.div
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="h-full rounded-full gold-gradient"
+            />
+          </div>
         </div>
-        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-          <motion.div
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="h-full rounded-full gold-gradient"
-          />
-        </div>
-      </div>
+      )}
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -257,7 +269,7 @@ export default function OnboardingPage() {
           transition={{ duration: 0.25 }}
           className="space-y-4"
         >
-          {sectionLabel && sectionChanged && (
+          {D.showSectionChip && sectionLabel && sectionChanged && (
             <span className="inline-block rounded-full border border-gold/30 bg-gold/5 px-3 py-1 text-[11px] font-medium text-gold uppercase tracking-wide">
               {sectionLabel}
             </span>
@@ -283,7 +295,7 @@ export default function OnboardingPage() {
               onChange={(e) => setAnswer(question.id, e.target.value)}
               className="w-full rounded-lg border border-border bg-card p-2.5 text-sm text-foreground focus:border-gold focus:outline-none"
             >
-              <option value="">Không nhớ giờ sinh</option>
+              <option value="">{INTAKE_COPY.form.birthTimePlaceholder}</option>
               {HOURS.map((h) => (
                 <option key={h} value={h}>{h}</option>
               ))}
@@ -341,7 +353,7 @@ export default function OnboardingPage() {
               onChange={(e) => setAnswer(question.id, e.target.value)}
               className="w-full rounded-lg border border-border bg-card p-2.5 text-sm text-foreground focus:border-gold focus:outline-none"
             >
-              <option value="">Chọn...</option>
+              <option value="">{INTAKE_COPY.form.selectPlaceholder}</option>
               {question.options?.map((opt, j) => (
                 <option key={j} value={opt}>{opt}</option>
               ))}
@@ -352,7 +364,7 @@ export default function OnboardingPage() {
             <Input
               value={answers[question.id] || ""}
               onChange={(e) => setAnswer(question.id, e.target.value)}
-              placeholder="Câu trả lời của bạn"
+              placeholder={INTAKE_COPY.form.textPlaceholder}
             />
           )}
 
@@ -360,7 +372,7 @@ export default function OnboardingPage() {
             <textarea
               value={answers[question.id] || ""}
               onChange={(e) => setAnswer(question.id, e.target.value)}
-              placeholder="Câu trả lời của bạn"
+              placeholder={INTAKE_COPY.form.textPlaceholder}
               rows={4}
               className="w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-gold focus:outline-none resize-none"
             />
@@ -391,9 +403,9 @@ export default function OnboardingPage() {
 
           {/* Điều hướng */}
           <div className="flex items-center gap-2 pt-2">
-            {step > 0 && (
+            {D.showBackButton && step > 0 && (
               <Button variant="ghost" onClick={handleBack} className="text-muted-foreground">
-                <ArrowLeft className="h-4 w-4 mr-1" /> Quay lại
+                <ArrowLeft className="h-4 w-4 mr-1" /> {INTAKE_COPY.form.back}
               </Button>
             )}
             <div className="ml-auto flex items-center gap-2">
@@ -403,7 +415,7 @@ export default function OnboardingPage() {
                   onClick={handleSkip}
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  Không muốn chia sẻ
+                  {INTAKE_COPY.form.skip}
                 </Button>
               )}
               <Button
@@ -411,7 +423,7 @@ export default function OnboardingPage() {
                 disabled={!hasAnswer && !skippable}
                 className="bg-gold hover:bg-gold/90 text-black font-semibold"
               >
-                {step === questions.length - 1 ? "Xem kết quả" : "Tiếp tục"}
+                {step === questions.length - 1 ? INTAKE_COPY.form.finish : INTAKE_COPY.form.next}
                 <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
