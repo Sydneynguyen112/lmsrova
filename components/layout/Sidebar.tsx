@@ -11,6 +11,7 @@ import {
   ChevronDown,
   LogOut,
   Lock,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -20,6 +21,8 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { getNavConfig, type NavItem } from "./sidebar-nav-config";
 
 
+
+const PROFILE_HREF = "/student/profile";
 
 function isItemActive(item: NavItem, pathname: string): boolean {
   // Dashboard root pages match exact only
@@ -77,6 +80,7 @@ export function Sidebar() {
   }, [currentUser, fallbackRole]);
 
   const isStudent = fallbackRole === "student";
+  const profileActive = pathname === PROFILE_HREF || pathname.startsWith(PROFILE_HREF + "/");
 
   const handleSignOut = () => {
     signOut();
@@ -230,7 +234,15 @@ export function Sidebar() {
       {/* Bottom: user info + logout */}
       <div className="px-3 py-4 border-t border-sidebar-border space-y-2">
         {currentUser && !collapsed && (
-          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-sidebar-accent">
+          <Link
+            href={PROFILE_HREF}
+            onClick={() => setMobileOpen(false)}
+            title="Cập nhật hồ sơ"
+            className={cn(
+              "group flex items-center gap-3 px-3 py-2 rounded-xl bg-sidebar-accent transition-all",
+              profileActive ? "ring-1 ring-gold/40" : "hover:ring-1 hover:ring-gold/25",
+            )}
+          >
             <Avatar className="w-8 h-8 border border-gold/30 shrink-0">
               {currentUser.avatar_url && <AvatarImage src={currentUser.avatar_url} alt={currentUser.full_name} />}
               <AvatarFallback className="bg-gold/15 text-gold text-xs font-semibold">
@@ -238,22 +250,46 @@ export function Sidebar() {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-sidebar-foreground truncate">
+              <div
+                className={cn(
+                  "text-sm font-medium truncate",
+                  profileActive ? "text-gold" : "text-sidebar-foreground",
+                )}
+              >
                 {currentUser.full_name}
               </div>
               <div className="text-xs text-sidebar-foreground/50 truncate">
                 {currentUser.email}
               </div>
             </div>
-          </div>
+            <Settings
+              size={15}
+              className={cn(
+                "shrink-0 transition-colors",
+                profileActive ? "text-gold" : "text-sidebar-foreground/40 group-hover:text-gold",
+              )}
+            />
+          </Link>
         )}
         {currentUser && collapsed && (
-          <Avatar className="w-8 h-8 mx-auto border border-gold/30">
-            {currentUser.avatar_url && <AvatarImage src={currentUser.avatar_url} alt={currentUser.full_name} />}
-            <AvatarFallback className="bg-gold/15 text-gold text-xs font-semibold">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <Link
+            href={PROFILE_HREF}
+            onClick={() => setMobileOpen(false)}
+            title="Cập nhật hồ sơ"
+            className="block w-fit mx-auto rounded-full"
+          >
+            <Avatar
+              className={cn(
+                "w-8 h-8 border transition-colors",
+                profileActive ? "border-gold" : "border-gold/30 hover:border-gold",
+              )}
+            >
+              {currentUser.avatar_url && <AvatarImage src={currentUser.avatar_url} alt={currentUser.full_name} />}
+              <AvatarFallback className="bg-gold/15 text-gold text-xs font-semibold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
         )}
         <button
           onClick={handleSignOut}

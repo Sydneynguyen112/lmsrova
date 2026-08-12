@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   BookOpen,
-  User,
   Sprout,
   NotebookPen,
   GraduationCap,
@@ -21,9 +20,8 @@ export const studentNav: NavItem[] = [
   { href: "/student", label: "Dashboard", icon: LayoutDashboard, requiresEnrollment: true },
   { href: "/student/courses", label: "Khoá học", icon: BookOpen },
   { href: "/student/graduation", label: "Bài tốt nghiệp", icon: GraduationCap, requiresEnrollment: true },
-  { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
   { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
-  { href: "/student/profile", label: "Hồ sơ", icon: User },
+  { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
 ];
 
 // Khu admin + mentor đã dời sang app riêng rova-ops — LMS chỉ còn học viên.
