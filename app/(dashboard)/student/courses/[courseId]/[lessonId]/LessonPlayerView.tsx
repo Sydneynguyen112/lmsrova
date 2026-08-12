@@ -271,7 +271,15 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const workGatePassed = watchedRatio >= WORK_WATCH_THRESHOLD;
   const watchedPercent = Math.round(watchedRatio * 100);
   const gatePercent = Math.round(WORK_WATCH_THRESHOLD * 100);
-  const gateNote = `Xem hết ${gatePercent}% video để mở — bạn đã xem ${watchedPercent}%.`;
+  // Còn bao nhiêu nữa mới mở — làm tròn LÊN để không bao giờ hiện "còn 0%" mà vẫn khoá
+  const remainPercent = Math.max(1, Math.ceil((WORK_WATCH_THRESHOLD - watchedRatio) * 100));
+  const remainSec = Math.max(
+    0,
+    Math.ceil((lesson.duration_sec || 0) * WORK_WATCH_THRESHOLD) - watchedSeconds
+  );
+  // formatDuration làm tròn phút nên dưới 1 phút sẽ ra "0 phút" — đếm giây cho rõ
+  const remainText = remainSec < 60 ? `${remainSec} giây` : formatDuration(remainSec);
+  const gateNote = `Xem hết ${gatePercent}% video để mở — đã xem ${watchedPercent}%, còn ${remainPercent}% (~${remainText}).`;
 
   const tabs: {
     key: TabKey;
@@ -392,6 +400,11 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                 >
                   {tab.locked ? <Lock className="h-4 w-4" /> : tab.icon}
                   {tab.label}
+                  {tab.locked && (
+                    <span className="rounded-full bg-gold/10 px-1.5 py-0.5 text-[10px] font-medium text-gold/80">
+                      còn {remainPercent}%
+                    </span>
+                  )}
                   {tab.key === "assignment" && !tab.locked && assignmentPending && (
                     <span className="h-1.5 w-1.5 rounded-full bg-gold" />
                   )}
