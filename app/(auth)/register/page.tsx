@@ -7,8 +7,7 @@ import { motion } from "framer-motion";
 import { UserPlus, Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { signInWithGoogle } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { signInWithGoogle, signUpWithPassword } from "@/lib/auth";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -22,49 +21,31 @@ export default function RegisterPage() {
 
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNotice("");
     setLoading(true);
 
-    // Check if email already exists
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", form.email.trim().toLowerCase())
-      .single();
-
-    if (existing) {
-      setError("Email đã tồn tại. Hãy đăng nhập.");
+    try {
+      const { needsEmailConfirm } = await signUpWithPassword(form);
+      if (needsEmailConfirm) {
+        setNotice(
+          "Đã tạo tài khoản. Kiểm tra email để xác nhận, sau đó đăng nhập."
+        );
+        setLoading(false);
+        return;
+      }
+      router.push("/student");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Không thể tạo tài khoản. Thử lại sau."
+      );
       setLoading(false);
-      return;
     }
-
-    // Create new profile
-    const { data: profile, error: insertError } = await supabase
-      .from("profiles")
-      .insert({
-        full_name: form.full_name,
-        email: form.email.trim().toLowerCase(),
-        phone: form.phone,
-        role: "student",
-        classification: "newbie",
-        risk_tag: "normal",
-      })
-      .select()
-      .single();
-
-    if (insertError || !profile) {
-      setError("Không thể tạo tài khoản. Thử lại sau.");
-      setLoading(false);
-      return;
-    }
-
-    localStorage.setItem("rova_current_user_id", profile.id);
-    setLoading(false);
-    router.push("/student");
   };
 
   const handleGoogleRegister = async () => {
@@ -213,13 +194,36 @@ export default function RegisterPage() {
           </span>
         </label>
 
+        {/* Error */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300"
+          >
+            {error}
+          </motion.div>
+        )}
+
+        {/* Notice */}
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-gold-shadow/40 bg-gold/10 px-4 py-3 text-sm text-gold"
+          >
+            {notice}
+          </motion.div>
+        )}
+
         {/* Submit */}
         <Button
           type="submit"
-          className="w-full bg-gold hover:bg-gold-medium text-gold-black font-semibold py-6 rounded-xl text-base hover:scale-[1.01] transition-transform gold-glow mt-2"
+          disabled={loading}
+          className="w-full bg-gold hover:bg-gold-medium text-gold-black font-semibold py-6 rounded-xl text-base hover:scale-[1.01] transition-transform gold-glow mt-2 disabled:opacity-60 disabled:hover:scale-100"
         >
           <UserPlus size={18} className="mr-2" />
-          Đăng ký
+          {loading ? "Đang tạo tài khoản..." : "Đăng ký"}
         </Button>
       </form>
 

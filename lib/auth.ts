@@ -65,6 +65,77 @@ export async function signInWithGoogle() {
 }
 
 /**
+ * Đăng ký tài khoản mới: tạo Supabase Auth user trước, rồi tạo profile dùng chính auth user id.
+ * Trả về profile + cờ needsEmailConfirm (true khi project bật email confirmation nên chưa có session).
+ * Ném Error message tiếng Việt nếu thất bại.
+ */
+export async function signUpWithPassword(input: {
+  full_name: string;
+  email: string;
+  phone: string;
+  password: string;
+}): Promise<{ profile: Profile; needsEmailConfirm: boolean }> {
+  const email = input.email.trim().toLowerCase();
+
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+  if (existing) throw new Error("Email đã tồn tại. Hãy đăng nhập.");
+
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password: input.password,
+  });
+  if (authError) {
+    const msg = authError.message.toLowerCase();
+    if (msg.includes("already registered") || msg.includes("already been registered")) {
+      throw new Error("Email đã tồn tại. Hãy đăng nhập.");
+    }
+    if (msg.includes("password")) {
+      throw new Error("Mật khẩu chưa đủ mạnh — tối thiểu 8 ký tự.");
+    }
+    if (msg.includes("invalid") && msg.includes("email")) {
+      throw new Error("Email không hợp lệ.");
+    }
+    throw new Error("Không thể tạo tài khoản. Thử lại sau.");
+  }
+
+  // Khi bật email confirmation, Supabase trả user rỗng identities thay vì báo lỗi trùng.
+  if (authData.user && authData.user.identities?.length === 0) {
+    throw new Error("Email đã tồn tại. Hãy đăng nhập.");
+  }
+  const userId = authData.user?.id;
+  if (!userId) throw new Error("Không thể tạo tài khoản. Thử lại sau.");
+
+  const { data: profile, error: insertError } = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: userId,
+        full_name: input.full_name,
+        email,
+        phone: input.phone,
+        role: "student",
+        classification: "newbie",
+        risk_tag: "normal",
+      },
+      { onConflict: "id" }
+    )
+    .select()
+    .single();
+
+  if (insertError || !profile) {
+    throw new Error("Đã tạo tài khoản nhưng chưa lưu được hồ sơ — liên hệ ROVA");
+  }
+
+  const needsEmailConfirm = !authData.session;
+  if (!needsEmailConfirm) signIn(profile.id);
+  return { profile: profile as Profile, needsEmailConfirm };
+}
+
+/**
  * Sign in with email + password qua Supabase Auth (tài khoản thật, gồm cả tài khoản import).
  * Trả về profile nếu thành công, ném Error message tiếng Việt nếu sai.
  */
