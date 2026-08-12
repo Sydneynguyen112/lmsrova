@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   BookOpen,
@@ -157,10 +158,33 @@ function CourseModulePreview({ courseId }: { courseId: string }) {
   );
 }
 
+// Khoá miễn phí: học viên tự ghi danh, không cần tư vấn
+function isFreeCourse(course: Course) {
+  return !course.price && course.price_label === "Miễn phí";
+}
+
 export default function StudentCoursesPage() {
   const currentUser = useCurrentUser("student");
+  const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [enrollingId, setEnrollingId] = useState<string | null>(null);
+
+  async function enrollFree(course: Course) {
+    if (!currentUser || enrollingId) return;
+    setEnrollingId(course.id);
+    const { error } = await supabase.from("enrollments").insert({
+      user_id: currentUser.id,
+      course_id: course.id,
+      status: "active",
+      progress_pct: 0,
+    });
+    if (error) {
+      setEnrollingId(null);
+      return;
+    }
+    router.push(`/student/courses/${course.id}`);
+  }
   const [progressByCourse, setProgressByCourse] = useState<Map<string, CourseProgress>>(
     new Map()
   );
@@ -354,11 +378,22 @@ export default function StudentCoursesPage() {
                       ) : (
                         <p className="text-base font-semibold text-gold">{course.price_label || "Liên hệ"}</p>
                       )}
-                      <Link href="https://m.me/rova" target="_blank">
-                        <Button variant="outline" className="border-gold/50 text-gold hover:bg-gold/10">
-                          <MessageCircle className="h-4 w-4 mr-1" /> Tư vấn
+                      {isFreeCourse(course) ? (
+                        <Button
+                          onClick={() => enrollFree(course)}
+                          disabled={enrollingId === course.id}
+                          className="bg-gold text-black hover:bg-gold/90 font-semibold"
+                        >
+                          <Play className="h-4 w-4 mr-1" />
+                          {enrollingId === course.id ? "Đang mở..." : "Học ngay"}
                         </Button>
-                      </Link>
+                      ) : (
+                        <Link href="https://m.me/rova" target="_blank">
+                          <Button variant="outline" className="border-gold/50 text-gold hover:bg-gold/10">
+                            <MessageCircle className="h-4 w-4 mr-1" /> Tư vấn
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

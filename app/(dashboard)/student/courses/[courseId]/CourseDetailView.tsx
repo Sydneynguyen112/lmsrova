@@ -38,6 +38,8 @@ interface DbCourse {
   id: string;
   title: string;
   description: string;
+  price: number | null;
+  price_label: string | null;
 }
 
 interface DbModule {
@@ -60,6 +62,23 @@ export function CourseDetailView({ courseId }: Props) {
   const [loading, setLoading] = useState(true);
   // Đã tốt nghiệp khoá này chưa (để CTA đổi chữ) — null = chưa đạt
   const [gradPassed, setGradPassed] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
+
+  // Khoá miễn phí: học viên tự ghi danh rồi học luôn, không cần tư vấn
+  const isFree = !!course && !course.price && course.price_label === "Miễn phí";
+
+  async function enrollFree() {
+    if (!currentUser || enrolling) return;
+    setEnrolling(true);
+    const { error } = await supabase.from("enrollments").insert({
+      user_id: currentUser.id,
+      course_id: courseId,
+      status: "active",
+      progress_pct: 0,
+    });
+    if (!error) setIsEnrolled(true);
+    setEnrolling(false);
+  }
 
   useEffect(() => {
     if (!currentUser) return;
@@ -232,9 +251,24 @@ export function CourseDetailView({ courseId }: Props) {
           className="rounded-xl border border-gold/30 bg-gold/5 p-4 flex items-center gap-3"
         >
           <Lock className="h-5 w-5 text-gold shrink-0" />
-          <p className="text-sm text-foreground">
-            Khoá học chưa được mở. Bạn có thể xem danh sách bài học bên dưới nhưng chưa truy cập được nội dung.
-          </p>
+          {isFree ? (
+            <>
+              <p className="text-sm text-foreground flex-1">
+                Khoá học miễn phí — bấm để bắt đầu học ngay.
+              </p>
+              <button
+                onClick={enrollFree}
+                disabled={enrolling}
+                className="shrink-0 rounded-md bg-gold px-4 py-2 text-sm font-semibold text-black hover:bg-gold/90 disabled:opacity-60"
+              >
+                {enrolling ? "Đang mở..." : "Học miễn phí"}
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-foreground">
+              Khoá học chưa được mở. Bạn có thể xem danh sách bài học bên dưới nhưng chưa truy cập được nội dung.
+            </p>
+          )}
         </motion.div>
       )}
 
