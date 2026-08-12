@@ -16,8 +16,8 @@ export interface NavItem {
 }
 
 export const studentNav: NavItem[] = [
-  { href: "/student", label: "Dashboard", icon: LayoutDashboard, requiresEnrollment: true },
-  { href: "/student/courses", label: "Khoá học", icon: BookOpen },
+  { href: "/student", label: "Hành trình của tôi", icon: LayoutDashboard, requiresEnrollment: true },
+  { href: "/student/courses", label: "Phòng học", icon: BookOpen },
   { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
   { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
 ];
