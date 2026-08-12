@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import {
-  GraduationCap, Lock, Loader2, Send, Star, RotateCcw, Award,
+  GraduationCap, Lock, Loader2, Send, Star, RotateCcw, Award, ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -36,24 +36,8 @@ interface FormInfo {
   status: string;
 }
 
-// Thẻ bài tốt nghiệp của từng khoá trên màn tổng quan
-interface GradCard {
-  courseId: string;
-  courseTitle: string;
-  state: "passed" | "ready" | "locked" | "preparing" | "not_enrolled";
-  grade?: "tot" | "xuat_sac";
-  scorePct?: number | null;
-}
-
-const CARD_NOTES: Record<Exclude<GradCard["state"], "passed" | "ready">, string> = {
-  locked: "Hoàn thành các video của khoá để mở bài",
-  preparing: "Bài tốt nghiệp đang được chuẩn bị",
-  not_enrolled: "Bạn chưa ghi danh khoá này",
-};
-
 type PageState =
   | "loading"
-  | "overview" // lưới thẻ bài tốt nghiệp theo khoá
   | "locked" // chưa xong chặng video_hoan_thien
   | "no_form" // admin chưa gắn form
   | "form" // đang điền
@@ -61,11 +45,13 @@ type PageState =
   | "result_fail" // vừa nộp, không đạt
   | "result_pass"; // vừa nộp, đạt
 
-export default function StudentGraduationPage() {
+interface Props {
+  courseId: string;
+}
+
+export function GraduationView({ courseId }: Props) {
   const currentUser = useCurrentUser("student");
   const [pageState, setPageState] = useState<PageState>("loading");
-  const [cards, setCards] = useState<GradCard[]>([]);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [form, setForm] = useState<FormInfo | null>(null);
   const [questions, setQuestions] = useState<FormQuestionRow[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -76,108 +62,17 @@ export default function StudentGraduationPage() {
   const [passedGrade, setPassedGrade] = useState<"tot" | "xuat_sac" | null>(null);
   const [passedScore, setPassedScore] = useState<number | null>(null);
 
-  // Về màn tổng quan chọn khoá
-  function backToOverview() {
-    setSelectedCourseId(null);
-    setForm(null);
-    setQuestions([]);
-    setAnswers({});
-    setError("");
-    setResult(null);
-    setPassedGrade(null);
-    setPassedScore(null);
-    setPageState("loading");
-  }
+  const courseHref = `/student/courses/${courseId}`;
 
-  // ── Màn tổng quan: mỗi khoá một thẻ bài tốt nghiệp, khoá mới thêm tự xuất hiện ──
+  // ── Luồng làm bài của khoá đang mở ──
   useEffect(() => {
-    if (!currentUser || selectedCourseId) return;
-    let cancelled = false;
-
-    async function loadOverview() {
-      const userId = currentUser!.id;
-      const [{ data: courseRows }, { data: enrollRows }, { data: stageRows }, progress] =
-        await Promise.all([
-          supabase.from("courses").select("id, title").eq("status", "active").order("title"),
-          supabase.from("enrollments").select("course_id, status").eq("user_id", userId),
-          supabase.from("roadmap_stages").select("*").order("order_index"),
-          getStageProgress(userId),
-        ]);
-      if (cancelled) return;
-
-      const gradStages = ((stageRows || []) as RoadmapStage[]).filter(
-        (s) => s.stage_key === "tot_nghiep" && s.form_id
-      );
-      const formIds = gradStages.map((s) => s.form_id as string);
-      const [{ data: formRows }, { data: passedRows }] = await Promise.all([
-        formIds.length
-          ? supabase.from("forms").select("id, status").in("id", formIds)
-          : Promise.resolve({ data: [] as { id: string; status: string }[] }),
-        formIds.length
-          ? supabase
-              .from("form_responses")
-              .select("form_id, grade, score_pct")
-              .eq("user_id", userId)
-              .in("form_id", formIds)
-              .in("grade", ["tot", "xuat_sac"])
-          : Promise.resolve({ data: [] as { form_id: string; grade: string; score_pct: number | null }[] }),
-      ]);
-      if (cancelled) return;
-
-      const enrolledIds = new Set(
-        (enrollRows || [])
-          .filter((e) => e.status === "active" || e.status === "completed")
-          .map((e) => e.course_id)
-      );
-      const completedStageIds = new Set(
-        progress.filter((p) => p.completed_at).map((p) => p.stage_id)
-      );
-
-      const list: GradCard[] = ((courseRows || []) as { id: string; title: string }[]).map((c) => {
-        const courseStages = ((stageRows || []) as RoadmapStage[]).filter((s) => s.course_id === c.id);
-        const videoStage = courseStages.find((s) => s.stage_key === "video_hoan_thien");
-        const gradStage = courseStages.find((s) => s.stage_key === "tot_nghiep");
-        const formRow = gradStage?.form_id
-          ? (formRows || []).find((f) => f.id === gradStage.form_id)
-          : undefined;
-        const passed = gradStage?.form_id
-          ? (passedRows || []).find((r) => r.form_id === gradStage.form_id)
-          : undefined;
-
-        let state: GradCard["state"];
-        if (!enrolledIds.has(c.id)) state = "not_enrolled";
-        else if (passed) state = "passed";
-        else if (courseStages.length === 0 || !videoStage) state = "preparing";
-        else if (!completedStageIds.has(videoStage.id)) state = "locked";
-        else if (!formRow || formRow.status !== "published") state = "preparing";
-        else state = "ready";
-
-        return {
-          courseId: c.id,
-          courseTitle: c.title,
-          state,
-          grade: passed?.grade as GradCard["grade"],
-          scorePct: passed?.score_pct,
-        };
-      });
-
-      setCards(list);
-      setPageState("overview");
-    }
-
-    loadOverview();
-    return () => { cancelled = true; };
-  }, [currentUser, selectedCourseId]);
-
-  // ── Luồng làm bài của khoá được chọn ──
-  useEffect(() => {
-    if (!currentUser || !selectedCourseId) return;
+    if (!currentUser) return;
     let cancelled = false;
 
     async function load() {
       const userId = currentUser!.id;
       const [stages, progress] = await Promise.all([
-        getRoadmapStages(selectedCourseId!),
+        getRoadmapStages(courseId),
         getStageProgress(userId),
       ]);
       if (cancelled) return;
@@ -223,7 +118,7 @@ export default function StudentGraduationPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [currentUser, selectedCourseId]);
+  }, [currentUser, courseId]);
 
   // Confetti khi vừa đạt
   useEffect(() => {
@@ -309,7 +204,7 @@ export default function StudentGraduationPage() {
     }
 
     // ĐẠT: qua chặng + gắn tag tốt nghiệp (máy) + đóng enrollment
-    await checkAndCompleteStages(currentUser.id, selectedCourseId!);
+    await checkAndCompleteStages(currentUser.id, courseId);
     await supabase.rpc("set_student_status", {
       p_user: currentUser.id,
       p_status: "tot_nghiep",
@@ -320,7 +215,7 @@ export default function StudentGraduationPage() {
       .from("enrollments")
       .update({ completed_at: new Date().toISOString(), status: "completed" })
       .eq("user_id", currentUser.id)
-      .eq("course_id", selectedCourseId!);
+      .eq("course_id", courseId);
 
     setResult(score);
     setSubmitting(false);
@@ -345,92 +240,6 @@ export default function StudentGraduationPage() {
     );
   }
 
-  // Màn tổng quan: mỗi khoá một thẻ — thẻ chưa đủ điều kiện vẫn hiện nhưng không bấm được
-  if (pageState === "overview") {
-    return (
-      <PageTransition>
-        <div className="max-w-3xl mx-auto p-6 space-y-6">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="text-2xl md:text-3xl font-bold gold-gradient-text">Bài Tốt nghiệp</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Mỗi khoá học có một bài tốt nghiệp riêng. Hoàn thành lộ trình của khoá để mở bài.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {cards.map((card, i) => {
-              const clickable = card.state === "ready" || card.state === "passed";
-              return (
-                <motion.button
-                  key={card.courseId}
-                  type="button"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.06 }}
-                  disabled={!clickable}
-                  onClick={() => {
-                    if (!clickable) return;
-                    setSelectedCourseId(card.courseId);
-                    setPageState("loading");
-                  }}
-                  className={cn(
-                    "rounded-2xl border bg-card p-6 text-left flex flex-col gap-3 transition-all",
-                    clickable
-                      ? "border-gold/40 hover:border-gold hover:bg-gold/5 cursor-pointer"
-                      : "border-border opacity-70 cursor-not-allowed"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center shrink-0",
-                        clickable ? "bg-gold/10" : "bg-muted/40"
-                      )}
-                    >
-                      {clickable ? (
-                        <GraduationCap className="h-6 w-6 text-gold" />
-                      ) : (
-                        <Lock className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-foreground truncate">{card.courseTitle}</p>
-                      <p className="text-xs text-muted-foreground">Bài tốt nghiệp</p>
-                    </div>
-                  </div>
-
-                  {card.state === "passed" ? (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className={cn("text-xs", GRADE_STYLES[card.grade!])}>
-                        <Award className="h-3.5 w-3.5 mr-1" /> {GRADE_LABELS[card.grade!]}
-                      </Badge>
-                      {card.scorePct !== null && card.scorePct !== undefined && (
-                        <span className="text-xs text-muted-foreground tabular-nums">{card.scorePct}%</span>
-                      )}
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 ml-auto">
-                        Đã tốt nghiệp
-                      </span>
-                    </div>
-                  ) : card.state === "ready" ? (
-                    <span className="text-sm text-gold font-medium">Sẵn sàng — bấm để làm bài →</span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">{CARD_NOTES[card.state]}</span>
-                  )}
-                </motion.button>
-              );
-            })}
-          </div>
-
-          {cards.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Chưa có khoá học nào trong hệ thống.
-            </p>
-          )}
-        </div>
-      </PageTransition>
-    );
-  }
-
   if (pageState === "locked") {
     return (
       <PageTransition>
@@ -442,19 +251,14 @@ export default function StudentGraduationPage() {
               </div>
               <h1 className="text-xl font-bold text-foreground">Bài Tốt nghiệp chưa mở</h1>
               <p className="text-sm text-muted-foreground">
-                Hoàn thành các video để mở bài tốt nghiệp. Bạn cần xong chặng
+                Hoàn thành các video của khoá để mở bài tốt nghiệp. Bạn cần xong chặng
                 "Video hoàn thiện" (tâm lý · quản lý vốn · nhật ký) trước khi làm bài.
               </p>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={backToOverview}>
-                  ← Các bài tốt nghiệp
+              <Link href={courseHref}>
+                <Button variant="outline" className="border-gold/50 text-gold hover:bg-gold/10">
+                  Tiếp tục học
                 </Button>
-                <Link href="/student/courses">
-                  <Button variant="outline" className="border-gold/50 text-gold hover:bg-gold/10">
-                    Tiếp tục học
-                  </Button>
-                </Link>
-              </div>
+              </Link>
             </CardContent>
           </Card>
         </div>
@@ -475,9 +279,9 @@ export default function StudentGraduationPage() {
               <p className="text-sm text-muted-foreground">
                 Bài tốt nghiệp của khoá chưa được thiết lập. Vui lòng quay lại sau hoặc liên hệ mentor của bạn.
               </p>
-              <Button variant="ghost" onClick={backToOverview}>
-                ← Các bài tốt nghiệp
-              </Button>
+              <Link href={courseHref}>
+                <Button variant="ghost">← Về khoá học</Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
@@ -514,9 +318,9 @@ export default function StudentGraduationPage() {
               </Badge>
             </div>
             <div className="flex items-center justify-center gap-2">
-              <Button variant="ghost" onClick={backToOverview}>
-                ← Các bài tốt nghiệp
-              </Button>
+              <Link href={courseHref}>
+                <Button variant="ghost">← Về khoá học</Button>
+              </Link>
               <Link href="/student">
                 <Button className="bg-gold hover:bg-gold/90 text-black font-semibold">
                   Về trang chủ
@@ -565,13 +369,13 @@ export default function StudentGraduationPage() {
   return (
     <PageTransition>
       <div className="max-w-2xl mx-auto p-6 space-y-6">
-        <button
-          type="button"
-          onClick={backToOverview}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        <Link
+          href={courseHref}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-gold transition-colors"
         >
-          ← Các bài tốt nghiệp
-        </button>
+          <ArrowLeft className="h-4 w-4" />
+          Về khoá học
+        </Link>
         <motion.form onSubmit={handleSubmit} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           {/* Header */}
           <div className="rounded-2xl border-t-4 border-t-gold bg-card border border-border p-6 space-y-2">

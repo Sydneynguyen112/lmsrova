@@ -2,7 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, BookOpen, CheckCircle2, PlayCircle, Circle, Lock } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  CheckCircle2,
+  PlayCircle,
+  Circle,
+  Lock,
+  GraduationCap,
+  Award,
+  ArrowRight,
+} from "lucide-react";
 import Link from "next/link";
 
 import { cn, formatDuration } from "@/lib/utils";
@@ -47,6 +57,8 @@ export function CourseDetailView({ courseId }: Props) {
   const [courseModules, setCourseModules] = useState<DbModule[]>([]);
   const [unlockData, setUnlockData] = useState<StudentUnlockData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Đã tốt nghiệp khoá này chưa (để CTA đổi chữ) — null = chưa đạt
+  const [gradPassed, setGradPassed] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -79,6 +91,28 @@ export function CourseDetailView({ courseId }: Props) {
       cancelled = true;
     };
   }, [currentUser, courseId]);
+
+  // Đã đạt bài tốt nghiệp chưa — chỉ hỏi khi khoá đã gắn form
+  useEffect(() => {
+    if (!currentUser || !unlockData) return;
+    const formId = unlockData.stages.find((s) => s.stage_key === "tot_nghiep")?.form_id;
+    if (!formId) return;
+    let cancelled = false;
+    async function checkPassed() {
+      const { data } = await supabase
+        .from("form_responses")
+        .select("id")
+        .eq("form_id", formId!)
+        .eq("user_id", currentUser!.id)
+        .in("grade", ["tot", "xuat_sac"])
+        .limit(1);
+      if (!cancelled) setGradPassed((data ?? []).length > 0);
+    }
+    checkPassed();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, unlockData]);
 
   if (!currentUser || loading || !unlockData) {
     return (
@@ -113,6 +147,14 @@ export function CourseDetailView({ courseId }: Props) {
   const totalCount = data.lessons.length;
   const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const currentOpenLessonId = firstOpenLessonId(data);
+
+  // CTA bài tốt nghiệp: mở ngay khi xong chặng video cuối của khoá
+  const videoStage = data.stages.find((s) => s.stage_key === "video_hoan_thien");
+  const videoStageDone = videoStage
+    ? data.stageProgress.some((p) => p.stage_id === videoStage.id && p.completed_at)
+    : false;
+  const hasGradStage = data.stages.some((s) => s.stage_key === "tot_nghiep");
+  const showGraduationCta = !!isEnrolled && hasGradStage && videoStageDone;
 
   return (
     <div className="space-y-6 p-6">
@@ -194,6 +236,38 @@ export function CourseDetailView({ courseId }: Props) {
           <p className="text-sm text-foreground">
             Khoá học chưa được mở. Bạn có thể xem danh sách bài học bên dưới nhưng chưa truy cập được nội dung.
           </p>
+        </motion.div>
+      )}
+
+      {/* CTA bài tốt nghiệp — hiện sau khi học xong chương video cuối */}
+      {showGraduationCta && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <Link
+            href={`/student/courses/${courseId}/graduation`}
+            className="group flex items-center gap-4 rounded-xl border border-gold/40 bg-gold/5 p-4 transition-all hover:border-gold hover:bg-gold/10"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gold/15">
+              {gradPassed ? (
+                <Award className="h-6 w-6 text-gold" />
+              ) : (
+                <GraduationCap className="h-6 w-6 text-gold" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-foreground">
+                {gradPassed ? "Bạn đã tốt nghiệp khoá này" : "Bài tốt nghiệp đã mở"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {gradPassed
+                  ? "Xem lại kết quả và xếp loại của bạn."
+                  : "Bạn đã hoàn thành các video của khoá — làm bài để kết thúc lộ trình."}
+              </p>
+            </div>
+            <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-gold">
+              {gradPassed ? "Xem kết quả" : "Làm bài"}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
         </motion.div>
       )}
 

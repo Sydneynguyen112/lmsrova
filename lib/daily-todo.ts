@@ -145,7 +145,7 @@ export function buildDailyTodo(
       kind: "graduation",
       title: "Form tốt nghiệp",
       detail: "Điền form để hoàn thành lộ trình",
-      href: "/student/graduation",
+      href: `/student/courses/${courseId}/graduation`,
     });
   }
 
