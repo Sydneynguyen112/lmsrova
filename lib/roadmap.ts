@@ -362,7 +362,9 @@ export async function flushWatchProgress(
       watched_seconds: watched,
       last_position_sec: Math.round(positionSec),
       last_watched_at: new Date().toISOString(),
-      watch_count: existing ? undefined : 1,
+      // watch_count = số lần XEM HẾT video, chỉ bump ở incrementWatchCount(onEnded).
+      // Tạo dòng mới phải là 0, để 1 thì xem hết lần đầu đã thành 2 → hiện badge oan.
+      watch_count: existing ? undefined : 0,
       ...(reachedThreshold
         ? { completed: true, completed_at: existing?.completed ? undefined : new Date().toISOString(), status: "completed" }
         : { status: "in_progress" }),

@@ -215,7 +215,7 @@ export async function incrementWatchCount(userId: string, lessonId: string): Pro
     .eq("user_id", userId)
     .eq("lesson_id", lessonId)
     .maybeSingle();
-  if (!data) return; // chưa có dòng progress thì flushWatchProgress sẽ tạo với watch_count = 1
+  if (!data) return; // chưa có dòng progress thì flushWatchProgress sẽ tạo với watch_count = 0
   await supabase
     .from("lesson_progress")
     .update({ watch_count: (data.watch_count || 0) + 1 })
