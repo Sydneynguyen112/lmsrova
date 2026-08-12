@@ -28,7 +28,12 @@ import {
   type CourseLessonRow,
   type QuizRow,
 } from "@/lib/api-student";
-import { checkAndCompleteStages, flushWatchProgress, type RoadmapStage } from "@/lib/roadmap";
+import {
+  checkAndCompleteStages,
+  flushWatchProgress,
+  WORK_WATCH_THRESHOLD,
+  type RoadmapStage,
+} from "@/lib/roadmap";
 import { cn, formatDuration } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
@@ -62,6 +67,9 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const [stageQuiz, setStageQuiz] = useState<QuizRow | null>(null);
   const [assignment, setAssignment] = useState<AssignmentRow | null>(null);
   const [redirecting, setRedirecting] = useState(false);
+  // Giây xem cộng dồn NGAY trong phiên — unlockData chỉ nạp lại khi qua chặng,
+  // không có state này thì tab Quiz/Bài tập chỉ mở sau khi tải lại trang.
+  const [liveWatchedSec, setLiveWatchedSec] = useState(0);
 
   // duration thật của video (từ DB, hoặc backfill từ metadata player)
   const durationRef = useRef(0);
@@ -109,6 +117,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
       if (lesson) {
         durationRef.current = lesson.duration_sec || 0;
         setVideoCompleted(!!data.progressMap.get(lessonId)?.completed);
+        setLiveWatchedSec(data.progressMap.get(lessonId)?.watched_seconds || 0);
       }
 
       // Quiz theo bài học (quizzes.lesson_id)
@@ -164,6 +173,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const handleFlush = useCallback(
     (addedSeconds: number, positionSec: number) => {
       if (!currentUser) return;
+      setLiveWatchedSec((prev) => prev + Math.max(0, addedSeconds));
       flushWatchProgress(currentUser.id, lessonId, addedSeconds, positionSec, durationRef.current)
         .then(({ justCompleted }) => {
           if (justCompleted) {
@@ -250,12 +260,34 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
 
   const startAt = data.progressMap.get(lessonId)?.last_position_sec || 0;
 
+  // Tỉ lệ đã xem — duration chưa có thì coi như đủ, tránh khoá oan (giống isLessonWatched)
+  const watchedSeconds = Math.max(
+    liveWatchedSec,
+    data.progressMap.get(lessonId)?.watched_seconds || 0
+  );
+  const watchedRatio = lesson.duration_sec
+    ? Math.min(1, watchedSeconds / lesson.duration_sec)
+    : 1;
+  const workGatePassed = watchedRatio >= WORK_WATCH_THRESHOLD;
+  const watchedPercent = Math.round(watchedRatio * 100);
+  const gatePercent = Math.round(WORK_WATCH_THRESHOLD * 100);
+  const gateNote = `Xem hết ${gatePercent}% video để mở — bạn đã xem ${watchedPercent}%.`;
 
-  const tabs: { key: TabKey; label: string; icon: React.ReactNode; show: boolean }[] = [
-    { key: "materials", label: "Tài liệu", icon: <FileText className="h-4 w-4" />, show: true },
-    { key: "quiz", label: "Quiz", icon: <HelpCircle className="h-4 w-4" />, show: !!lessonQuiz },
-    { key: "assignment", label: "Bài tập", icon: <PenTool className="h-4 w-4" />, show: hasAssignment },
+  const tabs: {
+    key: TabKey;
+    label: string;
+    icon: React.ReactNode;
+    show: boolean;
+    locked: boolean;
+  }[] = [
+    { key: "materials", label: "Tài liệu", icon: <FileText className="h-4 w-4" />, show: true, locked: false },
+    { key: "quiz", label: "Quiz", icon: <HelpCircle className="h-4 w-4" />, show: !!lessonQuiz, locked: !workGatePassed },
+    { key: "assignment", label: "Bài tập", icon: <PenTool className="h-4 w-4" />, show: hasAssignment, locked: !workGatePassed },
   ];
+
+  // Đổi bài học không unmount view → activeTab cũ có thể trỏ vào tab đang bị khoá
+  const currentTab = tabs.find((t) => t.key === activeTab);
+  const shownTab: TabKey = currentTab?.locked ? "materials" : activeTab;
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
@@ -323,9 +355,15 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                     size="sm"
                     variant="outline"
                     className="border-gold/40 text-gold"
+                    disabled={!workGatePassed}
+                    title={workGatePassed ? undefined : gateNote}
                     onClick={() => setActiveTab("assignment")}
                   >
-                    <ImagePlus className="h-4 w-4 mr-2" />
+                    {workGatePassed ? (
+                      <ImagePlus className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Lock className="h-4 w-4 mr-2" />
+                    )}
                     Làm bài tập ngay
                   </Button>
                 )}
@@ -341,31 +379,52 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
+                  disabled={tab.locked}
+                  title={tab.locked ? gateNote : undefined}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
-                    activeTab === tab.key
-                      ? "border-gold text-gold"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
+                    tab.locked
+                      ? "border-transparent text-muted-foreground/50 cursor-not-allowed"
+                      : shownTab === tab.key
+                        ? "border-gold text-gold"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {tab.icon}
+                  {tab.locked ? <Lock className="h-4 w-4" /> : tab.icon}
                   {tab.label}
-                  {tab.key === "assignment" && assignmentPending && (
+                  {tab.key === "assignment" && !tab.locked && assignmentPending && (
                     <span className="h-1.5 w-1.5 rounded-full bg-gold" />
                   )}
                 </button>
               ))}
           </div>
 
+          {/* Nhắc ngưỡng xem — chỉ hiện khi thật sự có tab đang bị khoá */}
+          {tabs.some((t) => t.show && t.locked) && (
+            <div className="flex items-center gap-2 rounded-lg border border-dashed border-gold/30 bg-gold/5 px-3 py-2 text-sm text-muted-foreground">
+              <Lock className="h-4 w-4 shrink-0 text-gold/70" />
+              <span className="flex-1">
+                Xem hết {gatePercent}% video để mở Quiz và Bài tập — bạn đã xem{" "}
+                <span className="text-gold font-medium">{watchedPercent}%</span>.
+              </span>
+              <div className="h-1.5 w-24 shrink-0 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gold/60 transition-all"
+                  style={{ width: `${Math.min(100, Math.round((watchedRatio / WORK_WATCH_THRESHOLD) * 100))}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Tab Content */}
           <motion.div
-            key={activeTab}
+            key={shownTab}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
           >
             {/* Materials Tab */}
-            {activeTab === "materials" && (
+            {shownTab === "materials" && (
               <Card>
                 <CardContent className="space-y-2">
                   {lesson.materials && lesson.materials.length > 0 ? (
@@ -396,7 +455,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
             )}
 
             {/* Quiz Tab — quiz theo bài học */}
-            {activeTab === "quiz" && lessonQuiz && (
+            {shownTab === "quiz" && lessonQuiz && (
               <Card>
                 <CardContent>
                   <QuizSection
@@ -409,7 +468,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
             )}
 
             {/* Bài tập — đề bài, bộ đếm chặng, nộp ảnh, quiz chặng trong một mạch */}
-            {activeTab === "assignment" && assignment && currentStage && stageCounts && (
+            {shownTab === "assignment" && assignment && currentStage && stageCounts && (
               <AssignmentPanel
                 assignment={assignment}
                 stage={currentStage}
