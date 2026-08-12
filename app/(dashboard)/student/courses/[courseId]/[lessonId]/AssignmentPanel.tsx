@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   ImagePlus,
@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   MessageSquare,
+  Link2,
 } from "lucide-react";
 
 import { getSubmissionsByUser } from "@/lib/api";
@@ -29,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { QuizSection } from "./QuizSection";
 
-const MAX_MODELS = 5;
+const MAX_ATTACHMENTS = 20;
 
 export interface AssignmentRow {
   id: string;
@@ -48,14 +49,15 @@ interface SubmissionRow {
   graded_at: string | null;
 }
 
-interface ModelSlot {
-  image: string; // data URL (lưu thẳng vào DB — pattern avatar hiện có)
-  note: string;
+// 1 mục đính kèm = 1 dòng submission_images để mentor chấm ĐÚNG/SAI
+interface Attachment {
+  id: string;
+  url: string; // data URL (ảnh dán/chọn) hoặc link ngoài
+  kind: "image" | "link";
 }
 
-function emptySlots(): ModelSlot[] {
-  return Array.from({ length: MAX_MODELS }, () => ({ image: "", note: "" }));
-}
+const URL_RE = /^https?:\/\/\S+$/i;
+const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)(\?|#|$)/i;
 
 // Resize ảnh về data URL (jpeg) — pattern giống upload avatar trong ProfileEditor
 function resizeToDataUrl(file: File, maxSize = 1280): Promise<string> {
@@ -127,7 +129,12 @@ export function AssignmentPanel({
   userId,
   onProgress,
 }: Props) {
-  const [models, setModels] = useState<ModelSlot[]>(emptySlots());
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [note, setNote] = useState("");
+  const [composerError, setComposerError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const [sentCount, setSentCount] = useState(0);
+  const nextIdRef = useRef(0);
   const [submitting, setSubmitting] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
@@ -154,44 +161,98 @@ export function AssignmentPanel({
     };
   }, [userId, assignment.id]);
 
-  function updateModel(index: number, field: keyof ModelSlot, value: string) {
-    setModels((prev) => prev.map((m, i) => (i === index ? { ...m, [field]: value } : m)));
+  function nextId() {
+    nextIdRef.current += 1;
+    return String(nextIdRef.current);
   }
 
-  async function setImage(index: number, file: File) {
-    try {
-      const dataUrl = await resizeToDataUrl(file);
-      updateModel(index, "image", dataUrl);
-    } catch (err) {
-      console.error("Không xử lý được ảnh:", err);
+  function removeAttachment(id: string) {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  // Ảnh dán/kéo-thả/chọn file → resize về data URL rồi đính kèm
+  async function addFiles(files: File[]) {
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (images.length === 0) return;
+    setComposerError("");
+
+    const room = MAX_ATTACHMENTS - attachments.length;
+    if (room <= 0) {
+      setComposerError(`Tối đa ${MAX_ATTACHMENTS} ảnh/link mỗi lượt nộp.`);
+      return;
+    }
+
+    const added: Attachment[] = [];
+    for (const file of images.slice(0, room)) {
+      try {
+        added.push({ id: nextId(), url: await resizeToDataUrl(file), kind: "image" });
+      } catch (err) {
+        console.error("Không xử lý được ảnh:", err);
+        setComposerError("Có file không đọc được — đã bỏ qua.");
+      }
+    }
+    if (added.length > 0) setAttachments((prev) => [...prev, ...added]);
+    if (images.length > room) {
+      setComposerError(`Tối đa ${MAX_ATTACHMENTS} ảnh/link mỗi lượt nộp.`);
     }
   }
 
-  const filledCount = models.filter((m) => m.image || m.note.trim()).length;
+  function addUrl(url: string) {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      setComposerError(`Tối đa ${MAX_ATTACHMENTS} ảnh/link mỗi lượt nộp.`);
+      return;
+    }
+    setComposerError("");
+    setAttachments((prev) => [
+      ...prev,
+      { id: nextId(), url, kind: IMAGE_URL_RE.test(url) ? "image" : "link" },
+    ]);
+  }
+
+  // Ctrl+V: ảnh trong clipboard → đính kèm; link đơn lẻ → chip; còn lại để rơi vào ghi chú
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const files = Array.from(e.clipboardData.files);
+    if (files.some((f) => f.type.startsWith("image/"))) {
+      e.preventDefault();
+      addFiles(files);
+      return;
+    }
+    const text = e.clipboardData.getData("text").trim();
+    if (URL_RE.test(text)) {
+      e.preventDefault();
+      addUrl(text);
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    addFiles(Array.from(e.dataTransfer.files));
+  }
+
+  const canSend = attachments.length > 0 || note.trim().length > 0;
 
   async function handleSubmit() {
-    if (!assignment || submitting) return;
+    if (!assignment || submitting || !canSend) return;
     setSubmitting(true);
+    setComposerError("");
     try {
-      const filled = models.filter((m) => m.image || m.note.trim());
-      const imageUrls = filled.filter((m) => m.image).map((m) => m.image);
-      const note = filled
-        .map((m, i) => (m.note.trim() ? `Mô hình ${i + 1}: ${m.note.trim()}` : ""))
-        .filter(Boolean)
-        .join("\n");
-
       // 1 lần nộp = 1 dòng submissions + MỖI ẢNH 1 dòng submission_images (verdict pending)
       await createSubmissionWithImages({
         assignmentId: assignment.id,
         userId,
-        imageUrls,
-        note: note || undefined,
+        imageUrls: attachments.map((a) => a.url),
+        note: note.trim() || undefined,
       });
+      setSentCount(attachments.length);
+      setAttachments([]);
+      setNote("");
       setJustSubmitted(true);
       await loadHistory();
       onProgress();
     } catch (err) {
       console.error("Không nộp được bài:", err);
+      setComposerError("Không nộp được bài — kiểm tra mạng rồi thử lại.");
     }
     setSubmitting(false);
   }
@@ -355,13 +416,15 @@ export function AssignmentPanel({
         </Card>
       ))}
 
-      {/* ─── Khung nộp ảnh (ẩn khi đã qua chặng) ─── */}
+      {/* ─── Ô soạn kiểu chat: dán ảnh/link + ghi chú (ẩn khi đã qua chặng) ─── */}
       {!stageCompleted &&
         (justSubmitted ? (
           <Card className="border-emerald-500/30">
             <CardContent className="py-10 text-center space-y-2">
               <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
-              <p className="font-semibold text-foreground">Đã nộp {filledCount} mô hình!</p>
+              <p className="font-semibold text-foreground">
+                Đã nộp {sentCount} ảnh/link!
+              </p>
               <p className="text-sm text-muted-foreground">
                 Mentor sẽ chấm ĐÚNG/SAI từng ảnh.
               </p>
@@ -369,97 +432,112 @@ export function AssignmentPanel({
                 variant="outline"
                 size="sm"
                 className="mt-2"
-                onClick={() => {
-                  setModels(emptySlots());
-                  setJustSubmitted(false);
-                }}
+                onClick={() => setJustSubmitted(false)}
               >
                 Nộp thêm
               </Button>
             </CardContent>
           </Card>
         ) : (
-          <>
-            <div className="space-y-3">
-              {models.map((model, i) => (
-                <Card
-                  key={i}
-                  className={cn(
-                    "transition-all",
-                    (model.image || model.note.trim()) && "border-gold/30"
-                  )}
-                >
-                  <CardContent>
-                    <div className="flex items-start gap-4">
+          <Card
+            className={cn(
+              "sticky bottom-4 z-10 transition-colors shadow-lg",
+              dragOver ? "border-gold/60 bg-gold/5" : canSend && "border-gold/30"
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+          >
+            <CardContent className="space-y-3">
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {attachments.map((a) =>
+                    a.kind === "image" ? (
                       <div
-                        className={cn(
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-bold text-xs",
-                          model.image || model.note.trim()
-                            ? "bg-gold/15 text-gold"
-                            : "bg-muted text-muted-foreground"
-                        )}
+                        key={a.id}
+                        className="relative w-20 h-20 rounded-lg overflow-hidden bg-muted"
                       >
-                        {i + 1}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={a.url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => removeAttachment(a.id)}
+                          className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
-
-                      <div className="shrink-0">
-                        {model.image ? (
-                          <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-muted">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={model.image}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                            <button
-                              onClick={() => updateModel(i, "image", "")}
-                              className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="flex flex-col items-center justify-center w-24 h-24 rounded-lg border-2 border-dashed border-border hover:border-gold/50 cursor-pointer transition-colors bg-muted/30">
-                            <ImagePlus className="h-5 w-5 text-muted-foreground mb-1" />
-                            <span className="text-[9px] text-muted-foreground">Chọn ảnh</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) =>
-                                e.target.files?.[0] && setImage(i, e.target.files[0])
-                              }
-                            />
-                          </label>
-                        )}
+                    ) : (
+                      <div
+                        key={a.id}
+                        className="flex items-center gap-1.5 max-w-[240px] rounded-lg border border-border bg-muted/40 pl-2 pr-1 py-1.5"
+                      >
+                        <Link2 className="h-3.5 w-3.5 text-gold shrink-0" />
+                        <span className="text-[11px] text-foreground/80 truncate">
+                          {a.url}
+                        </span>
+                        <button
+                          onClick={() => removeAttachment(a.id)}
+                          className="p-0.5 rounded-full text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
+                    )
+                  )}
+                </div>
+              )}
 
-                      <textarea
-                        placeholder={`Mô hình ${i + 1}: dán phân tích, ghi chú...`}
-                        value={model.note}
-                        onChange={(e) => updateModel(i, "note", e.target.value)}
-                        rows={3}
-                        className="flex-1 rounded-lg border border-border bg-card p-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-gold/50 resize-y"
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+              <textarea
+                placeholder="Dán ảnh (Ctrl+V), link biểu đồ, hoặc kéo-thả ảnh vào đây — viết thêm ghi chú nếu muốn..."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                onPaste={handlePaste}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                rows={3}
+                className="w-full rounded-lg border border-border bg-card p-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-gold/50 resize-y"
+              />
 
-            {filledCount > 0 && (
-              <div className="sticky bottom-4 z-10">
+              {composerError && (
+                <p className="text-xs text-red-600 dark:text-red-400">{composerError}</p>
+              )}
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold cursor-pointer transition-colors">
+                  <ImagePlus className="h-4 w-4" />
+                  Thêm ảnh
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      addFiles(Array.from(e.target.files ?? []));
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <span className="text-[11px] text-muted-foreground/70">
+                  {attachments.length}/{MAX_ATTACHMENTS} · Ctrl+Enter để nộp
+                </span>
                 <Button
                   onClick={handleSubmit}
-                  disabled={submitting}
-                  className="w-full bg-gold hover:bg-gold/90 text-black font-semibold py-5 shadow-lg gold-glow"
+                  disabled={submitting || !canSend}
+                  className="ml-auto bg-gold hover:bg-gold/90 text-black font-semibold gold-glow"
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  {submitting ? "Đang nộp..." : `Nộp ${filledCount} mô hình`}
+                  {submitting ? "Đang nộp..." : "Nộp bài"}
                 </Button>
               </div>
-            )}
-          </>
+            </CardContent>
+          </Card>
         ))}
 
       {/* ─── Đủ ảnh đúng → quiz chặng bung ra ngay tại đây ─── */}
