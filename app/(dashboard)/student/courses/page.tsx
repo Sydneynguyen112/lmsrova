@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 
 import { supabase } from "@/lib/supabase";
+import { getCourseProgressMap, type CourseProgress } from "@/lib/api-student";
 import { cn, formatPrice, formatDate, formatDuration } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -160,20 +161,30 @@ export default function StudentCoursesPage() {
   const currentUser = useCurrentUser("student");
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [progressByCourse, setProgressByCourse] = useState<Map<string, CourseProgress>>(
+    new Map()
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
+    let cancelled = false;
     async function load() {
-      const [{ data: c }, { data: e }] = await Promise.all([
+      const [{ data: c }, { data: e }, progress] = await Promise.all([
         supabase.from("courses").select("*").order("created_at"),
         supabase.from("enrollments").select("*").eq("user_id", currentUser!.id),
+        getCourseProgressMap(currentUser!.id),
       ]);
+      if (cancelled) return;
       setCourses((c || []) as Course[]);
       setEnrollments((e || []) as Enrollment[]);
+      setProgressByCourse(progress);
       setLoading(false);
     }
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [currentUser]);
 
   if (!currentUser || loading) {
@@ -212,6 +223,7 @@ export default function StudentCoursesPage() {
             {enrollments.map((enrollment, index) => {
               const course = courses.find((c) => c.id === enrollment.course_id);
               if (!course) return null;
+              const prog = progressByCourse.get(course.id);
 
               return (
                 <motion.div
@@ -239,9 +251,12 @@ export default function StudentCoursesPage() {
                             {course.description}
                           </p>
                           <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                            {course.total_lessons > 0 && (
+                            {(prog?.total || course.total_lessons) > 0 && (
                               <span className="flex items-center gap-1">
-                                <Play className="h-3 w-3" /> {course.total_lessons} bài học
+                                <Play className="h-3 w-3" />{" "}
+                                {prog
+                                  ? `${prog.completed}/${prog.total} bài học`
+                                  : `${course.total_lessons} bài học`}
                               </span>
                             )}
                             {course.total_duration_sec > 0 && (
@@ -252,9 +267,9 @@ export default function StudentCoursesPage() {
                           </div>
                           {enrollment.status !== "dropped" && (
                             <div className="flex items-center gap-3 mt-2">
-                              <Progress value={enrollment.progress_pct} className="flex-1" />
+                              <Progress value={prog?.pct ?? 0} className="flex-1" />
                               <span className="text-xs text-gold font-medium w-10 text-right">
-                                {Math.round(enrollment.progress_pct)}%
+                                {prog?.pct ?? 0}%
                               </span>
                             </div>
                           )}

@@ -96,6 +96,41 @@ export async function getLessonProgressMap(
   return map;
 }
 
+// ─── Tiến độ theo BÀI HỌC — nguồn dùng chung cho trang danh sách và trang chi tiết ───
+// Không đọc enrollments.progress_pct: cột đó tính theo CHẶNG (script đồng bộ ghi),
+// nên hiển thị lệch với % trong trang chi tiết vốn đếm bài học đã xong.
+
+export interface CourseProgress {
+  completed: number;
+  total: number;
+  pct: number;
+}
+
+export function isLessonCompleted(lp: LessonProgressLite | undefined): boolean {
+  return lp?.status === "completed" || lp?.completed === true;
+}
+
+export async function getCourseProgressMap(
+  userId: string
+): Promise<Map<string, CourseProgress>> {
+  const [{ data: lessonRows }, progressMap] = await Promise.all([
+    supabase.from("lessons").select("id, modules!inner(course_id)"),
+    getLessonProgressMap(userId),
+  ]);
+  type Row = { id: string; modules: { course_id: string } };
+  const map = new Map<string, CourseProgress>();
+  for (const l of (lessonRows as unknown as Row[]) || []) {
+    const courseId = l.modules.course_id;
+    const cur = map.get(courseId) || { completed: 0, total: 0, pct: 0 };
+    cur.total++;
+    if (isLessonCompleted(progressMap.get(l.id))) cur.completed++;
+    map.set(courseId, cur);
+  }
+  for (const p of map.values())
+    p.pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
+  return map;
+}
+
 // ─── Gói dữ liệu unlock — load 1 LẦN khi vào trang khoá học / bài học ───
 
 export interface StudentUnlockData {

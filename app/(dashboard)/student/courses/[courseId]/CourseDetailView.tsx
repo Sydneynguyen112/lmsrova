@@ -21,6 +21,7 @@ import { useCurrentUser } from "@/lib/auth";
 import {
   loadStudentUnlockData,
   firstOpenLessonId,
+  isLessonCompleted,
   type StudentUnlockData,
   type CourseLessonRow,
 } from "@/lib/api-student";
@@ -138,10 +139,8 @@ export function CourseDetailView({ courseId }: Props) {
     lessonsByModule.set(l.module_id, list);
   }
 
-  const isCompleted = (lessonId: string) => {
-    const lp = data.progressMap.get(lessonId);
-    return lp?.status === "completed" || lp?.completed === true;
-  };
+  // Cùng định nghĩa "xong bài" với trang danh sách khoá học (lib/api-student)
+  const isCompleted = (lessonId: string) => isLessonCompleted(data.progressMap.get(lessonId));
 
   const completedCount = data.lessons.filter((l) => isCompleted(l.id)).length;
   const totalCount = data.lessons.length;
