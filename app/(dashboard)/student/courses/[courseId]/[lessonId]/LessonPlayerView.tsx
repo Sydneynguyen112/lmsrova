@@ -399,23 +399,6 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
               ))}
           </div>
 
-          {/* Nhắc ngưỡng xem — chỉ hiện khi thật sự có tab đang bị khoá */}
-          {tabs.some((t) => t.show && t.locked) && (
-            <div className="flex items-center gap-2 rounded-lg border border-dashed border-gold/30 bg-gold/5 px-3 py-2 text-sm text-muted-foreground">
-              <Lock className="h-4 w-4 shrink-0 text-gold/70" />
-              <span className="flex-1">
-                Xem hết {gatePercent}% video để mở Quiz và Bài tập — bạn đã xem{" "}
-                <span className="text-gold font-medium">{watchedPercent}%</span>.
-              </span>
-              <div className="h-1.5 w-24 shrink-0 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gold/60 transition-all"
-                  style={{ width: `${Math.min(100, Math.round((watchedRatio / WORK_WATCH_THRESHOLD) * 100))}%` }}
-                />
-              </div>
-            </div>
-          )}
-
           {/* Tab Content */}
           <motion.div
             key={shownTab}
