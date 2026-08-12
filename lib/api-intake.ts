@@ -9,6 +9,7 @@ import {
   buildLegacyOnboardingBlob,
   type IntakeQuestion,
   type IntakeComputed,
+  type StudentVisibleResult,
 } from "./intake-scoring";
 
 // Course id lộ trình chính — giữ NGUYÊN giá trị onboarding cũ đang dùng
@@ -41,6 +42,25 @@ export async function getPublishedIntakeForm(): Promise<IntakeForm | null> {
     form: form as FormRow,
     questions: (questions as IntakeQuestion[]) || [],
   };
+}
+
+export interface IntakeResultRow {
+  id: string;
+  student_visible: StudentVisibleResult;
+  computed_at: string;
+}
+
+// Kết quả mới nhất để học viên xem lại trong dashboard.
+// CHỈ lấy student_visible — flags / care_group là dữ liệu nội bộ của ROVA.
+export async function getIntakeResult(userId: string): Promise<IntakeResultRow | null> {
+  const { data } = await supabase
+    .from("intake_results")
+    .select("id, student_visible, computed_at")
+    .eq("user_id", userId)
+    .order("computed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as IntakeResultRow) ?? null;
 }
 
 // Học viên đã có kết quả khám bệnh chưa (để không bắt làm lại)

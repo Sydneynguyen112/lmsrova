@@ -17,7 +17,6 @@ import {
   Construction,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { cn, formatPrice } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
@@ -30,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { DailyTodoCard } from "@/components/student/DailyTodoCard";
+import { IntakeResultCard } from "@/components/intake/IntakeResultCard";
 
 interface Course {
   id: string;
@@ -84,7 +84,6 @@ function getDailyQuote() {
 }
 
 export default function StudentDashboardPage() {
-  const router = useRouter();
   const currentUser = useCurrentUser("student");
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -109,13 +108,6 @@ export default function StudentDashboardPage() {
 
     load();
   }, [currentUser]);
-
-  // Đã được duyệt nhưng chưa làm bài test đầu vào → đưa sang video onboarding
-  useEffect(() => {
-    if (!currentUser || loading || currentUser.onboarding_survey) return;
-    const approved = enrollments.some((e) => e.status === "active" || e.status === "completed");
-    if (approved) router.replace("/onboarding-video");
-  }, [currentUser, loading, enrollments, router]);
 
   if (!currentUser || loading) {
     return (
@@ -225,6 +217,15 @@ export default function StudentDashboardPage() {
           transition={{ delay: 0.03 }}
         >
           <DailyTodoCard user={currentUser} courseId={activeEnrollments[0].course_id} />
+        </motion.div>
+
+        {/* ── Kết quả bài test đầu vào (xem lại bất cứ lúc nào) ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04 }}
+        >
+          <IntakeResultCard userId={currentUser.id} />
         </motion.div>
 
         {/* ── Daily Quote ── */}

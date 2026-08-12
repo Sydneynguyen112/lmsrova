@@ -38,7 +38,8 @@ const KIND_ICON: Record<TodoItem["kind"], typeof PlayCircle> = {
 
 interface IntakeResultScreenProps {
   visible: StudentVisibleResult;
-  onDone: () => void;
+  /** Bỏ trống = chế độ xem lại: không pháo giấy, không nút "Bắt đầu học ngay" */
+  onDone?: () => void;
   saving?: boolean;
   /** null = chưa tải xong hoặc khoá chưa có lộ trình → ẩn khối gợi ý */
   nextStep?: IntakeNextStep | null;
@@ -56,9 +57,9 @@ export function IntakeResultScreen({
   onPickPace,
 }: IntakeResultScreenProps) {
   useEffect(() => {
-    if (!D.confetti) return;
+    if (!onDone || !D.confetti) return;
     confetti({ particleCount: 90, spread: 75, origin: { y: 0.5 } });
-  }, []);
+  }, [onDone]);
 
   const p = visible.personality;
 
@@ -300,13 +301,15 @@ export function IntakeResultScreen({
         </div>
       )}
 
-      <Button
-        onClick={onDone}
-        disabled={saving}
-        className="bg-gold hover:bg-gold/90 text-black font-semibold py-6 rounded-xl text-base w-full"
-      >
-        {C.doneButton}
-      </Button>
+      {onDone && (
+        <Button
+          onClick={onDone}
+          disabled={saving}
+          className="bg-gold hover:bg-gold/90 text-black font-semibold py-6 rounded-xl text-base w-full"
+        >
+          {C.doneButton}
+        </Button>
+      )}
     </motion.div>
   );
 }

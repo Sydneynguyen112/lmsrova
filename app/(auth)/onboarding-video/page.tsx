@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Map, ClipboardList, ListTodo, CheckCircle2 } from "lucide-react";
+import { Map, ClipboardList, ListTodo, CheckCircle2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/shared/VideoPlayer";
+import { IntakePromptModal } from "@/components/intake/IntakePromptModal";
 import { useCurrentUser } from "@/lib/auth";
 import { isApproved } from "@/lib/approval";
 import {
@@ -47,7 +48,6 @@ export default function OnboardingVideoPage() {
 
   const [watchedSec, setWatchedSec] = useState(0);
   const [durationSec, setDurationSec] = useState(0);
-  const [ended, setEnded] = useState(false);
   const seededRef = useRef(false); // đã nạp giây xem từ profile chưa
   const markedRef = useRef(false); // đã ghi watched_at chưa (tránh ghi lặp)
 
@@ -93,15 +93,17 @@ export default function OnboardingVideoPage() {
     };
   }, [currentUser, settingLoaded, videoId, rewatch, router]);
 
-  // Ghi nhận đã xem đủ 80% — chỉ để thống kê, không còn chặn bước tiếp theo
+  // Xem đủ 80% giây THẬT (tua nhanh không tính) mới mở đường sang bài test
+  const watchedEnough =
+    !!currentUser?.onboarding_video_watched_at ||
+    (durationSec > 0 && watchedSec >= durationSec * ONBOARDING_VIDEO_WATCH_RATIO);
+
   useEffect(() => {
-    if (rewatch || !ended || !durationSec || !currentUser) return;
+    if (rewatch || !watchedEnough || !currentUser) return;
     if (markedRef.current || currentUser.onboarding_video_watched_at) return;
-    if (watchedSec >= durationSec * ONBOARDING_VIDEO_WATCH_RATIO) {
-      markedRef.current = true;
-      markOnboardingVideoWatched(currentUser.id);
-    }
-  }, [ended, watchedSec, durationSec, rewatch, currentUser]);
+    markedRef.current = true;
+    markOnboardingVideoWatched(currentUser.id);
+  }, [watchedEnough, rewatch, currentUser]);
 
   const handleFlush = (addedSeconds: number, positionSec: number) => {
     if (!currentUser) return;
@@ -113,6 +115,7 @@ export default function OnboardingVideoPage() {
   const percent = durationSec
     ? Math.min(100, Math.round((watchedSec / durationSec) * 100))
     : 0;
+  const requiredPercent = Math.round(ONBOARDING_VIDEO_WATCH_RATIO * 100);
 
   if (!currentUser || !settingLoaded || (!videoId && !rewatch)) {
     return (
@@ -162,7 +165,6 @@ export default function OnboardingVideoPage() {
             startAt={currentUser.onboarding_video_position || 0}
             onDuration={(d) => setDurationSec(d)}
             onFlush={handleFlush}
-            onEnded={() => setEnded(true)}
           />
         ) : (
           <Card className="border-dashed">
@@ -174,20 +176,47 @@ export default function OnboardingVideoPage() {
 
         {!rewatch && (
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Tiến độ xem</span>
+                <span className="tabular-nums">
+                  {percent}% / {requiredPercent}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full gold-gradient transition-[width] duration-500"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            </div>
             <Button
               className="w-full"
               size="lg"
+              disabled={!watchedEnough}
               onClick={() => router.push("/onboarding")}
             >
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Tiếp tục — làm khảo sát đầu vào
+              {watchedEnough ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Tiếp tục — làm bài test đầu vào
+                </>
+              ) : (
+                <>
+                  <Lock className="h-4 w-4 mr-2" />
+                  Xem đủ {requiredPercent}% video để mở bước tiếp theo
+                </>
+              )}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Bạn có thể vừa xem vừa làm — bấm Tiếp tục bất cứ lúc nào
-              {durationSec > 0 ? ` (đã xem ${percent}%)` : ""}. Video xem lại
-              được trong trang Hồ sơ.
+              Tua nhanh không được tính — chỉ giây xem thật mới cộng vào tiến độ.
+              Bỏ dở giữa chừng thì lần sau mở lại xem tiếp từ chỗ dừng.
             </p>
           </div>
+        )}
+
+        {!rewatch && watchedEnough && (
+          <IntakePromptModal onStart={() => router.push("/onboarding")} />
         )}
 
         {rewatch && (
