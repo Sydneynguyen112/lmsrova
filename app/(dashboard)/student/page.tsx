@@ -15,7 +15,6 @@ import {
   Flame,
   Radar,
   Construction,
-  PlayCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -89,25 +88,20 @@ export default function StudentDashboardPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [mySubmissions, setMySubmissions] = useState<SubmissionRow[]>([]);
-  const [totalWatchCount, setTotalWatchCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
 
     async function load() {
-      const [{ data: c }, { data: e }, submissions, { data: wp }] = await Promise.all([
+      const [{ data: c }, { data: e }, submissions] = await Promise.all([
         supabase.from("courses").select("*").order("created_at"),
         supabase.from("enrollments").select("*").eq("user_id", currentUser!.id),
         getSubmissionsByUser(currentUser!.id),
-        supabase.from("lesson_progress").select("watch_count").eq("user_id", currentUser!.id),
       ]);
       setCourses((c || []) as Course[]);
       setEnrollments((e || []) as Enrollment[]);
       setMySubmissions(submissions as SubmissionRow[]);
-      setTotalWatchCount(
-        ((wp || []) as { watch_count: number | null }[]).reduce((s, r) => s + (r.watch_count || 0), 0)
-      );
 
       setLoading(false);
     }
@@ -322,7 +316,7 @@ export default function StudentDashboardPage() {
 
         {/* ── Stats Row: Courses + Submissions ── */}
         <motion.div
-          className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3"
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -345,15 +339,6 @@ export default function StudentDashboardPage() {
                 {Math.round(activeEnrollments.reduce((s, e) => s + e.progress_pct, 0) / activeEnrollments.length || 0)}%
               </p>
               <p className="text-[11px] text-muted-foreground">Tiến độ</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-4 text-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10 mx-auto">
-                <PlayCircle className="h-4 w-4 text-violet-500" />
-              </div>
-              <p className="text-2xl font-bold mt-2">{totalWatchCount}</p>
-              <p className="text-[11px] text-muted-foreground">Lượt xem video</p>
             </CardContent>
           </Card>
           <Card>
