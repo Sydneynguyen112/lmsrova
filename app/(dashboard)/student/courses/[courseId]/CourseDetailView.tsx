@@ -335,7 +335,6 @@ export function CourseDetailView({ courseId }: Props) {
                         {moduleLessons.map((lesson) => {
                           const lp = data.progressMap.get(lesson.id);
                           const status = lp?.status || (lp?.completed ? "completed" : "not_started");
-                          const watchCount = lp?.watch_count || 0;
                           const isUnlocked = data.unlock.unlockedLessonIds.has(lesson.id);
                           const isCurrentOpen = lesson.id === currentOpenLessonId;
 
@@ -374,14 +373,7 @@ export function CourseDetailView({ courseId }: Props) {
 
                           const statusIcon =
                             status === "completed" ? (
-                              <span className="relative">
-                                <CheckCircle2 size={18} className="text-emerald-500" />
-                                {watchCount >= 2 && (
-                                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none">
-                                    {watchCount}
-                                  </span>
-                                )}
-                              </span>
+                              <CheckCircle2 size={18} className="text-emerald-500" />
                             ) : status === "in_progress" ? (
                               <PlayCircle size={18} className="text-gold" />
                             ) : (
