@@ -9,6 +9,8 @@ import type { Profile } from "@/lib/auth";
 import { ProfileEditor } from "@/components/shared/ProfileEditor";
 import { Button } from "@/components/ui/button";
 import { getOnboardingVideoSetting } from "@/lib/api-onboarding-video";
+import { SocialSettingsCard } from "@/components/social/SocialSettingsCard";
+import { BadgeShelf } from "@/components/social/BadgeShelf";
 
 export default function StudentProfilePage() {
   const currentUser = useCurrentUser("student");
@@ -43,6 +45,10 @@ export default function StudentProfilePage() {
   return (
     <>
       <ProfileEditor user={currentUser} mentorName={mentorName} />
+      <div className="px-6 pb-2 space-y-4">
+        <SocialSettingsCard userId={currentUser.id} />
+        <BadgeShelf userId={currentUser.id} />
+      </div>
       {hasOnboardingVideo && (
         <div className="px-6 pb-6">
           <Link href="/onboarding-video?rewatch=1">

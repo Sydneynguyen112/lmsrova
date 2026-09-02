@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageTransition } from "@/components/shared/PageTransition";
+import { GoldEcho } from "@/components/social/GoldEcho";
 
 interface FormInfo {
   id: string;
@@ -389,6 +390,9 @@ export function GraduationView({ courseId }: Props) {
             </p>
             <p className="text-xs text-red-400">* Bắt buộc</p>
           </div>
+
+          {/* Tiếng vọng Bảng vàng — động lực đúng thời điểm trước cửa ải cuối */}
+          <GoldEcho />
 
           {/* Questions */}
           {questions.map((q, i) => (

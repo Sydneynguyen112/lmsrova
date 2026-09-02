@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   BookOpen,
+  Users,
   Sprout,
   NotebookPen,
   type LucideIcon,
@@ -18,6 +19,7 @@ export interface NavItem {
 export const studentNav: NavItem[] = [
   { href: "/student", label: "Hành trình của tôi", icon: LayoutDashboard, requiresEnrollment: true },
   { href: "/student/courses", label: "Phòng học", icon: BookOpen },
+  { href: "/student/community", label: "Cộng đồng", icon: Users, requiresEnrollment: true },
   { href: "/student/blog", label: "Vườn ươm tâm thức", icon: Sprout },
   { href: "/student/journal", label: "Nhật ký giao dịch", icon: NotebookPen, requiresEnrollment: true },
 ];
