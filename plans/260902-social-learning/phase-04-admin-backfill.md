@@ -2,6 +2,8 @@
 
 Hai việc độc lập, gộp phase vì cùng phục vụ ngày go-live.
 
+> ĐÃ TRIỂN KHAI 02-09: phần admin nằm bên repo **rova-ops** (`app/admin/students/page.tsx` — khu admin đã dời khỏi lmsrova); phần script nằm ở `scripts/backfill-social.mjs` repo này. Chạy backfill cần thêm `SUPABASE_SERVICE_ROLE_KEY` vào `.env.local` (hiện chưa có).
+
 ## 1. Bộ lọc "tốt nghiệp mới" cho admin (thay cho tích hợp Discord)
 
 Mục đích: admin gán role Hạt giống thịnh vượng bên Discord BẰNG TAY không sót người.
