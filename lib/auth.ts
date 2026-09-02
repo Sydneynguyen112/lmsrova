@@ -23,6 +23,9 @@ export interface Profile {
   onboarding_video_position?: number;
   onboarding_video_watched_at?: string | null;
   learning_pace?: "fast" | "steady" | null;
+  tier?: "pro" | "pro_graduate" | "master" | "master_certified";
+  show_full_name?: boolean;
+  is_anonymous?: boolean;
 }
 
 export interface OnboardingSurvey {
