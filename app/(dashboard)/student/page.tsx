@@ -11,7 +11,6 @@ import {
   MessageCircle,
   XCircle,
   Clock,
-  Quote,
   Radar,
   Construction,
 } from "lucide-react";
@@ -158,8 +157,9 @@ export default function StudentDashboardPage() {
             Xin chào,{" "}
             <span className="gold-gradient-text">{currentUser.full_name}</span>!
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Tiếp tục hành trình trading của bạn.
+          <p className="text-muted-foreground mt-1 italic">
+            &ldquo;{dailyQuote.text}&rdquo;{" "}
+            <span className="text-gold not-italic font-medium">— {dailyQuote.author}</span>
           </p>
         </motion.div>
 
@@ -181,30 +181,7 @@ export default function StudentDashboardPage() {
           <IntakeResultCard userId={currentUser.id} />
         </motion.div>
 
-        {/* ── Daily Quote ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-        >
-          <Card className="border-gold/20 bg-gradient-to-r from-gold/5 to-transparent">
-            <CardContent className="flex items-start gap-4 py-5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold/10">
-                <Quote className="h-5 w-5 text-gold" />
-              </div>
-              <div>
-                <p className="text-sm text-foreground italic leading-relaxed">
-                  &ldquo;{dailyQuote.text}&rdquo;
-                </p>
-                <p className="text-xs text-gold font-medium mt-1.5">
-                  — {dailyQuote.author}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* ── Nhịp & đoàn + Radar ── */}
+        {/* ── Chuỗi học + Cộng đồng + Radar ── */}
         <motion.div
           className="grid grid-cols-1 md:grid-cols-2 gap-4"
           initial={{ opacity: 0, y: 16 }}

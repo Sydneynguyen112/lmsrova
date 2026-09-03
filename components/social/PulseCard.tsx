@@ -1,10 +1,12 @@
 "use client";
 
-// Khối "Nhịp & đoàn của bạn" trên trang nhà — mọi con số là CỦA MÌNH + vài tin mới của đoàn.
+// Hai thẻ cạnh nhau trên trang nhà (một lần fetch, trả fragment 2 Card):
+// 1. "Chuỗi học của bạn" — ngọn lửa + dải 7 ngày, KHÔNG link đi đâu (của mình, ngắm tại chỗ)
+// 2. "Cộng đồng" — hạng tuần + tin mới + CTA mời sang màn Cộng đồng
 // Luật hiển thị (biên bản chốt logic): chỉ trạng thái dương, KHÔNG đếm ngược, KHÔNG dọa mất chuỗi.
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Flame, Trophy, Users, ChevronRight } from "lucide-react";
+import { Flame, Trophy, Users, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getMyPulse, feedText, timeAgoVi, type MyPulse } from "@/lib/api-social";
@@ -38,36 +40,25 @@ export function PulseCard({ userId }: Props) {
   const last7 = pulse?.last7 ?? [];
 
   return (
-    <Link href="/student/community" className="block">
-      <Card className="border-gold/20 hover:border-gold/40 transition-all h-full">
+    <>
+      {/* ── Thẻ 1: Chuỗi học của bạn ── */}
+      <Card className="border-gold/20 h-full">
         <CardContent className="py-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-gold" />
-              <h3 className="font-semibold text-foreground">Nhịp &amp; đoàn của bạn</h3>
+              <Flame className="h-5 w-5 text-orange-500" />
+              <h3 className="font-semibold text-foreground">Chuỗi học của bạn</h3>
             </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-2xl font-extrabold text-orange-500">{streak}</span>
+              <span className="text-xs text-muted-foreground">ngày</span>
+            </div>
           </div>
 
           {loading ? (
             <p className="text-sm text-muted-foreground">Đang tải...</p>
           ) : (
             <>
-              <div className="flex items-center gap-2">
-                <Flame className="h-4 w-4 text-orange-500 shrink-0" />
-                <p className="text-sm text-foreground">
-                  {streak > 0 ? (
-                    <>
-                      Đang học đều{" "}
-                      <span className="font-bold text-orange-500">{streak} ngày</span>
-                    </>
-                  ) : (
-                    "Hôm nay là ngày đẹp để bắt đầu chuỗi học mới"
-                  )}
-                </p>
-              </div>
-
-              {/* Dải lửa 7 ngày — ngày có học sáng lửa, ngày chưa chỉ là con số (không dọa, không phạt) */}
               {last7.length > 0 && (
                 <div className="flex items-center justify-between gap-1">
                   {last7.map((d) => {
@@ -92,7 +83,28 @@ export function PulseCard({ userId }: Props) {
                   })}
                 </div>
               )}
+              <p className="text-xs text-muted-foreground">
+                {streak > 0
+                  ? "Nghỉ một hôm không sao, đừng nghỉ hai hôm liền nhé."
+                  : "Hôm nay là ngày đẹp để bắt đầu chuỗi học mới."}
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
+      {/* ── Thẻ 2: Cộng đồng ── */}
+      <Card className="border-gold/20 h-full">
+        <CardContent className="py-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-gold" />
+            <h3 className="font-semibold text-foreground">Cộng đồng</h3>
+          </div>
+
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Đang tải...</p>
+          ) : (
+            <>
               <div className="flex items-center gap-2">
                 <Trophy className="h-4 w-4 text-gold shrink-0" />
                 <p className="text-sm text-foreground">
@@ -112,7 +124,7 @@ export function PulseCard({ userId }: Props) {
 
               {recent.length > 0 && (
                 <div className="space-y-1.5 pt-2 border-t border-border">
-                  {recent.map((item, i) => (
+                  {recent.slice(0, 2).map((item, i) => (
                     <p key={i} className="text-xs text-muted-foreground line-clamp-1">
                       <span className="font-medium text-foreground">{item.name}</span>{" "}
                       {feedText(item)}
@@ -123,10 +135,18 @@ export function PulseCard({ userId }: Props) {
                   ))}
                 </div>
               )}
+
+              <Link
+                href="/student/community"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-gold hover:underline"
+              >
+                Xem bảng xếp hạng tuần này, biết đâu đang có tên bạn
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </>
           )}
         </CardContent>
       </Card>
-    </Link>
+    </>
   );
 }
