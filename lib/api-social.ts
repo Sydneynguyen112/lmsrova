@@ -49,11 +49,17 @@ export interface GoldBoard {
   items: GoldBoardItem[];
 }
 
+export interface PulseDay {
+  day: string; // YYYY-MM-DD theo giờ VN
+  active: boolean;
+}
+
 export interface MyPulse {
   streak: number;
   best_streak: number;
   week: BoardMe;
   recent: FeedItem[];
+  last7: PulseDay[];
 }
 
 export interface MyBadge {

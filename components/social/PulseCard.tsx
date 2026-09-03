@@ -6,7 +6,10 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Flame, Trophy, Users, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { getMyPulse, feedText, timeAgoVi, type MyPulse } from "@/lib/api-social";
+
+const DAY_NAMES = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 interface Props {
   userId: string;
@@ -32,6 +35,7 @@ export function PulseCard({ userId }: Props) {
   const streak = pulse?.streak ?? 0;
   const week = pulse?.week;
   const recent = pulse?.recent ?? [];
+  const last7 = pulse?.last7 ?? [];
 
   return (
     <Link href="/student/community" className="block">
@@ -62,6 +66,32 @@ export function PulseCard({ userId }: Props) {
                   )}
                 </p>
               </div>
+
+              {/* Dải lửa 7 ngày — ngày có học sáng lửa, ngày chưa chỉ là con số (không dọa, không phạt) */}
+              {last7.length > 0 && (
+                <div className="flex items-center justify-between gap-1">
+                  {last7.map((d) => {
+                    const date = new Date(`${d.day}T00:00:00`);
+                    return (
+                      <div key={d.day} className="flex flex-col items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground">
+                          {DAY_NAMES[date.getDay()]}
+                        </span>
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors",
+                            d.active
+                              ? "bg-orange-500/20 text-orange-500 border border-orange-500/30"
+                              : "bg-muted/30 text-muted-foreground/40"
+                          )}
+                        >
+                          {d.active ? <Flame className="h-3.5 w-3.5" /> : date.getDate()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <Trophy className="h-4 w-4 text-gold shrink-0" />

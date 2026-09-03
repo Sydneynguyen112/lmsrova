@@ -381,16 +381,27 @@ $$;
 
 CREATE OR REPLACE FUNCTION get_my_pulse(p_viewer UUID)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_streak INT := 0; v_best INT := 0; v_board jsonb;
+DECLARE v_streak INT := 0; v_best INT := 0; v_board jsonb; v_last7 jsonb;
 BEGIN
   SELECT CASE WHEN vn_today() - last_day < 3 THEN current_len ELSE 0 END, best_len
     INTO v_streak, v_best FROM streaks WHERE user_id = p_viewer;
   v_board := get_leaderboard_effort(p_viewer, NULL);
+
+  -- Dải lửa 7 ngày gần nhất (giờ VN): ngày nào có hoạt động học thì active
+  SELECT jsonb_agg(
+           jsonb_build_object('day', to_char(g.d, 'YYYY-MM-DD'), 'active', ed.day IS NOT NULL)
+           ORDER BY g.d)
+    INTO v_last7
+    FROM generate_series(vn_today() - 6, vn_today(), interval '1 day') AS g(d)
+    LEFT JOIN (SELECT DISTINCT day FROM effort_daily WHERE user_id = p_viewer) ed
+      ON ed.day = g.d::date;
+
   RETURN jsonb_build_object(
     'streak', COALESCE(v_streak, 0),
     'best_streak', COALESCE(v_best, 0),
     'week', v_board->'me',
-    'recent', get_feed(3));
+    'recent', get_feed(3),
+    'last7', COALESCE(v_last7, '[]'::jsonb));
 END $$;
 
 CREATE OR REPLACE FUNCTION get_my_badges(p_viewer UUID)
