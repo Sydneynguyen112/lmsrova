@@ -218,3 +218,59 @@ CREATE POLICY "allow_all_forms" ON forms FOR ALL TO anon, authenticated USING (t
 CREATE POLICY "allow_all_form_questions" ON form_questions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_form_responses" ON form_responses FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_form_answers" ON form_answers FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- ============================================
+-- STORAGE — KHO ẢNH BÌA BÀI VIẾT (blog-covers)
+-- ============================================
+-- Kho chứa ảnh bìa của mục "Vườn ươm tâm thức" (blog_posts.cover_url).
+-- Trước đây cover_url trỏ thẳng vào CDN của Discord, nhưng link Discord
+-- bắt buộc kèm chữ ký ?ex=&is=&hm= và HẾT HẠN sau khoảng 24 giờ
+-- (bỏ chữ ký thì trả về 404), nên ảnh vỡ liên tục. Từ 03-09-2026 ảnh
+-- được tải lên kho này và cover_url dùng link công khai cố định:
+--   <SUPABASE_URL>/storage/v1/object/public/blog-covers/<ten-file>.webp
+--
+-- LƯU Ý: phần này KHÔNG xoá kho như phần DROP TABLE ở đầu file —
+-- xoá kho là mất sạch ảnh đã tải lên. Lệnh dưới chạy lại được nhiều lần.
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'blog-covers',
+  'blog-covers',
+  true,
+  10485760,                                        -- 10 MB mỗi file
+  ARRAY['image/webp','image/png','image/jpeg']
+)
+ON CONFLICT (id) DO UPDATE
+  SET public = true,
+      file_size_limit = 10485760,
+      allowed_mime_types = ARRAY['image/webp','image/png','image/jpeg'];
+
+-- Kho để PUBLIC nên KHÁCH XEM đọc ảnh qua đường /object/public/ mà không cần
+-- policy nào. Bốn policy dưới đây chỉ dành cho người dùng ĐÃ ĐĂNG NHẬP
+-- (authenticated), để trang quản trị blog ở repo rova-ops tự tải ảnh bìa lên,
+-- thay thế và xoá được. KHÔNG mở cho anon: anon key nằm sẵn trong bundle
+-- trình duyệt, mở ra là khách vãng lai ghi đè hay xoá được ảnh.
+-- SELECT cho authenticated là BẮT BUỘC nếu muốn XOÁ được file: lệnh DELETE
+-- phải tìm thấy dòng trong storage.objects trước đã. Thiếu policy này thì
+-- xoá luôn trả về 403 dù đã có policy DELETE. Không ảnh hưởng người xem:
+-- khách vẫn đọc ảnh qua đường /object/public/ như thường.
+DROP POLICY IF EXISTS "blog_covers_authenticated_select" ON storage.objects;
+CREATE POLICY "blog_covers_authenticated_select" ON storage.objects
+  FOR SELECT TO authenticated USING (bucket_id = 'blog-covers');
+
+DROP POLICY IF EXISTS "blog_covers_authenticated_insert" ON storage.objects;
+CREATE POLICY "blog_covers_authenticated_insert" ON storage.objects
+  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'blog-covers');
+
+DROP POLICY IF EXISTS "blog_covers_authenticated_update" ON storage.objects;
+CREATE POLICY "blog_covers_authenticated_update" ON storage.objects
+  FOR UPDATE TO authenticated USING (bucket_id = 'blog-covers');
+
+DROP POLICY IF EXISTS "blog_covers_authenticated_delete" ON storage.objects;
+CREATE POLICY "blog_covers_authenticated_delete" ON storage.objects
+  FOR DELETE TO authenticated USING (bucket_id = 'blog-covers');
+
+-- Ảnh nên nén trước khi tải lên: WebP, rộng tối đa 1400px, chất lượng 82.
+-- Bộ 36 ảnh gốc 85 MB giảm còn 5,5 MB mà nhìn trên thẻ bài vẫn nét.
+-- Trang quản trị rova-ops đã tự nén đúng mức này trong `uploadBlogCover()`
+-- (lib/api.ts) trước khi đẩy lên bucket.
