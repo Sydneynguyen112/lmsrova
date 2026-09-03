@@ -11,8 +11,6 @@ import {
   MessageCircle,
   XCircle,
   Clock,
-  Radar,
-  Construction,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -163,25 +161,20 @@ export default function StudentDashboardPage() {
           </p>
         </motion.div>
 
-        {/* ── Hôm nay làm gì (todolist theo nhịp học) ── */}
+        {/* ── Nhịp học (todolist hôm nay) + Kết quả bài test đầu vào — cạnh nhau ── */}
+        {/* Nếu chưa có kết quả test (thẻ trả về null) thì thẻ nhịp học tự chiếm trọn hàng */}
         <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 md:[&>*:only-child]:col-span-2"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.03 }}
         >
           <DailyTodoCard user={currentUser} courseId={activeEnrollments[0].course_id} />
-        </motion.div>
-
-        {/* ── Kết quả bài test đầu vào (xem lại bất cứ lúc nào) ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.04 }}
-        >
           <IntakeResultCard userId={currentUser.id} />
         </motion.div>
 
-        {/* ── Chuỗi học + Cộng đồng + Radar ── */}
+        {/* ── Chuỗi học + Cộng đồng — cạnh nhau ── */}
+        {/* Radar năng lực đã ẩn (chưa có dữ liệu) — bật lại khi làm xong biểu đồ */}
         <motion.div
           className="grid grid-cols-1 md:grid-cols-2 gap-4"
           initial={{ opacity: 0, y: 16 }}
@@ -189,25 +182,6 @@ export default function StudentDashboardPage() {
           transition={{ delay: 0.08 }}
         >
           <PulseCard userId={currentUser.id} />
-
-          {/* Radar năng lực — Coming Soon */}
-          <Card className="border-dashed border-border">
-            <CardContent className="py-5 flex flex-col items-center justify-center text-center space-y-3 min-h-[170px]">
-              <div className="w-12 h-12 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center">
-                <Radar className="h-5 w-5 text-gold" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Radar năng lực</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Biểu đồ đánh giá năng lực trading theo nhiều tiêu chí
-                </p>
-              </div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1">
-                <Construction className="h-3 w-3 text-gold" />
-                <span className="text-[11px] font-medium text-gold">Coming Soon</span>
-              </div>
-            </CardContent>
-          </Card>
         </motion.div>
 
         {/* ── Stats Row: Courses + Submissions ── */}

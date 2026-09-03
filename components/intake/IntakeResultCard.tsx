@@ -25,9 +25,9 @@ export function IntakeResultCard({ userId }: { userId: string }) {
   if (!visible) return null;
 
   return (
-    <Link href="/student/intake-result">
-      <Card className="border-gold/20 transition-colors hover:border-gold/50">
-        <CardContent className="flex items-center gap-4 py-5">
+    <Link href="/student/intake-result" className="block h-full">
+      <Card className="h-full border-gold/20 transition-colors hover:border-gold/50">
+        <CardContent className="flex h-full items-center gap-4 py-5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold/10">
             <Stethoscope className="h-5 w-5 text-gold" />
           </div>
