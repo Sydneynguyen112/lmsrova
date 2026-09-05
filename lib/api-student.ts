@@ -148,16 +148,25 @@ export async function loadStudentUnlockData(
   userId: string,
   courseId: string
 ): Promise<StudentUnlockData> {
-  const [stages, stageProgress, lessons, progressMap, passedQuizIds, imageCounts, courseRow] =
-    await Promise.all([
-      getRoadmapStages(courseId),
-      getStageProgress(userId),
-      getCourseLessonsSorted(courseId),
-      getLessonProgressMap(userId),
-      getPassedQuizIds(userId),
-      getImageCountsByAssignment(userId),
-      supabase.from("courses").select("price, price_label").eq("id", courseId).single(),
-    ]);
+  const [
+    stages,
+    stageProgress,
+    lessons,
+    progressMap,
+    passedQuizIds,
+    imageCounts,
+    courseRow,
+    profileRow,
+  ] = await Promise.all([
+    getRoadmapStages(courseId),
+    getStageProgress(userId),
+    getCourseLessonsSorted(courseId),
+    getLessonProgressMap(userId),
+    getPassedQuizIds(userId),
+    getImageCountsByAssignment(userId),
+    supabase.from("courses").select("price, price_label").eq("id", courseId).single(),
+    supabase.from("profiles").select("unlock_all_lessons").eq("id", userId).single(),
+  ]);
   const lessonQuizMap = await getLessonQuizMap(lessons.map((l) => l.id));
 
   const lessonLites: LessonLite[] = lessons.map((l, i) => ({
@@ -177,9 +186,13 @@ export async function loadStudentUnlockData(
     progress: stageProgress,
   });
 
-  // Khoá miễn phí: bỏ khoá tuần tự, mở toàn bộ bài (done vẫn tính theo giây xem thật)
+  // Bỏ khoá tuần tự, mở toàn bộ bài (done vẫn tính theo giây xem thật) khi:
+  //   - khoá miễn phí, hoặc
+  //   - học viên được cấp quyền mở khoá toàn bộ (khách mời/VIP, bật từ SQL Editor)
   const c = courseRow.data as { price: number | null; price_label: string | null } | null;
-  if (c && !c.price && c.price_label === "Miễn phí") {
+  const p = profileRow.data as { unlock_all_lessons: boolean | null } | null;
+  const isFreeCourse = !!c && !c.price && c.price_label === "Miễn phí";
+  if (isFreeCourse || p?.unlock_all_lessons) {
     unlock.unlockedLessonIds = new Set(lessons.map((l) => l.id));
     unlock.firstLockedLessonId = null;
   }
