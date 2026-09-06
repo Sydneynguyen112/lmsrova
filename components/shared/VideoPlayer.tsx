@@ -51,6 +51,14 @@ export function VideoPlayer({
   // Ref song song với state để handleMessage khỏi phải re-render mỗi timeupdate.
   const aliveRef = useRef(false);
 
+  // Khung nhúng có tải xong không (sự kiện load của iframe). Tách biệt hẳn với
+  // chuyện trình phát có chạy không — hai thứ này hỏng vì hai lý do khác nhau.
+  const [frameLoaded, setFrameLoaded] = useState(false);
+  // Tự thử với tới máy chủ file của Bunny, để bảng báo SỰ THẬT ĐO ĐƯỢC thay vì đoán.
+  const [reach, setReach] = useState<"chua-thu" | "dang-thu" | "toi-duoc" | "bi-chan">("chua-thu");
+  // Cờ "đã bắn phép thử" — dùng ref chứ không dùng state để không kéo effect chạy lại.
+  const probeStartedRef = useRef(false);
+
   useEffect(() => {
     // Đổi bài → iframe mới, đếm lại từ đầu.
     aliveRef.current = false;
@@ -209,6 +217,38 @@ export function VideoPlayer({
 
   const stuck = status === "stuck";
 
+  // Khi bí, tự thử tải MỘT file tĩnh của Bunny. Không JavaScript, không trình
+  // phát, không iframe — chỉ đo xem mạng của người xem có với tới Bunny không.
+  // KHÔNG đưa `reach` vào phụ thuộc: setReach("dang-thu") sẽ làm effect chạy lại
+  // và cleanup huỷ luôn cái fetch vừa bắn — kết quả kẹt "đang thử" mãi.
+  useEffect(() => {
+    if (!stuck || probeStartedRef.current) return;
+    probeStartedRef.current = true;
+    setReach("dang-thu");
+    let huy = false;
+    const bo = new AbortController();
+    const hetGio = window.setTimeout(() => bo.abort(), 8000);
+    fetch("https://assets.mediadelivery.net/plyr/3.7.8.4-bn/plyr.css", {
+      cache: "no-store",
+      signal: bo.signal,
+    })
+      .then((r) => !huy && setReach(r.ok ? "toi-duoc" : "bi-chan"))
+      .catch(() => !huy && setReach("bi-chan"))
+      .finally(() => clearTimeout(hetGio));
+    return () => {
+      huy = true;
+      bo.abort();
+      clearTimeout(hetGio);
+    };
+  }, [stuck]);
+
+  // Đổi bài thì đo lại từ đầu.
+  useEffect(() => {
+    setFrameLoaded(false);
+    setReach("chua-thu");
+    probeStartedRef.current = false;
+  }, [playbackId]);
+
   return (
     <div
       className="bg-black"
@@ -227,6 +267,7 @@ export function VideoPlayer({
         // KHÔNG dùng loading="lazy": khung video luôn nằm ngay đầu trang bài học,
         // lazy chẳng tiết kiệm được gì mà chỉ làm trình duyệt hoãn tải trình phát.
         loading="eager"
+        onLoad={() => setFrameLoaded(true)}
         style={{
           border: "none",
           position: "absolute",
@@ -264,18 +305,47 @@ export function VideoPlayer({
               <AlertTriangle className="h-4 w-4 shrink-0 text-gold" />
               <p className="text-sm font-semibold">Video vẫn chưa lên hình</p>
             </div>
-            <p className="text-xs text-white/70">
-              Video trên hệ thống vẫn bình thường. Trình duyệt hoặc mạng của bạn đang chặn
-              trình phát. Thử lần lượt:
+            {reach === "bi-chan" ? (
+              <>
+                <p className="text-xs text-white/70">
+                  Video trên hệ thống vẫn bình thường, nhưng máy bạn không tải được file
+                  của trình phát. Thường là do chặn quảng cáo, phần mềm diệt virus, hoặc
+                  mạng. Thử lần lượt:
+                </p>
+                <ol className="list-decimal space-y-0.5 pl-4 text-xs text-white/80">
+                  <li>
+                    Nhấn <span className="font-semibold text-white">Ctrl + Shift + R</span> để
+                    tải lại, bỏ qua bộ nhớ tạm.
+                  </li>
+                  <li>Tắt tiện ích chặn quảng cáo, tắt VPN, tắt lọc web của phần mềm diệt virus.</li>
+                  <li>Đổi DNS máy sang 8.8.8.8, hoặc thử mạng khác (4G điện thoại).</li>
+                </ol>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-white/70">
+                  {reach === "toi-duoc"
+                    ? "Mạng của bạn vẫn tới được máy chủ video bình thường, nên đây không phải lỗi mạng. Trình phát khởi động không xong. Thử:"
+                    : "Trình phát khởi động không xong. Thử:"}
+                </p>
+                <ol className="list-decimal space-y-0.5 pl-4 text-xs text-white/80">
+                  <li>Bấm “Tải lại trang”.</li>
+                  <li>Bấm “Mở ở tab mới” để xem video ngay, không cần chờ.</li>
+                  <li>Nếu vẫn không được, chụp màn hình cả khung này gửi ROVA.</li>
+                </ol>
+              </>
+            )}
+
+            {/* Dòng dữ kiện: để ảnh chụp màn hình của học viên tự nói lên nguyên nhân,
+                khỏi phải hỏi qua hỏi lại. */}
+            <p className="text-[11px] text-white/40">
+              Chẩn đoán: khung nhúng {frameLoaded ? "đã tải" : "chưa tải"} · máy chủ file{" "}
+              {reach === "toi-duoc"
+                ? "tới được"
+                : reach === "bi-chan"
+                  ? "KHÔNG tới được"
+                  : "đang thử"}
             </p>
-            <ol className="list-decimal space-y-0.5 pl-4 text-xs text-white/80">
-              <li>
-                Nhấn <span className="font-semibold text-white">Ctrl + Shift + R</span> để
-                tải lại, bỏ qua bộ nhớ tạm.
-              </li>
-              <li>Tắt chặn quảng cáo, hoặc lá chắn Shields của Brave.</li>
-              <li>Mở bằng Chrome hoặc Edge.</li>
-            </ol>
             <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
               <button
                 type="button"
