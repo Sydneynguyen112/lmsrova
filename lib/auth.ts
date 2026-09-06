@@ -251,8 +251,18 @@ export async function ensureProfile(): Promise<{ profile: Profile; isNewUser: bo
 }
 
 /**
- * Hook to get the currently logged-in user from Supabase.
- * Checks: Supabase Auth session → localStorage. Trả null nếu chưa đăng nhập.
+ * Hook lấy người dùng đang đăng nhập. CHỈ tin phiên Supabase Auth thật.
+ *
+ * Trước đây có đường dự phòng: không có phiên thì lấy id trong localStorage rồi
+ * nạp hồ sơ theo id đó. Bỏ đi vì hai lý do:
+ *   1. Bảo mật — ai sửa được localStorage là tự khai mình thành người khác.
+ *   2. Sau khi chạy supabase-rls-content-hardening.sql, người không có phiên
+ *      thật mang vai anon nên MỌI thao tác ghi đều bị từ chối. Giữ đường dự
+ *      phòng thì họ trông như đã đăng nhập nhưng tiến độ học âm thầm không lưu
+ *      được — hỏng kiểu im lặng, tệ hơn là bắt đăng nhập lại.
+ *
+ * Hệ quả: học viên nào còn id cũ trong localStorage mà phiên đã hết hạn sẽ bị
+ * coi là chưa đăng nhập và phải đăng nhập lại một lần. Đây là đánh đổi có chủ ý.
  */
 export function useCurrentUser(_fallbackRole: string | null = null): Profile | null {
   const [user, setUser] = useState<Profile | null>(null);
@@ -275,20 +285,9 @@ export function useCurrentUser(_fallbackRole: string | null = null): Profile | n
         }
       }
 
-      const storedId = getStoredUserId();
-      if (storedId) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", storedId)
-          .single();
-        if (!cancelled && data) {
-          setUser(data as Profile);
-          return;
-        }
-        localStorage.removeItem(STORAGE_KEY);
-      }
-
+      // Không có phiên Supabase hợp lệ = chưa đăng nhập. Dọn luôn id cũ để lần
+      // sau không còn gì gợi ý là đang đăng nhập.
+      if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
       if (!cancelled) setUser(null);
     }
 
