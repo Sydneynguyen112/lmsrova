@@ -265,12 +265,41 @@ export async function ensureProfile(): Promise<{ profile: Profile; isNewUser: bo
  * coi là chưa đăng nhập và phải đăng nhập lại một lần. Đây là đánh đổi có chủ ý.
  */
 export function useCurrentUser(_fallbackRole: string | null = null): Profile | null {
+  return useCurrentUserState().user;
+}
+
+/** "checking" = đang hỏi Supabase, chưa biết gì · "signed-out" = đã hỏi xong, không có ai */
+export type AuthStatus = "checking" | "signed-in" | "signed-out";
+
+/**
+ * Bản đầy đủ của useCurrentUser, có kèm TRẠNG THÁI.
+ *
+ * Vì sao cần: useCurrentUser trả null cho CẢ HAI trường hợp "đang kiểm tra" và
+ * "chưa đăng nhập". Các màn dashboard viết `if (!currentUser) return <Đang tải…>`
+ * nên người chưa đăng nhập bị kẹt ở màn "Đang tải…" vĩnh viễn thay vì được đưa
+ * về trang đăng nhập. OnboardingGate dùng status này để đẩy đúng chỗ.
+ */
+export function useCurrentUserState(): { user: Profile | null; status: AuthStatus } {
   const [user, setUser] = useState<Profile | null>(null);
+  const [status, setStatus] = useState<AuthStatus>("checking");
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      // getSession() đọc từ bộ nhớ máy, KHÔNG gọi mạng. Dùng nó để quyết định
+      // "chưa đăng nhập", tránh việc mạng chập chờn làm getUser() trả rỗng rồi
+      // đá oan người đang đăng nhập về trang đăng nhập.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
+        if (!cancelled) {
+          setUser(null);
+          setStatus("signed-out");
+        }
+        return;
+      }
+
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser?.email && !cancelled) {
         const { data } = await supabase
@@ -281,6 +310,7 @@ export function useCurrentUser(_fallbackRole: string | null = null): Profile | n
         if (!cancelled && data) {
           localStorage.setItem(STORAGE_KEY, data.id);
           setUser(data as Profile);
+          setStatus("signed-in");
           return;
         }
       }
@@ -288,7 +318,10 @@ export function useCurrentUser(_fallbackRole: string | null = null): Profile | n
       // Không có phiên Supabase hợp lệ = chưa đăng nhập. Dọn luôn id cũ để lần
       // sau không còn gì gợi ý là đang đăng nhập.
       if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
-      if (!cancelled) setUser(null);
+      if (!cancelled) {
+        setUser(null);
+        setStatus("signed-out");
+      }
     }
 
     load();
@@ -313,5 +346,5 @@ export function useCurrentUser(_fallbackRole: string | null = null): Profile | n
     };
   }, []);
 
-  return user;
+  return { user, status };
 }
