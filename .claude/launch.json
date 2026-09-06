@@ -5,7 +5,6 @@
       "name": "lms-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "C:\\Users\\Administrator\\LMS_ROVA\\rova-lms",
       "port": 3000
     }
   ]
