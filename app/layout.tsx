@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Máy chủ CDN chứa file video của Bunny (vz-....b-cdn.net) — dùng để bắt tay sớm.
+const BUNNY_CDN_HOSTNAME = process.env.NEXT_PUBLIC_BUNNY_CDN_HOSTNAME;
+
 export const metadata: Metadata = {
   title: "ROVA LMS — Học Trading Chuyên Nghiệp",
   description:
@@ -36,6 +39,19 @@ export default function RootLayout({
       className={`${manrope.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        {/*
+          Bắt tay sẵn với Bunny ngay từ lúc tải trang. Đo thực tế: mở kết nối tới
+          iframe.mediadelivery.net tốn ~720ms (DNS 196 + TCP/TLS 527) — phần này
+          nằm chình ình trước mọi thứ khác. Làm sớm ở đây thì lúc khung video mới
+          gắn vào, đường đã thông sẵn, đỡ được gần 1 giây.
+        */}
+        <link rel="preconnect" href="https://iframe.mediadelivery.net" crossOrigin="" />
+        <link rel="preconnect" href="https://assets.mediadelivery.net" crossOrigin="" />
+        {BUNNY_CDN_HOSTNAME && (
+          <link rel="preconnect" href={`https://${BUNNY_CDN_HOSTNAME}`} crossOrigin="" />
+        )}
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider
           attribute="class"

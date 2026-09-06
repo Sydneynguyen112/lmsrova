@@ -224,7 +224,9 @@ export function VideoPlayer({
       <iframe
         ref={iframeRef}
         src={embedUrl}
-        loading="lazy"
+        // KHÔNG dùng loading="lazy": khung video luôn nằm ngay đầu trang bài học,
+        // lazy chẳng tiết kiệm được gì mà chỉ làm trình duyệt hoãn tải trình phát.
+        loading="eager"
         style={{
           border: "none",
           position: "absolute",
