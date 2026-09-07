@@ -287,15 +287,20 @@ export interface SubmissionImageRow {
   assignment_id: string;
   image_url: string;
   verdict: "pending" | "correct" | "incorrect";
-  feedback: string | null;
+  feedback: string | null; // ghi chú mentor riêng cho ảnh này
+  fix_url: string | null; // link bài sửa của mentor (TradingView...)
+  fix_image_url: string | null; // ảnh sửa mentor dán vào
+  redo_of_image_id: string | null; // ảnh này nộp bù cho ảnh nào (ảnh cũ bị Sai)
   graded_at: string | null;
   created_at: string;
 }
 
+// redoOfImageIds[i] = id ảnh cũ bị Sai mà imageUrls[i] nộp bù cho (null nếu nộp mới)
 export async function createSubmissionWithImages(input: {
   assignmentId: string;
   userId: string;
   imageUrls: string[];
+  redoOfImageIds?: (string | null)[];
   note?: string;
 }): Promise<{ id: string }> {
   const { data: submission, error } = await supabase
@@ -312,12 +317,13 @@ export async function createSubmissionWithImages(input: {
 
   if (input.imageUrls.length > 0) {
     const { error: imgError } = await supabase.from("submission_images").insert(
-      input.imageUrls.map((url) => ({
+      input.imageUrls.map((url, i) => ({
         submission_id: submission.id,
         user_id: input.userId,
         assignment_id: input.assignmentId,
         image_url: url,
         verdict: "pending",
+        redo_of_image_id: input.redoOfImageIds?.[i] || null,
       }))
     );
     if (imgError) throw imgError;
