@@ -373,7 +373,8 @@ export function AssignmentPanel({
       onProgress();
     } catch (err) {
       console.error("Không nộp được bài:", err);
-      setComposerError("Không nộp được bài — kiểm tra mạng rồi thử lại.");
+      const detail = err instanceof Error && err.message ? ` (${err.message})` : "";
+      setComposerError(`Không nộp được bài — kiểm tra mạng rồi thử lại${detail}. Nếu vẫn lỗi, chụp màn hình này gửi mentor.`);
     }
     setSubmitting(false);
   }

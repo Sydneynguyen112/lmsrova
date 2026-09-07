@@ -327,7 +327,11 @@ export async function createSubmissionWithImages(input: {
         ...(input.redoOfImageIds?.[i] ? { redo_of_image_id: input.redoOfImageIds[i] } : {}),
       }))
     );
-    if (imgError) throw imgError;
+    if (imgError) {
+      // Ghi ảnh hỏng → xoá dòng submissions vừa tạo, không để lần nộp rỗng (mentor không thấy, học viên bấm lại tạo rác)
+      await supabase.from("submissions").delete().eq("id", submission.id);
+      throw new Error(`Không lưu được ảnh: ${imgError.message}`);
+    }
   }
   return submission;
 }
