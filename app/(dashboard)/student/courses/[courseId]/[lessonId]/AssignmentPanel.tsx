@@ -60,7 +60,6 @@ interface SubmissionRow {
   id: string;
   assignment_id: string;
   note: string | null;
-  image_urls: string[] | null;
   mentor_feedback: string | null;
   graded_at: string | null;
   submitted_at: string;
@@ -118,14 +117,12 @@ function resizeToDataUrl(file: File, maxSize = 1280): Promise<string> {
   });
 }
 
-// Thứ tự ảnh trong 1 lần nộp = thứ tự trong submissions.image_urls (lúc nộp), fallback created_at
-function orderImages(imgs: SubmissionImageRow[], urls: string[] | null): SubmissionImageRow[] {
-  const idx = new Map((urls || []).map((u, i) => [u, i]));
+// Thứ tự ảnh trong 1 lần nộp: created_at rồi id — CÙNG quy tắc với màn mentor (rova-ops api-mentor
+// orderSubmissionImages) để "#3" ở hai phía là cùng một ảnh.
+function orderImages(imgs: SubmissionImageRow[]): SubmissionImageRow[] {
   return [...imgs].sort((a, b) => {
-    const ia = idx.get(a.image_url);
-    const ib = idx.get(b.image_url);
-    if (ia !== undefined && ib !== undefined && ia !== ib) return ia - ib;
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    const d = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    return d !== 0 ? d : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
 }
 
@@ -225,7 +222,7 @@ export function AssignmentPanel({
     return [...submissions]
       .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())
       .map((s) => {
-        const imgs = orderImages(bySub.get(s.id) || [], s.image_urls);
+        const imgs = orderImages(bySub.get(s.id) || []);
         return {
           submission: s,
           images: imgs,
