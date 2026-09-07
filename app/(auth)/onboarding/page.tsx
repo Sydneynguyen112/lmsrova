@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getStoredUserId, type Profile } from "@/lib/auth";
-import { isApproved } from "@/lib/approval";
+
 import { getPublishedIntakeForm, submitIntake } from "@/lib/api-intake";
 import { getIntakeNextStep, type IntakeNextStep } from "@/lib/intake-next-step";
 import { saveLearningPace, type LearningPace } from "@/lib/daily-todo";
@@ -74,11 +74,8 @@ export default function OnboardingPage() {
         router.replace("/student");
         return;
       }
-      // Chưa được admin/mentor duyệt → về trang chủ xem thông báo chờ duyệt
-      if (!(await isApproved(userId))) {
-        if (!cancelled) router.replace("/student");
-        return;
-      }
+      // KHÔNG chặn theo duyệt nữa: học viên làm onboarding TRƯỚC, tự chọn mentor
+      // trong form → mentor thấy trong dashboard rồi mới mở khoá học (= duyệt).
       setProfile(p as Profile);
       if (intakeForm && intakeForm.questions.length > 0) {
         setFormId(intakeForm.form.id);
@@ -99,6 +96,8 @@ export default function OnboardingPage() {
 
   const question = questions[step];
   const meta = question ? parseMeta(question) : null;
+  // Câu "mentor" chỉ khác ở bước nộp (tự gán mentor_id) — hiển thị như câu thường
+  const plainQuestion = !meta?.semantic || meta.semantic === "mentor";
   // Câu nhạy cảm hoặc không bắt buộc → được phép bỏ qua
   const skippable = !!meta && (meta.sensitive || !question.required);
   const hasAnswer = !!question && !!answers[question.id]?.trim();
@@ -331,7 +330,7 @@ export default function OnboardingPage() {
           )}
 
           {/* Các loại câu hỏi thường */}
-          {!meta?.semantic && question?.question_type === "radio" && (
+          {plainQuestion && question?.question_type === "radio" && (
             <div className="space-y-2">
               {question.options?.map((opt, j) => (
                 <motion.button
@@ -352,7 +351,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {!meta?.semantic && question?.question_type === "checkbox" && (
+          {plainQuestion && question?.question_type === "checkbox" && (
             <div className="space-y-2">
               {question.options?.map((opt, j) => {
                 const checked = (answers[question.id] || "").split("|||").includes(opt);
@@ -375,7 +374,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {!meta?.semantic && question?.question_type === "select" && (
+          {plainQuestion && question?.question_type === "select" && (
             <select
               value={answers[question.id] || ""}
               onChange={(e) => setAnswer(question.id, e.target.value)}
@@ -388,7 +387,7 @@ export default function OnboardingPage() {
             </select>
           )}
 
-          {!meta?.semantic && question?.question_type === "text" && (
+          {plainQuestion && question?.question_type === "text" && (
             <Input
               value={answers[question.id] || ""}
               onChange={(e) => setAnswer(question.id, e.target.value)}
@@ -396,7 +395,7 @@ export default function OnboardingPage() {
             />
           )}
 
-          {!meta?.semantic && question?.question_type === "textarea" && (
+          {plainQuestion && question?.question_type === "textarea" && (
             <textarea
               value={answers[question.id] || ""}
               onChange={(e) => setAnswer(question.id, e.target.value)}
@@ -406,7 +405,7 @@ export default function OnboardingPage() {
             />
           )}
 
-          {!meta?.semantic && question?.question_type === "rating" && (
+          {plainQuestion && question?.question_type === "rating" && (
             <div className="flex gap-1">
               {[1, 2, 3, 4, 5].map((s) => (
                 <button key={s} type="button" onClick={() => setAnswer(question.id, String(s))}>

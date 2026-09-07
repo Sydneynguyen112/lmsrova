@@ -64,9 +64,12 @@ export function parseMeta(q: IntakeQuestion): IntakeMeta {
     ? (raw.optionGroups as Record<string, PersonalityGroup>) : null;
   const optionFlags = raw.optionFlags && typeof raw.optionFlags === "object"
     ? (raw.optionFlags as Record<string, IntakeFlag[]>) : null;
-  const semantic = raw.semantic === "birth_date" || raw.semantic === "birth_time"
+  const semantic = raw.semantic === "birth_date" || raw.semantic === "birth_time" || raw.semantic === "mentor"
     ? raw.semantic : null;
-  return { section, dimension, optionScores, optionGroups, optionFlags, semantic, sensitive: raw.sensitive === true };
+  const optionMentorEmails = Array.isArray(raw.optionMentorEmails)
+    ? raw.optionMentorEmails.map((e) => (typeof e === "string" && e.trim() ? e.trim().toLowerCase() : null))
+    : null;
+  return { section, dimension, optionScores, optionGroups, optionFlags, semantic, optionMentorEmails, sensitive: raw.sensitive === true };
 }
 
 // answers: questionId -> option label (radio/select) hoặc chuỗi "|||"-joined (checkbox).

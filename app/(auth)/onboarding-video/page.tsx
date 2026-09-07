@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/shared/VideoPlayer";
 import { IntakePromptModal } from "@/components/intake/IntakePromptModal";
 import { useCurrentUser } from "@/lib/auth";
-import { isApproved } from "@/lib/approval";
+
 import {
   ONBOARDING_VIDEO_WATCH_RATIO,
   flushOnboardingVideoProgress,
@@ -73,11 +73,7 @@ export default function OnboardingVideoPage() {
       window.location.href = "https://rova-ops.vercel.app";
       return;
     }
-    // Chưa được admin/mentor duyệt → về trang chủ xem thông báo chờ duyệt
-    let cancelled = false;
-    isApproved(currentUser.id).then((approved) => {
-      if (!cancelled && !approved) router.replace("/student");
-    });
+    // Không chặn theo duyệt: xem video + làm onboarding TRƯỚC khi được mở khoá học
     // Học viên cũ (đã làm khảo sát trước khi có tính năng) — miễn xem
     if (currentUser.onboarding_survey) {
       router.replace("/student");
@@ -87,10 +83,6 @@ export default function OnboardingVideoPage() {
     if (!videoId || currentUser.onboarding_video_watched_at) {
       router.replace("/onboarding");
     }
-
-    return () => {
-      cancelled = true;
-    };
   }, [currentUser, settingLoaded, videoId, rewatch, router]);
 
   // Xem đủ 80% giây THẬT (tua nhanh không tính) mới mở đường sang bài test

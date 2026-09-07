@@ -7,6 +7,7 @@ import { initStudentRoadmap, checkAndCompleteStages } from "./roadmap";
 import {
   computeIntake,
   buildLegacyOnboardingBlob,
+  parseMeta,
   type IntakeQuestion,
   type IntakeComputed,
   type StudentVisibleResult,
@@ -18,6 +19,52 @@ export const ROADMAP_COURSE_ID = "c-mov3c81m-fdq2";
 export interface IntakeForm {
   form: FormRow;
   questions: IntakeQuestion[];
+}
+
+// Bỏ dấu + hạ chữ thường + tách token, sắp xếp — để "Trương Văn Tiến" khớp
+// "Văn Tiến Trương" (tài khoản mentor ghi tên theo thứ tự khác form).
+function nameKey(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d").replace(/Đ/g, "D")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort()
+    .join(" ");
+}
+
+/**
+ * Từ câu trả lời câu semantic="mentor" → id tài khoản mentor (role='mentor').
+ * Ưu tiên meta.optionMentorEmails[index]; không có thì khớp theo tên.
+ * Không tìm ra (mentor chưa có tài khoản) → null, KHÔNG chặn nộp bài —
+ * câu trả lời vẫn nằm trong form_answers để admin gán tay.
+ */
+export async function resolveMentorFromAnswers(
+  questions: IntakeQuestion[],
+  answers: Record<string, string>
+): Promise<string | null> {
+  const q = questions.find((x) => parseMeta(x).semantic === "mentor");
+  if (!q) return null;
+  const answer = (answers[q.id] || "").trim();
+  if (!answer) return null;
+  const meta = parseMeta(q);
+  const idx = (q.options || []).indexOf(answer);
+  const email = idx >= 0 ? meta.optionMentorEmails?.[idx] ?? null : null;
+
+  const { data: mentors } = await supabase
+    .from("profiles")
+    .select("id, full_name, email")
+    .eq("role", "mentor");
+  const list = (mentors || []) as { id: string; full_name: string; email: string }[];
+  if (email) {
+    const byEmail = list.find((m) => (m.email || "").toLowerCase() === email);
+    if (byEmail) return byEmail.id;
+  }
+  const key = nameKey(answer);
+  const byName = list.find((m) => nameKey(m.full_name || "") === key);
+  return byName?.id ?? null;
 }
 
 // Form khám bệnh đang published mới nhất (soạn từ rova-ops). Null → dùng fallback.
@@ -180,6 +227,20 @@ export async function submitIntake(
     })
     .eq("id", profile.id);
   if (profileError) return { computed, error: profileError.message };
+
+  // Học viên tự chọn mentor trong form → vào thẳng dashboard của mentor đó
+  // (rova-ops lọc học viên theo profiles.mentor_id). Chỉ gán khi CHƯA có mentor:
+  // admin đã gán tay thì quyết định của admin thắng. Lỗi không chặn nộp bài.
+  if (!profile.mentor_id) {
+    try {
+      const mentorId = await resolveMentorFromAnswers(questions, answers);
+      if (mentorId) {
+        await supabase.from("profiles").update({ mentor_id: mentorId }).eq("id", profile.id);
+      }
+    } catch (e) {
+      console.error("submitIntake mentor assign error:", e);
+    }
+  }
 
   // Giữ NGUYÊN thứ tự gọi của onboarding cũ
   try {

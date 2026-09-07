@@ -30,7 +30,12 @@ export interface IntakeMeta {
   optionScores: number[] | null;                          // song song options[]
   optionGroups: Record<string, PersonalityGroup> | null;  // index option -> nhóm
   optionFlags: Record<string, IntakeFlag[]> | null;       // index option -> cờ
-  semantic: "birth_date" | "birth_time" | null;
+  // "mentor": câu "Ai là mentor của bạn?" — options là tên mentor; lúc nộp bài
+  // LMS tự gán profiles.mentor_id (xem lib/api-intake.ts resolveMentorFromAnswers)
+  semantic: "birth_date" | "birth_time" | "mentor" | null;
+  // Song song options[] khi semantic="mentor": email tài khoản mentor tương ứng.
+  // null/thiếu → khớp theo tên (bỏ dấu, không phân biệt thứ tự họ tên).
+  optionMentorEmails: (string | null)[] | null;
   sensitive: boolean;
 }
 

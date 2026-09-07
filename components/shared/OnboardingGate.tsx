@@ -1,18 +1,17 @@
 "use client";
 
-// Học viên đã được ROVA duyệt nhưng chưa làm bài test đầu vào thì không được vào
-// bất kỳ trang dashboard nào. Chặn ở layout để gõ thẳng URL cũng không lọt.
-// Chưa được duyệt thì cho qua — trang /student tự hiện popup chờ duyệt.
-import { useEffect, useState } from "react";
+// Học viên chưa làm bài test đầu vào thì không được vào bất kỳ trang dashboard
+// nào — kể cả khi CHƯA được duyệt. Thứ tự mới: onboarding trước (tự chọn mentor
+// trong form) → mentor thấy trong dashboard → mở khoá học (= duyệt). Đã làm
+// onboarding mà chưa được duyệt thì /student tự hiện popup chờ duyệt.
+// Chặn ở layout để gõ thẳng URL cũng không lọt.
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUserState } from "@/lib/auth";
-import { isApproved } from "@/lib/approval";
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user: currentUser, status } = useCurrentUserState();
-  const [checked, setChecked] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
 
   // Chưa đăng nhập thì ĐƯA VỀ TRANG ĐĂNG NHẬP, đừng để đứng im.
   // Mọi màn dashboard đều viết `if (!currentUser) return <Đang tải…>`, mà
@@ -28,22 +27,10 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!currentUser || !pendingIntake) return;
-    let cancelled = false;
-    isApproved(currentUser.id).then((approved) => {
-      if (cancelled) return;
-      if (approved) {
-        setRedirecting(true);
-        router.replace("/onboarding-video");
-      } else {
-        setChecked(true);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
+    router.replace("/onboarding-video");
   }, [currentUser, pendingIntake, router]);
 
-  if (pendingIntake && !checked) {
+  if (pendingIntake) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
@@ -52,7 +39,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   }
 
   // Đang trên đường về /sign-in — đừng vẽ children, chúng sẽ lại kẹt "Đang tải…".
-  if (status === "signed-out" || redirecting) return null;
+  if (status === "signed-out") return null;
 
   return <>{children}</>;
 }
