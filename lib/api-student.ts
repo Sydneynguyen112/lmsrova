@@ -323,7 +323,8 @@ export async function createSubmissionWithImages(input: {
         assignment_id: input.assignmentId,
         image_url: url,
         verdict: "pending",
-        redo_of_image_id: input.redoOfImageIds?.[i] || null,
+        // Chỉ gửi cột này khi có nộp bù — DB chưa chạy supabase-submission-fix.sql vẫn nộp bình thường được
+        ...(input.redoOfImageIds?.[i] ? { redo_of_image_id: input.redoOfImageIds[i] } : {}),
       }))
     );
     if (imgError) throw imgError;
