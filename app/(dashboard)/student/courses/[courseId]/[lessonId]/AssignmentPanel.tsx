@@ -91,16 +91,17 @@ function resizeToDataUrl(file: File, maxSize = 1280): Promise<string> {
   });
 }
 
-// Ảnh bị chấm sai + phản hồi mentor của RIÊNG bài tập này
+// Ảnh bị chấm sai + ảnh đúng có ghi chú + phản hồi mentor của RIÊNG bài tập này
 async function fetchHistory(userId: string, assignmentId: string) {
   const [images, submissions] = await Promise.all([
     getSubmissionImagesByUser(userId),
     getSubmissionsByUser(userId),
   ]);
+  const mine = images.filter((img) => img.assignment_id === assignmentId);
   return {
-    incorrect: images.filter(
-      (img) => img.assignment_id === assignmentId && img.verdict === "incorrect"
-    ),
+    incorrect: mine.filter((img) => img.verdict === "incorrect"),
+    // Ảnh đạt nhưng mentor vẫn ghi chú riêng (khen / góp ý nhỏ) → cho học viên đọc
+    noted: mine.filter((img) => img.verdict === "correct" && img.feedback?.trim()),
     feedbacks: (submissions as SubmissionRow[]).filter(
       (s) => s.assignment_id === assignmentId && s.graded_at && s.mentor_feedback
     ),
@@ -139,11 +140,13 @@ export function AssignmentPanel({
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [incorrectImages, setIncorrectImages] = useState<SubmissionImageRow[]>([]);
+  const [notedImages, setNotedImages] = useState<SubmissionImageRow[]>([]);
   const [feedbacks, setFeedbacks] = useState<SubmissionRow[]>([]);
 
   const loadHistory = useCallback(async () => {
     const h = await fetchHistory(userId, assignment.id);
     setIncorrectImages(h.incorrect);
+    setNotedImages(h.noted);
     setFeedbacks(h.feedbacks);
   }, [userId, assignment.id]);
 
@@ -153,6 +156,7 @@ export function AssignmentPanel({
       const h = await fetchHistory(userId, assignment.id);
       if (cancelled) return;
       setIncorrectImages(h.incorrect);
+      setNotedImages(h.noted);
       setFeedbacks(h.feedbacks);
     }
     load();
@@ -388,6 +392,39 @@ export function AssignmentPanel({
                   <p className="text-sm text-foreground">
                     {img.feedback || "Mentor chưa để lại nhận xét chi tiết."}
                   </p>
+                  {img.graded_at && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Chấm ngày {formatDate(img.graded_at)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ─── Ảnh chấm ĐÚNG nhưng mentor có ghi chú riêng ─── */}
+      {notedImages.length > 0 && (
+        <Card className="border-emerald-500/25">
+          <CardContent className="space-y-2">
+            <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Ảnh đã đạt — mentor có ghi chú thêm
+            </p>
+            {notedImages.map((img) => (
+              <div
+                key={img.id}
+                className="flex items-start gap-3 rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={img.image_url}
+                  alt="Ảnh đã đạt"
+                  className="w-16 h-16 rounded-md object-cover shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground">{img.feedback}</p>
                   {img.graded_at && (
                     <p className="text-[10px] text-muted-foreground mt-1">
                       Chấm ngày {formatDate(img.graded_at)}
