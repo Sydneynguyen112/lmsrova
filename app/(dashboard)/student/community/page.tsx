@@ -36,7 +36,7 @@ export default function CommunityPage() {
     async function load() {
       const userId = currentUser!.id;
       const [f, e, s, g] = await Promise.all([
-        getFeed(20),
+        getFeed(5),
         getLeaderboardEffort(userId),
         getLeaderboardStreak(userId),
         getGoldBoard(),
