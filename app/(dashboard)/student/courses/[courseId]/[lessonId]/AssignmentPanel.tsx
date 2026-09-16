@@ -186,8 +186,8 @@ export function AssignmentPanel({
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   // Ảnh cũ bị Sai đang chờ học viên đính ảnh mới vào để nộp bù
   const [pendingRedo, setPendingRedo] = useState<SubmissionImageRow | null>(null);
-  // Lần nộp cũ đã đúng hết được thu gọn — mở ra theo id
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Mặc định chỉ lần nộp mới nhất mở, các lần cũ thu gọn — set này lưu id đã bị đảo trạng thái
+  const [toggled, setToggled] = useState<Set<string>>(new Set());
   // Lightbox: ảnh đang xem (theo lần nộp + vị trí) + chế độ so với ảnh sửa
   const [lightbox, setLightbox] = useState<{ entry: number; img: number } | null>(null);
   // Chế độ so sánh: mặc định bật khi ảnh có ảnh sửa; học viên tắt/bật thì nhớ theo id ảnh đó
@@ -428,10 +428,6 @@ export function AssignmentPanel({
     : false;
 
   const quizUnlocked = counts.correct >= stage.required_correct_images;
-  const progressPercent = Math.min(
-    100,
-    Math.round((counts.correct / stage.required_correct_images) * 100)
-  );
 
   function imageRef(img: SubmissionImageRow) {
     const loc = locate(img.id);
@@ -529,41 +525,7 @@ export function AssignmentPanel({
         </CardContent>
       </Card>
 
-      {/* ─── Bộ đếm chặng ─── */}
-      <Card className={cn(stageCompleted ? "border-emerald-500/30" : "border-gold/30")}>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <p className="text-xs text-gold font-medium uppercase tracking-wide">
-                {assignment.title}
-              </p>
-              <p className="text-sm text-foreground font-semibold mt-1">
-                {counts.correct}/{stage.required_correct_images} ảnh được chấm đúng ·{" "}
-                {counts.pending} chờ chấm · {counts.incorrect} cần làm lại
-              </p>
-            </div>
-            {stageCompleted && (
-              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                Đã hoàn thành
-              </Badge>
-            )}
-          </div>
-
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gold transition-all"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-
-          {!stageCompleted && !quizUnlocked && (
-            <p className="text-xs text-muted-foreground">
-              Làm đúng ít nhất số lượng đề bài yêu cầu để mở khoá bài học mới.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Bộ đếm chặng đã nằm ở dải tóm tắt dưới video (LessonPlayerView) — không lặp lại ở đây */}
 
       {/* ─── Việc cần làm ngay: ảnh bị Sai chưa nộp bù ─── */}
       {todo.length > 0 && !stageCompleted && (
@@ -866,9 +828,7 @@ export function AssignmentPanel({
           {timeline.map((entry, eIdx) => {
             const s = entry.submission;
             const seq = timeline.length - eIdx; // lần nộp thứ mấy tính từ đầu
-            const hasNotes = entry.images.some((i) => i.feedback || i.fix_url || i.fix_image_url);
-            const quiet = eIdx > 0 && entry.incorrect === 0 && entry.pending === 0 && !hasNotes && !s.mentor_feedback;
-            const open = !quiet || expanded.has(s.id);
+            const open = (eIdx === 0) !== toggled.has(s.id);
             const borderCls =
               entry.pending > 0
                 ? "border-orange-500/30"
@@ -882,15 +842,14 @@ export function AssignmentPanel({
                   <button
                     type="button"
                     onClick={() =>
-                      quiet &&
-                      setExpanded((prev) => {
+                      setToggled((prev) => {
                         const n = new Set(prev);
                         if (n.has(s.id)) n.delete(s.id);
                         else n.add(s.id);
                         return n;
                       })
                     }
-                    className={cn("w-full flex flex-wrap items-center gap-2 text-left", quiet && "cursor-pointer")}
+                    className="w-full flex flex-wrap items-center gap-2 text-left cursor-pointer"
                   >
                     <span className="text-sm font-semibold text-foreground">Lần nộp {seq}</span>
                     <span className="text-xs text-muted-foreground">{formatDate(s.submitted_at)}</span>
@@ -913,13 +872,19 @@ export function AssignmentPanel({
                         )}
                       </>
                     )}
-                    {quiet && (
-                      <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
-                        {open ? "Thu gọn" : "Xem ảnh"}
-                        {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </span>
-                    )}
+                    <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
+                      {open ? "Thu gọn" : "Xem ảnh"}
+                      {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </span>
                   </button>
+
+                  {/* Thu gọn mà có nhận xét chung: hiện 1 dòng để khỏi phải mở ra */}
+                  {!open && s.mentor_feedback && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5 min-w-0" title={s.mentor_feedback}>
+                      <MessageSquare className="h-3 w-3 text-gold shrink-0" />
+                      <span className="truncate">{s.mentor_feedback}</span>
+                    </p>
+                  )}
 
                   {open && (
                     <>
