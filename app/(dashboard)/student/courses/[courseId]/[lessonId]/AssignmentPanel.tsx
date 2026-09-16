@@ -180,6 +180,8 @@ export function AssignmentPanel({
   const [submitting, setSubmitting] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
+  // Ảnh demo admin đính kèm đề bài đang phóng to (index trong demoImages)
+  const [demoIdx, setDemoIdx] = useState<number | null>(null);
   const [allImages, setAllImages] = useState<SubmissionImageRow[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   // Ảnh cũ bị Sai đang chờ học viên đính ảnh mới vào để nộp bù
@@ -398,6 +400,27 @@ export function AssignmentPanel({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox, lbEntry]);
+
+  // Ảnh demo cách làm (admin tải lên ở rova-ops, materials type "image") tách khỏi file tải về
+  const demoImages = useMemo(
+    () => (assignment.materials || []).filter((m) => m.type === "image" || IMAGE_URL_RE.test(m.url)),
+    [assignment.materials]
+  );
+  const otherMaterials = useMemo(
+    () => (assignment.materials || []).filter((m) => !demoImages.includes(m)),
+    [assignment.materials, demoImages]
+  );
+  useEffect(() => {
+    if (demoIdx === null) return;
+    const n = demoImages.length;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setDemoIdx(null);
+      else if (e.key === "ArrowRight") setDemoIdx((i) => (i === null ? i : (i + 1) % n));
+      else if (e.key === "ArrowLeft") setDemoIdx((i) => (i === null ? i : (i - 1 + n) % n));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [demoIdx, demoImages.length]);
   const compareOpen = lbImage
     ? compareOverride?.id === lbImage.id
       ? compareOverride.value
@@ -418,7 +441,7 @@ export function AssignmentPanel({
 
   return (
     <div className="space-y-4">
-      {/* ─── Đề bài + hướng dẫn + tài liệu ─── */}
+      {/* ─── Đề bài + ảnh demo + hướng dẫn + tài liệu ─── */}
       <Card>
         <CardContent className="space-y-3">
           <div>
@@ -430,7 +453,36 @@ export function AssignmentPanel({
             )}
           </div>
 
-          {(assignment.instructions || assignment.materials.length > 0) && (
+          {/* Ảnh demo cách làm — hiện thẳng (không giấu trong mục hướng dẫn), bấm để phóng to */}
+          {demoImages.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-gold font-medium flex items-center gap-1">
+                <ImagePlus className="h-3.5 w-3.5" /> Ảnh demo cách làm bài
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {demoImages.map((m, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setDemoIdx(i)}
+                    title="Bấm để phóng to"
+                    className="group text-left rounded-lg border border-border bg-muted/30 overflow-hidden hover:border-gold/60 transition-colors"
+                  >
+                    <div className="relative aspect-[4/3]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={m.url} alt={m.name} className="h-full w-full object-cover" loading="lazy" />
+                      <span className="absolute bottom-1 right-1 rounded bg-black/60 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ZoomIn className="h-3 w-3" />
+                      </span>
+                    </div>
+                    {m.name && <p className="px-2 py-1 text-[11px] text-muted-foreground truncate">{m.name}</p>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(assignment.instructions || otherMaterials.length > 0) && (
             <>
               <button
                 onClick={() => setInstructionsOpen(!instructionsOpen)}
@@ -455,9 +507,9 @@ export function AssignmentPanel({
                       {assignment.instructions}
                     </div>
                   )}
-                  {assignment.materials.length > 0 && (
+                  {otherMaterials.length > 0 && (
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
-                      {assignment.materials.map((mat, j) => (
+                      {otherMaterials.map((mat, j) => (
                         <a
                           key={j}
                           href={mat.url}
@@ -968,6 +1020,54 @@ export function AssignmentPanel({
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* ─── Phóng to ảnh demo của đề bài ─── */}
+      {demoIdx !== null && demoImages[demoIdx] && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4"
+          onClick={() => setDemoIdx(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setDemoIdx(null)}
+            className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+            aria-label="Đóng"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          {demoImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setDemoIdx((i) => (i === null ? i : (i - 1 + demoImages.length) % demoImages.length)); }}
+                className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+                aria-label="Ảnh trước"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setDemoIdx((i) => (i === null ? i : (i + 1) % demoImages.length)); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+                aria-label="Ảnh sau"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
+          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={demoImages[demoIdx].url}
+            alt={demoImages[demoIdx].name}
+            className="max-h-[85vh] max-w-full rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <p className="mt-3 text-sm text-white/80 text-center">
+            {demoImages[demoIdx].name}
+            {demoImages.length > 1 && ` · ${demoIdx + 1}/${demoImages.length}`}
+          </p>
         </div>
       )}
 
