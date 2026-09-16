@@ -535,7 +535,7 @@ export function AssignmentPanel({
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <p className="text-xs text-gold font-medium uppercase tracking-wide">
-                {stage.title}
+                {assignment.title}
               </p>
               <p className="text-sm text-foreground font-semibold mt-1">
                 {counts.correct}/{stage.required_correct_images} ảnh được chấm đúng ·{" "}
@@ -835,7 +835,7 @@ export function AssignmentPanel({
               <QuizSection
                 quiz={stageQuiz}
                 userId={userId}
-                heading={`Quiz — ${stage.title}`}
+                heading={`Quiz — ${assignment.title}`}
                 onPassed={handleQuizPassed}
               />
             </CardContent>

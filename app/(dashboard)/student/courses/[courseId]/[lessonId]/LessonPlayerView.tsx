@@ -347,7 +347,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
             <Card className={cn(stageCompleted ? "border-emerald-500/30" : "border-gold/30")}>
               <CardContent className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
-                  <h3 className="font-semibold text-foreground">{currentStage.title}</h3>
+                  <h3 className="font-semibold text-foreground">{lesson.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1">
                     {stageCounts.correct}/{currentStage.required_correct_images} ảnh được chấm
                     đúng · {stageCounts.pending} chờ chấm · {stageCounts.incorrect} cần làm lại
