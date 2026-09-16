@@ -60,6 +60,7 @@ Schema quản lý bằng các file SQL ở root, **chạy tay trong Supabase Das
 5. `supabase-daily-todo.sql` — todolist hằng ngày (cột `profiles.learning_pace` — nhịp học tự chọn)
 6. `supabase-intake-assessment.sql` — bài test đánh giá đầu vào (mở rộng `forms`, thuần additive, idempotent)
 7. `supabase-rls-profiles-hardening.sql` — siết RLS bảng `profiles` (chặn delete + leo quyền từ client)
+8. `supabase-course-choice.sql` — học viên tự khai khoá đã đăng ký sau đăng nhập (2 cột `profiles.requested_course_*` + mở quyền UPDATE cho 2 cột này)
 
 Sau bước 2, bật extension **pg_cron** (Dashboard → Database → Extensions) rồi chạy dòng `cron.schedule` được ghi chú ở cuối file để engine trạng thái tự chạy mỗi giờ.
 

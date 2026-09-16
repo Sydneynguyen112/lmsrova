@@ -127,7 +127,11 @@ export default function StudentDashboardPage() {
           title="Dashboard"
           description="Dashboard học tập sẽ được mở khi bạn đăng ký khoá học."
         />
-        <PendingApprovalModal email={currentUser.email} fullName={currentUser.full_name} />
+        <PendingApprovalModal
+          email={currentUser.email}
+          fullName={currentUser.full_name}
+          requestedCourseId={currentUser.requested_course_id}
+        />
       </>
     );
   }

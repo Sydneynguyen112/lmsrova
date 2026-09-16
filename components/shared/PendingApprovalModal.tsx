@@ -1,18 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Clock, Copy, Check, RefreshCw, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/lib/auth";
+import { getCourseChoice } from "@/lib/course-choice";
 
 interface PendingApprovalModalProps {
   email: string;
   fullName: string;
+  /** profiles.requested_course_id — khoá học viên tự khai, hiện để mentor duyệt đúng khoá */
+  requestedCourseId?: string | null;
 }
 
-export function PendingApprovalModal({ email, fullName }: PendingApprovalModalProps) {
+export function PendingApprovalModal({
+  email,
+  fullName,
+  requestedCourseId,
+}: PendingApprovalModalProps) {
   const [copied, setCopied] = useState(false);
+  const choice = getCourseChoice(requestedCourseId);
 
   const handleCopy = async () => {
     try {
@@ -48,11 +57,23 @@ export function PendingApprovalModal({ email, fullName }: PendingApprovalModalPr
               Tài khoản đang chờ ROVA duyệt
             </h2>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-              Chào {firstName}, tài khoản đã tạo xong. ROVA cần duyệt tay thì video onboarding,
-              bài test đầu vào và khoá học mới mở.
+              Chào {firstName}, tài khoản đã tạo xong. ROVA cần duyệt tay thì các bước tiếp
+              theo (video hướng dẫn, bài test đầu vào, khoá học) mới mở.
             </p>
           </div>
         </div>
+
+        {choice && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3 text-sm">
+            <span className="text-muted-foreground">
+              Khoá đã đăng ký:{" "}
+              <span className="font-semibold text-foreground">{choice.title}</span>
+            </span>
+            <Link href="/choose-course?change=1" className="shrink-0 text-xs text-gold hover:underline">
+              Đổi khoá
+            </Link>
+          </div>
+        )}
 
         <div className="rounded-xl border border-gold/20 bg-gold/5 p-4 space-y-3">
           <p className="text-sm text-foreground leading-relaxed">

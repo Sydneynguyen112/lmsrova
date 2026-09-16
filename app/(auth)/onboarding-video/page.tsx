@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { VideoPlayer } from "@/components/shared/VideoPlayer";
 import { IntakePromptModal } from "@/components/intake/IntakePromptModal";
 import { useCurrentUser } from "@/lib/auth";
+import { isApproved } from "@/lib/approval";
 
 import {
   ONBOARDING_VIDEO_WATCH_RATIO,
@@ -65,15 +66,26 @@ export default function OnboardingVideoPage() {
     setWatchedSec(currentUser.onboarding_video_seconds || 0);
   }, [currentUser]);
 
+  // Được duyệt (mentor/admin gán khoá) rồi mới được xem video
+  const [approved, setApproved] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!currentUser || rewatch) return;
+    isApproved(currentUser.id).then(setApproved);
+  }, [currentUser, rewatch]);
+
   // Quyết định ai phải ở lại trang này, ai đi tiếp
   useEffect(() => {
-    if (!currentUser || !settingLoaded || rewatch) return;
+    if (!currentUser || !settingLoaded || rewatch || approved === null) return;
     if (currentUser.role !== "student") {
       // Khu quản trị đã dời sang app riêng
       window.location.href = "https://rova-ops.vercel.app";
       return;
     }
-    // Không chặn theo duyệt: xem video + làm onboarding TRƯỚC khi được mở khoá học
+    // Chưa được duyệt → về dashboard, ở đó có popup chờ duyệt
+    if (!approved) {
+      router.replace("/student");
+      return;
+    }
     // Học viên cũ (đã làm khảo sát trước khi có tính năng) — miễn xem
     if (currentUser.onboarding_survey) {
       router.replace("/student");
@@ -83,7 +95,7 @@ export default function OnboardingVideoPage() {
     if (!videoId || currentUser.onboarding_video_watched_at) {
       router.replace("/onboarding");
     }
-  }, [currentUser, settingLoaded, videoId, rewatch, router]);
+  }, [currentUser, settingLoaded, videoId, rewatch, approved, router]);
 
   // Xem đủ 80% giây THẬT (tua nhanh không tính) mới mở đường sang bài test
   const watchedEnough =
@@ -109,7 +121,7 @@ export default function OnboardingVideoPage() {
     : 0;
   const requiredPercent = Math.round(ONBOARDING_VIDEO_WATCH_RATIO * 100);
 
-  if (!currentUser || !settingLoaded || (!videoId && !rewatch)) {
+  if (!currentUser || !settingLoaded || (!videoId && !rewatch) || (!rewatch && !approved)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getStoredUserId, type Profile } from "@/lib/auth";
+import { isApproved } from "@/lib/approval";
 
 import { getPublishedIntakeForm, submitIntake } from "@/lib/api-intake";
 import { getIntakeNextStep, type IntakeNextStep } from "@/lib/intake-next-step";
@@ -74,8 +75,11 @@ export default function OnboardingPage() {
         router.replace("/student");
         return;
       }
-      // KHÔNG chặn theo duyệt nữa: học viên làm onboarding TRƯỚC, tự chọn mentor
-      // trong form → mentor thấy trong dashboard rồi mới mở khoá học (= duyệt).
+      // Được duyệt (mentor/admin gán khoá) rồi mới làm bài test
+      if (!(await isApproved(userId))) {
+        router.replace("/student");
+        return;
+      }
       setProfile(p as Profile);
       if (intakeForm && intakeForm.questions.length > 0) {
         setFormId(intakeForm.form.id);

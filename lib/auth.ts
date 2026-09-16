@@ -26,6 +26,9 @@ export interface Profile {
   tier?: "pro" | "pro_graduate" | "master" | "master_certified";
   show_full_name?: boolean;
   is_anonymous?: boolean;
+  // Khoá học viên tự khai đã đăng ký (PRO/MASTER) — xem lib/course-choice.ts
+  requested_course_id?: string | null;
+  requested_course_at?: string | null;
 }
 
 export interface OnboardingSurvey {
