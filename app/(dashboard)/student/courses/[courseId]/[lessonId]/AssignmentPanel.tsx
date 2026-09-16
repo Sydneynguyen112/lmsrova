@@ -535,7 +535,7 @@ export function AssignmentPanel({
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <p className="text-xs text-gold font-medium uppercase tracking-wide">
-                Chặng: {stage.title}
+                {stage.title}
               </p>
               <p className="text-sm text-foreground font-semibold mt-1">
                 {counts.correct}/{stage.required_correct_images} ảnh được chấm đúng ·{" "}
@@ -545,7 +545,7 @@ export function AssignmentPanel({
             {stageCompleted && (
               <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                Đã qua chặng
+                Đã hoàn thành
               </Badge>
             )}
           </div>
@@ -559,7 +559,7 @@ export function AssignmentPanel({
 
           {!stageCompleted && !quizUnlocked && (
             <p className="text-xs text-muted-foreground">
-              Đủ {stage.required_correct_images} ảnh được chấm đúng sẽ mở quiz chặng.
+              Làm đúng ít nhất số lượng đề bài yêu cầu để mở khoá bài học mới.
             </p>
           )}
         </CardContent>
@@ -826,7 +826,7 @@ export function AssignmentPanel({
           <Card className="border-emerald-500/30">
             <CardContent className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
-              Đã đạt quiz chặng — hệ thống đang ghi nhận qua chặng.
+              Đã đạt quiz — hệ thống đang ghi nhận hoàn thành bài.
             </CardContent>
           </Card>
         ) : stageQuiz ? (
@@ -835,7 +835,7 @@ export function AssignmentPanel({
               <QuizSection
                 quiz={stageQuiz}
                 userId={userId}
-                heading={`Quiz chặng — ${stage.title}`}
+                heading={`Quiz — ${stage.title}`}
                 onPassed={handleQuizPassed}
               />
             </CardContent>
@@ -844,7 +844,7 @@ export function AssignmentPanel({
           // Có cấu hình quiz_id nhưng không tải được quiz → lỗi dữ liệu thật
           <Card>
             <CardContent className="text-sm text-muted-foreground">
-              Quiz chặng chưa được cấu hình — liên hệ mentor để mở chặng tiếp theo.
+              Quiz chưa được cấu hình — liên hệ mentor để mở bài học tiếp theo.
             </CardContent>
           </Card>
         ) : (
@@ -852,7 +852,7 @@ export function AssignmentPanel({
           <Card className="border-emerald-500/30">
             <CardContent className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
-              Đủ ảnh đạt rồi — hệ thống đang ghi nhận qua chặng.
+              Đủ ảnh đạt rồi — hệ thống đang ghi nhận hoàn thành bài.
             </CardContent>
           </Card>
         ))}
