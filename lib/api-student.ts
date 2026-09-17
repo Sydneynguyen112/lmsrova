@@ -164,7 +164,8 @@ export async function loadStudentUnlockData(
     getLessonProgressMap(userId),
     getPassedQuizIds(userId),
     getImageCountsByAssignment(userId),
-    supabase.from("courses").select("price, price_label").eq("id", courseId).single(),
+    // select("*") để bản code này chạy được cả khi cột lock_lessons chưa được thêm (SQL chạy tay sau)
+    supabase.from("courses").select("*").eq("id", courseId).single(),
     supabase.from("profiles").select("unlock_all_lessons").eq("id", userId).single(),
   ]);
   const lessonQuizMap = await getLessonQuizMap(lessons.map((l) => l.id));
@@ -188,11 +189,18 @@ export async function loadStudentUnlockData(
 
   // Bỏ khoá tuần tự, mở toàn bộ bài (done vẫn tính theo giây xem thật) khi:
   //   - khoá miễn phí, hoặc
+  //   - khoá học đang để chế độ "mở toàn bộ" (courses.lock_lessons = false, admin bật/tắt ở
+  //     rova-ops /admin/courses), hoặc
   //   - học viên được cấp quyền mở khoá toàn bộ (khách mời/VIP, bật từ SQL Editor)
-  const c = courseRow.data as { price: number | null; price_label: string | null } | null;
+  const c = courseRow.data as {
+    price: number | null;
+    price_label: string | null;
+    lock_lessons?: boolean | null;
+  } | null;
   const p = profileRow.data as { unlock_all_lessons: boolean | null } | null;
   const isFreeCourse = !!c && !c.price && c.price_label === "Miễn phí";
-  if (isFreeCourse || p?.unlock_all_lessons) {
+  const courseLocked = c?.lock_lessons === true;
+  if (isFreeCourse || !courseLocked || p?.unlock_all_lessons) {
     unlock.unlockedLessonIds = new Set(lessons.map((l) => l.id));
     unlock.firstLockedLessonId = null;
   }
