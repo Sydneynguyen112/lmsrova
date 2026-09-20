@@ -18,6 +18,7 @@ import Link from "next/link";
 import { cn, formatDuration } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import { checkAndCompleteStages } from "@/lib/roadmap";
 import {
   loadStudentUnlockData,
   firstOpenLessonId,
@@ -100,11 +101,24 @@ export function CourseDetailView({ courseId }: Props) {
         ]);
       if (cancelled) return;
 
-      setIsEnrolled((enrollData ?? []).length > 0);
+      const enrolled = (enrollData ?? []).length > 0;
+      setIsEnrolled(enrolled);
       if (courseData) setCourse(courseData);
       setCourseModules(modulesData || []);
       setUnlockData(data);
       setLoading(false);
+
+      // Tự chữa: chặng có thể đã đủ điều kiện (mentor chấm đủ ảnh) nhưng chưa được ghi
+      // completed_at vì lượt chấm không kích hoạt được engine → chạy lại engine ngầm sau khi
+      // render rồi nạp lại trạng thái mở khoá. Không await để không làm chậm lần tải đầu.
+      if (enrolled) {
+        checkAndCompleteStages(currentUser!.id, courseId)
+          .then(() => loadStudentUnlockData(currentUser!.id, courseId))
+          .then((fresh) => {
+            if (!cancelled) setUnlockData(fresh);
+          })
+          .catch((err) => console.error("Không chạy lại được engine qua chặng:", err));
+      }
     }
     fetchAll();
     return () => {

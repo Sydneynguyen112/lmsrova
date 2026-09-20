@@ -114,6 +114,18 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
       }
 
       setUnlockData(data);
+
+      // Tự chữa: chặng có thể đã đủ điều kiện (mentor chấm đủ ảnh) nhưng chưa được ghi
+      // completed_at vì lượt chấm không kích hoạt được engine → chạy lại engine ngầm sau khi
+      // render rồi nạp lại trạng thái mở khoá. Không await để không làm chậm lần tải đầu.
+      if (enrolled) {
+        checkAndCompleteStages(currentUser!.id, courseId)
+          .then(() => {
+            if (!cancelled) return refreshUnlock();
+          })
+          .catch((err) => console.error("Không chạy lại được engine qua chặng:", err));
+      }
+
       if (lesson) {
         durationRef.current = lesson.duration_sec || 0;
         setVideoCompleted(!!data.progressMap.get(lessonId)?.completed);
@@ -155,7 +167,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [currentUser, courseId, lessonId, router]);
+  }, [currentUser, courseId, lessonId, router, refreshUnlock]);
 
   // ─── Đo giây xem thật ───
 
