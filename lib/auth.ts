@@ -146,14 +146,37 @@ export async function signUpWithPassword(input: {
  * Trả về profile nếu thành công, ném Error message tiếng Việt nếu sai.
  */
 export async function signInWithPassword(email: string, password: string): Promise<Profile> {
+  const normalizedEmail = email.trim().toLowerCase();
   const { error } = await supabase.auth.signInWithPassword({
-    email: email.trim().toLowerCase(),
+    email: normalizedEmail,
     password,
   });
   if (error) {
-    if (error.message.toLowerCase().includes("invalid")) {
-      throw new Error("Email hoặc mật khẩu không đúng");
+    const code = error.code ?? "";
+    const msg = error.message.toLowerCase();
+    if (code === "invalid_credentials" || msg.includes("invalid login credentials")) {
+      // Supabase báo chung "sai email hoặc mật khẩu" — tách ra bằng cách xem email đã có hồ sơ chưa
+      // (trang đăng ký vốn đã báo "Email đã tồn tại" nên không lộ thêm thông tin gì).
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", normalizedEmail)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        throw new Error('Sai mật khẩu. Kiểm tra lại, hoặc bấm "Quên mật khẩu?" để đặt lại.');
+      }
+      throw new Error('Email này chưa có tài khoản ROVA. Kiểm tra lại email hoặc bấm "Đăng ký miễn phí".');
     }
+    if (code === "email_not_confirmed" || msg.includes("not confirmed")) {
+      throw new Error("Tài khoản chưa được kích hoạt. Nhắn ROVA để được kích hoạt ngay, hoặc đăng nhập bằng Google.");
+    }
+    if (code.includes("rate_limit") || error.status === 429) {
+      throw new Error("Bạn thử quá nhiều lần. Đợi vài phút rồi đăng nhập lại.");
+    }
+    if (code === "user_banned") {
+      throw new Error("Tài khoản đang bị tạm khoá — liên hệ ROVA.");
+    }
+    console.error("signInWithPassword error:", error);
     throw new Error("Không đăng nhập được, thử lại sau");
   }
   const { data: profile } = await supabase

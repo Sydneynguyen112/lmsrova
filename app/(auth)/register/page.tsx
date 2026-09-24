@@ -8,6 +8,7 @@ import { UserPlus, Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signInWithGoogle, signUpWithPassword } from "@/lib/auth";
+import { detectInAppBrowser, inAppGoogleMessage } from "@/lib/in-app-browser";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -49,6 +50,12 @@ export default function RegisterPage() {
   };
 
   const handleGoogleRegister = async () => {
+    setError("");
+    const inApp = detectInAppBrowser();
+    if (inApp) {
+      setError(inAppGoogleMessage(inApp));
+      return;
+    }
     try {
       await signInWithGoogle();
     } catch {

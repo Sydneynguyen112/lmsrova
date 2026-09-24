@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InAppBrowserNotice } from "@/components/auth/InAppBrowserNotice";
 
 export default function AuthLayout({
   children,
@@ -48,7 +49,10 @@ export default function AuthLayout({
 
         {/* Centered form */}
         <div className="relative flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-10">
-          <div className="w-full max-w-md">{children}</div>
+          <div className="w-full max-w-md">
+            <InAppBrowserNotice />
+            {children}
+          </div>
         </div>
 
         {/* Bottom */}
