@@ -9,9 +9,26 @@ const FLUSH_INTERVAL_MS = 30_000; // đẩy giây xem lên DB mỗi 30s
 // thì coi như trình phát bị chặn → hiện bảng hướng dẫn thay cho ô trắng trơn.
 // Đo thực tế Bunny lên hình trong ~5s; để 15s cho khách mạng yếu khỏi bị báo nhầm.
 const STUCK_AFTER_MS = 15_000;
+// Trình phát dự phòng: file MP4 Bunny sinh sẵn cho mọi video (hasMP4Fallback), phát bằng thẻ
+// <video> của trình duyệt — không cần script player của Bunny nên chặn quảng cáo / Cốc Cốc /
+// cache hỏng không làm chết được. CDN chặn theo referrer nên link lấy ra ngoài trang bị 403.
+const CDN_HOSTNAME = process.env.NEXT_PUBLIC_BUNNY_CDN_HOSTNAME || "vz-bf774635-eca.b-cdn.net";
+const FALLBACK_RESOLUTIONS = ["720p", "480p", "360p"];
 
-/** loading = đang tải · ready = trình phát đã sống · stuck = quá lâu chưa thấy gì */
-type PlayerStatus = "loading" | "ready" | "stuck";
+/**
+ * loading = đang tải · ready = trình phát Bunny đã sống ·
+ * fallback = Bunny im lặng quá lâu → đã tự đổi sang phát MP4 trực tiếp ·
+ * stuck = cả MP4 cũng không phát được → hiện bảng hướng dẫn
+ */
+type PlayerStatus = "loading" | "ready" | "fallback" | "stuck";
+
+/** Cầu nối để thẻ <video> dự phòng đổ sự kiện vào cùng bộ đếm giây xem với Bunny. */
+interface Tracker {
+  play: () => void;
+  pause: () => void;
+  ended: () => void;
+  time: (seconds: number, duration: number) => void;
+}
 
 interface VideoPlayerProps {
   playbackId: string; // Bunny Stream Video GUID
@@ -50,6 +67,10 @@ export function VideoPlayer({
   const [status, setStatus] = useState<PlayerStatus>("loading");
   // Ref song song với state để handleMessage khỏi phải re-render mỗi timeupdate.
   const aliveRef = useRef(false);
+  // Đang phát dự phòng thì bỏ qua Bunny nếu nó tỉnh muộn (không giật về iframe giữa chừng).
+  const fallbackRef = useRef(false);
+  const trackerRef = useRef<Tracker | null>(null);
+  const [fallbackIndex, setFallbackIndex] = useState(0);
 
   // Khung nhúng có tải xong không (sự kiện load của iframe). Tách biệt hẳn với
   // chuyện trình phát có chạy không — hai thứ này hỏng vì hai lý do khác nhau.
@@ -62,11 +83,13 @@ export function VideoPlayer({
   useEffect(() => {
     // Đổi bài → iframe mới, đếm lại từ đầu.
     aliveRef.current = false;
+    fallbackRef.current = false;
     setStatus("loading");
+    setFallbackIndex(0);
 
     /** Bất kỳ message player.js nào cũng chứng minh script trình phát đã chạy. */
     function markAlive() {
-      if (aliveRef.current) return;
+      if (aliveRef.current || fallbackRef.current) return;
       aliveRef.current = true;
       setStatus("ready");
     }
@@ -166,6 +189,28 @@ export function VideoPlayer({
       }
     }
 
+    trackerRef.current = {
+      play() {
+        state.playing = true;
+      },
+      pause() {
+        state.playing = false;
+        flush();
+      },
+      ended() {
+        state.playing = false;
+        flush();
+        onEndedRef.current?.();
+      },
+      time(seconds, duration) {
+        state.position = seconds;
+        if (!state.durationReported && duration > 0 && Number.isFinite(duration)) {
+          state.durationReported = true;
+          onDurationRef.current?.(duration);
+        }
+      },
+    };
+
     // Đếm giây THẬT: mỗi giây trôi qua khi đang play + tab visible. Seek không đụng
     // vào bộ đếm này nên tua nhanh không cộng giây.
     const tick = window.setInterval(() => {
@@ -196,8 +241,13 @@ export function VideoPlayer({
 
     // Im lặng quá lâu = trình phát bị chặn (chặn quảng cáo, lá chắn Brave, DNS
     // lọc, cache hỏng...). Đổi ô trắng thành bảng hướng dẫn tự khắc phục.
+    // Trước đây: hiện bảng hướng dẫn bắt học viên tự gỡ. Giờ tự đổi sang MP4 trực tiếp, học viên
+    // chỉ thấy video lên hình; bảng hướng dẫn chỉ còn khi MP4 cũng hỏng.
     const stuckTimer = window.setTimeout(() => {
-      if (!aliveRef.current) setStatus("stuck");
+      if (!aliveRef.current) {
+        fallbackRef.current = true;
+        setStatus("fallback");
+      }
     }, STUCK_AFTER_MS);
 
     return () => {
@@ -216,6 +266,8 @@ export function VideoPlayer({
   const embedUrl = `https://iframe.mediadelivery.net/embed/${LIBRARY_ID}/${playbackId}?autoplay=false&loop=false&muted=false&preload=true&responsive=true`;
 
   const stuck = status === "stuck";
+  const fallback = status === "fallback";
+  const fallbackSrc = `https://${CDN_HOSTNAME}/${playbackId}/play_${FALLBACK_RESOLUTIONS[fallbackIndex]}.mp4`;
 
   // Khi bí, tự thử tải MỘT file tĩnh của Bunny. Không JavaScript, không trình
   // phát, không iframe — chỉ đo xem mạng của người xem có với tới Bunny không.
@@ -261,6 +313,37 @@ export function VideoPlayer({
         overflow: "hidden",
       }}
     >
+      {/* Dự phòng: gỡ hẳn iframe Bunny (khỏi phát chồng nếu nó tỉnh muộn), phát MP4 bằng <video>. */}
+      {fallback && (
+        <video
+          key={fallbackSrc}
+          src={fallbackSrc}
+          controls
+          playsInline
+          preload="metadata"
+          controlsList="nodownload"
+          onContextMenu={(e) => e.preventDefault()}
+          onLoadedMetadata={(e) => {
+            const v = e.currentTarget;
+            trackerRef.current?.time(v.currentTime, v.duration);
+            const at = startAtRef.current;
+            if (at && at > 3 && v.currentTime < 3) v.currentTime = Math.floor(at);
+          }}
+          onPlay={() => trackerRef.current?.play()}
+          onPause={() => trackerRef.current?.pause()}
+          onEnded={() => trackerRef.current?.ended()}
+          onTimeUpdate={(e) => trackerRef.current?.time(e.currentTarget.currentTime, e.currentTarget.duration)}
+          onError={() => {
+            // Độ phân giải này hỏng → thử bản thấp hơn; hết bản thì mới báo học viên.
+            if (fallbackIndex < FALLBACK_RESOLUTIONS.length - 1) setFallbackIndex(fallbackIndex + 1);
+            else setStatus("stuck");
+          }}
+          style={{ position: "absolute", top: 0, left: 0, height: "100%", width: "100%", background: "black" }}
+          title={title || "Video Player"}
+        />
+      )}
+
+      {!fallback && (
       <iframe
         ref={iframeRef}
         src={embedUrl}
@@ -282,6 +365,7 @@ export function VideoPlayer({
         allowFullScreen
         title={title || "Video Player"}
       />
+      )}
 
       {/* Đang tải: che ô trắng của Bunny bằng nền đen + vòng xoay */}
       {status === "loading" && (
