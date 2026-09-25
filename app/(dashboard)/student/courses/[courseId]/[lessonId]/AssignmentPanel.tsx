@@ -527,8 +527,8 @@ export function AssignmentPanel({
 
       {/* Bộ đếm chặng đã nằm ở dải tóm tắt dưới video (LessonPlayerView) — không lặp lại ở đây */}
 
-      {/* ─── Việc cần làm ngay: ảnh bị Sai chưa nộp bù ─── */}
-      {todo.length > 0 && !stageCompleted && (
+      {/* ─── Việc cần làm ngay: ảnh bị Sai chưa nộp bù (kể cả khi đã qua chặng — mentor vẫn yêu cầu sửa) ─── */}
+      {todo.length > 0 && (
         <Card className="border-red-500/40 bg-red-500/[0.03]">
           <CardContent className="space-y-3">
             <p className="text-sm font-semibold text-red-600 dark:text-red-400 flex items-center gap-1.5">
@@ -610,9 +610,9 @@ export function AssignmentPanel({
         </Card>
       )}
 
-      {/* ─── Ô soạn kiểu chat: dán ảnh/link + ghi chú (ẩn khi đã qua chặng) ─── */}
-      {!stageCompleted &&
-        (justSubmitted ? (
+      {/* ─── Ô soạn kiểu chat: dán ảnh/link + ghi chú. Vẫn mở sau khi qua chặng: học viên
+          nộp bù ảnh sai hoặc nộp thêm để mentor chấm; chặng đã hoàn thành thì không đổi. ─── */}
+      {(justSubmitted ? (
           <Card className="border-emerald-500/30">
             <CardContent className="py-10 text-center space-y-2">
               <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
@@ -1144,7 +1144,7 @@ export function AssignmentPanel({
                   <ExternalLink className="h-4 w-4" /> Mở bài sửa của mentor
                 </a>
               )}
-              {lbImage.verdict === "incorrect" && !redoneIds.has(lbImage.id) && !stageCompleted && (
+              {lbImage.verdict === "incorrect" && !redoneIds.has(lbImage.id) && (
                 <button
                   type="button"
                   onClick={() => startRedo(lbImage)}
