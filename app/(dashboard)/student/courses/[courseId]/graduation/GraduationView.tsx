@@ -4,19 +4,13 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 import {
-  GraduationCap, Lock, Loader2, Send, Star, RotateCcw, Award, ArrowLeft,
+  GraduationCap, Lock, Loader2, Send, Star, ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { GRADE_LABELS } from "@/lib/status-labels";
-import {
-  type FormQuestionRow,
-  type GraduationScore,
-  GRADE_STYLES,
-  computeGraduationScore,
-} from "@/lib/api-forms";
+import { type FormQuestionRow, GRADUATION_PASS_GRADE } from "@/lib/api-forms";
 import {
   getRoadmapStages,
   getStageProgress,
@@ -24,7 +18,6 @@ import {
   type RoadmapStage,
 } from "@/lib/roadmap";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageTransition } from "@/components/shared/PageTransition";
@@ -43,11 +36,15 @@ type PageState =
   | "no_form" // admin chưa gắn form
   | "form" // đang điền
   | "already_passed" // đã tốt nghiệp từ trước
-  | "result_fail" // vừa nộp, không đạt
-  | "result_pass"; // vừa nộp, đạt
+  | "result_pass"; // vừa nộp xong
 
 interface Props {
   courseId: string;
+}
+
+// Câu chọn một mà mọi tuỳ chọn đều là số (vd thang 1–10) → hiện dạng hàng ô số
+function isNumberScale(options: string[] | null | undefined): boolean {
+  return !!options && options.length >= 3 && options.every((o) => /^\d{1,2}$/.test(o.trim()));
 }
 
 export function GraduationView({ courseId }: Props) {
@@ -58,10 +55,6 @@ export function GraduationView({ courseId }: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<GraduationScore | null>(null);
-  // Xếp loại đã đạt từ trước (vào lại trang sau khi tốt nghiệp)
-  const [passedGrade, setPassedGrade] = useState<"tot" | "xuat_sac" | null>(null);
-  const [passedScore, setPassedScore] = useState<number | null>(null);
 
   const courseHref = `/student/courses/${courseId}`;
 
@@ -94,7 +87,7 @@ export function GraduationView({ courseId }: Props) {
         supabase.from("form_questions").select("*").eq("form_id", gradStage.form_id).order("order_index"),
         supabase
           .from("form_responses")
-          .select("grade, score_pct")
+          .select("id")
           .eq("form_id", gradStage.form_id)
           .eq("user_id", userId)
           .in("grade", ["tot", "xuat_sac"])
@@ -109,8 +102,6 @@ export function GraduationView({ courseId }: Props) {
 
       const passed = (passedResp || [])[0];
       if (passed) {
-        setPassedGrade(passed.grade as "tot" | "xuat_sac");
-        setPassedScore(passed.score_pct);
         setPageState("already_passed");
         return;
       }
@@ -162,10 +153,8 @@ export function GraduationView({ courseId }: Props) {
 
     setSubmitting(true);
 
-    // Chấm điểm ngay tại client lúc submit
-    const score = computeGraduationScore(questions, answers);
-
-    // Mỗi lần nộp = 1 response mới — response cũ giữ nguyên
+    // Form tốt nghiệp = khảo sát cảm nhận, không chấm điểm: nộp là tốt nghiệp.
+    // grade = GRADUATION_PASS_GRADE để engine lộ trình + view SQL nhận là đã qua chặng.
     const { data: response, error: respErr } = await supabase
       .from("form_responses")
       .insert({
@@ -174,8 +163,8 @@ export function GraduationView({ courseId }: Props) {
         respondent_name: currentUser.full_name,
         respondent_email: currentUser.email,
         respondent_phone: currentUser.phone,
-        score_pct: score.scorePct,
-        grade: score.grade,
+        score_pct: null,
+        grade: GRADUATION_PASS_GRADE,
       })
       .select()
       .single();
@@ -197,19 +186,12 @@ export function GraduationView({ courseId }: Props) {
       await supabase.from("form_answers").insert(answerRows);
     }
 
-    if (score.grade === "khong_dat") {
-      setResult(score);
-      setSubmitting(false);
-      setPageState("result_fail");
-      return;
-    }
-
-    // ĐẠT: qua chặng + gắn tag tốt nghiệp (máy) + đóng enrollment
+    // Qua chặng + gắn tag tốt nghiệp (máy) + đóng enrollment
     await checkAndCompleteStages(currentUser.id, courseId);
     await supabase.rpc("set_student_status", {
       p_user: currentUser.id,
       p_status: "tot_nghiep",
-      p_reason: "Form tốt nghiệp đạt " + score.scorePct + "%",
+      p_reason: "Nộp form tốt nghiệp (khảo sát cảm nhận)",
       p_by: null,
     });
     await supabase
@@ -218,17 +200,8 @@ export function GraduationView({ courseId }: Props) {
       .eq("user_id", currentUser.id)
       .eq("course_id", courseId);
 
-    setResult(score);
     setSubmitting(false);
     setPageState("result_pass");
-  }
-
-  function retry() {
-    setAnswers({});
-    setResult(null);
-    setError("");
-    setPageState("form");
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   /* ─── Render ─── */
@@ -292,8 +265,6 @@ export function GraduationView({ courseId }: Props) {
 
   // Màn chúc mừng (vừa đạt hoặc đã đạt từ trước)
   if (pageState === "result_pass" || pageState === "already_passed") {
-    const grade = pageState === "result_pass" ? result!.grade : passedGrade!;
-    const scorePct = pageState === "result_pass" ? result!.scorePct : passedScore;
     return (
       <PageTransition>
         <div className="flex items-center justify-center min-h-[70vh] p-6">
@@ -306,17 +277,9 @@ export function GraduationView({ courseId }: Props) {
               <h1 className="text-3xl font-bold gold-gradient-text">Chúc mừng tốt nghiệp!</h1>
               <p className="text-muted-foreground">
                 {pageState === "result_pass"
-                  ? "Bạn đã hoàn thành toàn bộ lộ trình khoá học. Cả đội ROVA tự hào về bạn!"
-                  : "Bạn đã hoàn thành bài tốt nghiệp và kết thúc lộ trình khoá học."}
+                  ? "Cảm ơn bạn đã chia sẻ cảm nhận. Bạn đã hoàn thành toàn bộ lộ trình khoá học — cả đội ROVA tự hào về bạn!"
+                  : "Bạn đã gửi cảm nhận tốt nghiệp và kết thúc lộ trình khoá học."}
               </p>
-            </div>
-            <div className="flex flex-col items-center gap-3">
-              {scorePct !== null && scorePct !== undefined && (
-                <p className="text-4xl font-bold text-foreground tabular-nums">{scorePct}%</p>
-              )}
-              <Badge variant="outline" className={cn("text-sm px-4 py-1.5", GRADE_STYLES[grade])}>
-                <Award className="h-4 w-4 mr-1.5" /> Xếp loại: {GRADE_LABELS[grade]}
-              </Badge>
             </div>
             <div className="flex items-center justify-center gap-2">
               <Link href={courseHref}>
@@ -328,38 +291,6 @@ export function GraduationView({ courseId }: Props) {
                 </Button>
               </Link>
             </div>
-          </motion.div>
-        </div>
-      </PageTransition>
-    );
-  }
-
-  // Màn không đạt — hiện điểm + động viên + làm lại
-  if (pageState === "result_fail" && result) {
-    return (
-      <PageTransition>
-        <div className="flex items-center justify-center min-h-[70vh] p-6">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="text-center space-y-6 max-w-md">
-            <div className="w-20 h-20 rounded-full bg-amber-500/10 border-2 border-amber-500/30 flex items-center justify-center mx-auto">
-              <RotateCcw className="h-9 w-9 text-amber-500" />
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-foreground">Chưa đạt lần này</h1>
-              <p className="text-4xl font-bold text-foreground tabular-nums">{result.scorePct}%</p>
-              <p className="text-sm text-muted-foreground">
-                Đúng {result.correctCount}/{result.gradedCount} câu tính điểm — cần từ 60% để đạt.
-              </p>
-            </div>
-            <Badge variant="outline" className={cn("text-sm px-4 py-1.5", GRADE_STYLES.khong_dat)}>
-              {GRADE_LABELS.khong_dat}
-            </Badge>
-            <p className="text-sm text-muted-foreground">
-              Đừng nản — ôn lại kiến thức trong các chặng và làm lại ngay. Bạn được làm lại không giới hạn số lần.
-            </p>
-            <Button onClick={retry} className="bg-gold hover:bg-gold/90 text-black font-semibold">
-              <RotateCcw className="h-4 w-4 mr-2" /> Làm lại bài
-            </Button>
           </motion.div>
         </div>
       </PageTransition>
@@ -386,7 +317,7 @@ export function GraduationView({ courseId }: Props) {
             </div>
             {form?.description && <p className="text-sm text-muted-foreground">{form.description}</p>}
             <p className="text-xs text-muted-foreground">
-              Bài được chấm điểm tự động. Từ 60% là đạt · từ 85% xếp loại Xuất Sắc. Không đạt được làm lại không giới hạn.
+              Chia sẻ cảm nhận của bạn về khoá học — không chấm điểm. Gửi xong là bạn chính thức tốt nghiệp.
             </p>
             <p className="text-xs text-red-400">* Bắt buộc</p>
           </div>
@@ -416,7 +347,20 @@ export function GraduationView({ courseId }: Props) {
                 />
               )}
 
-              {q.question_type === "radio" && (
+              {q.question_type === "radio" && isNumberScale(q.options) && (
+                <div className="flex flex-wrap gap-2">
+                  {q.options?.map((opt, j) => (
+                    <button key={j} type="button" onClick={() => setAnswer(q.id, opt)} className={cn(
+                      "h-10 w-10 rounded-xl border text-sm font-medium tabular-nums transition-all",
+                      answers[q.id] === opt ? "border-gold bg-gold/15 text-gold" : "border-border text-foreground hover:border-gold/30"
+                    )}>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {q.question_type === "radio" && !isNumberScale(q.options) && (
                 <div className="space-y-2">
                   {q.options?.map((opt, j) => (
                     <label key={j} className={cn(
@@ -481,7 +425,7 @@ export function GraduationView({ courseId }: Props) {
           {/* Submit */}
           <Button type="submit" disabled={submitting} className="bg-gold hover:bg-gold/90 text-black font-semibold py-6 rounded-xl text-base w-full">
             {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
-            {submitting ? "Đang chấm bài..." : "Nộp bài tốt nghiệp"}
+            {submitting ? "Đang gửi..." : "Gửi cảm nhận & tốt nghiệp"}
           </Button>
         </motion.form>
       </div>
