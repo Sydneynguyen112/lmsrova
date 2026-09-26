@@ -344,11 +344,13 @@ export async function flushWatchProgress(
   lessonId: string,
   addedSeconds: number,
   positionSec: number,
-  durationSec: number
+  durationSec: number,
+  // true ở lần flush đầu tiên có giây xem của một lượt vào bài → cộng 1 vào open_count
+  newSession = false
 ): Promise<{ justCompleted: boolean }> {
   const { data: existing } = await supabase
     .from("lesson_progress")
-    .select("id, watched_seconds, completed")
+    .select("id, watched_seconds, completed, open_count")
     .eq("user_id", userId)
     .eq("lesson_id", lessonId)
     .maybeSingle();
@@ -367,6 +369,8 @@ export async function flushWatchProgress(
       // watch_count = số lần XEM HẾT video, chỉ bump ở incrementWatchCount(onEnded).
       // Tạo dòng mới phải là 0, để 1 thì xem hết lần đầu đã thành 2 → hiện badge oan.
       watch_count: existing ? undefined : 0,
+      // open_count = số lượt mở video (vào bài và video thật sự chạy), rova-ops hiển thị
+      open_count: newSession ? (existing?.open_count || 0) + 1 : existing ? undefined : 0,
       ...(reachedThreshold
         ? { completed: true, completed_at: existing?.completed ? undefined : new Date().toISOString(), status: "completed" }
         : { status: "in_progress" }),

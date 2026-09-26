@@ -73,6 +73,8 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
 
   // duration thật của video (từ DB, hoặc backfill từ metadata player)
   const durationRef = useRef(0);
+  // Bài đã tính lượt mở trong lần vào trang này (đổi bài / vào lại → tính lượt mới)
+  const openedLessonRef = useRef<string | null>(null);
 
   const refreshUnlock = useCallback(async () => {
     if (!currentUser) return;
@@ -186,7 +188,10 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
     (addedSeconds: number, positionSec: number) => {
       if (!currentUser) return;
       setLiveWatchedSec((prev) => prev + Math.max(0, addedSeconds));
-      flushWatchProgress(currentUser.id, lessonId, addedSeconds, positionSec, durationRef.current)
+      // Lượt mở video: lần flush đầu có giây xem sau khi vào bài này → open_count + 1
+      const newSession = addedSeconds > 0 && openedLessonRef.current !== lessonId;
+      if (newSession) openedLessonRef.current = lessonId;
+      flushWatchProgress(currentUser.id, lessonId, addedSeconds, positionSec, durationRef.current, newSession)
         .then(({ justCompleted }) => {
           if (justCompleted) {
             setVideoCompleted(true);
