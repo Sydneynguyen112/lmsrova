@@ -193,8 +193,10 @@ export function computeUnlockState(input: UnlockInput): UnlockState {
 export async function initStudentRoadmap(userId: string, courseId: string): Promise<void> {
   const stages = await getRoadmapStages(courseId);
   if (stages.length === 0) return;
+  // Chỉ xét tiến độ của ĐÚNG khoá này — có dòng ở khoá khác (vd MASTER) vẫn phải mở chặng đầu khoá này
+  const stageIds = new Set(stages.map((s) => s.id));
   const existing = await getStageProgress(userId);
-  if (existing.length > 0) return;
+  if (existing.some((p) => stageIds.has(p.stage_id))) return;
   const first = stages[0];
   const now = new Date();
   await supabase.from("student_stage_progress").insert({
