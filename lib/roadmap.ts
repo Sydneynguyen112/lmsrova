@@ -112,6 +112,9 @@ export async function getLessonQuizMap(lessonIds: string[]): Promise<Map<string,
 // ─── Luật mở khoá video tuần tự ───
 // done(bài N) khi MỘT trong hai:
 //   (a) xem >=50% + quiz bài N passed (nếu có) + nếu N mở đầu chặng bài tập thì chặng completed
+//       — khoá bật courses.unlock_on_submit (3 HỘP PRO): thay "chặng completed" bằng "đã NỘP đủ ảnh"
+//       (đúng + chờ chấm >= required_correct_images), không phải đợi mentor chấm mới xem tiếp.
+//       Chặng lộ trình / tag / deadline vẫn qua khi mentor chấm đủ ảnh đúng (isStageConditionMet không đổi).
 //   (b) bài N nằm ở hoặc trước chặng xa nhất đã hoàn thành
 // Nhánh (b) có 2 lý do: học viên làm bài tập + quiz đạt thì qua chặng dù chưa xem hết video;
 // và học viên import từ hệ cũ có stage_progress nhưng KHÔNG có giây xem nào — không có (b)
@@ -131,6 +134,11 @@ export interface UnlockInput {
   passedQuizIds: Set<string>;
   stages: RoadmapStage[];
   progress: StageProgressRow[];
+  // courses.unlock_on_submit = true (vd 3 HỘP PRO): bài mở đầu chặng bài tập tính xong khi đã NỘP đủ ảnh
+  // (đúng + chờ chấm >= required_correct_images), không cần đợi mentor chấm / chặng completed.
+  // Thiếu 1 trong 2 trường này = luật cũ (chặng phải completed).
+  imageCounts?: Map<string, ImageCounts>;
+  unlockOnSubmit?: boolean;
 }
 
 export interface UnlockState {
@@ -164,8 +172,17 @@ export function lessonWatchThresholds(stages: RoadmapStage[]): Map<string, numbe
   return map;
 }
 
+/** Đã nộp đủ ảnh cho chặng bài tập (ảnh đúng + ảnh chờ chấm), chưa cần mentor chấm.
+ *  Ảnh bị chấm sai không tính → thiếu thì phải nộp bù. Cùng công thức với việc-cần-làm hằng ngày bên LMS. */
+export function hasSubmittedEnough(stage: RoadmapStage, imageCounts: Map<string, ImageCounts>): boolean {
+  if (!stage.assignment_id) return false;
+  const c = imageCounts.get(stage.assignment_id);
+  return (c?.correct || 0) + (c?.pending || 0) >= (stage.required_correct_images || 0);
+}
+
 export function computeUnlockState(input: UnlockInput): UnlockState {
-  const { lessons, watchedSeconds, lessonQuizMap, passedQuizIds, stages, progress } = input;
+  const { lessons, watchedSeconds, lessonQuizMap, passedQuizIds, stages, progress, imageCounts, unlockOnSubmit } =
+    input;
   const completedStageIds = new Set(
     progress.filter((p) => p.completed_at).map((p) => p.stage_id)
   );
@@ -199,7 +216,11 @@ export function computeUnlockState(input: UnlockInput): UnlockState {
     const quizId = lessonQuizMap.get(lesson.id);
     if (lessonDone && quizId && !passedQuizIds.has(quizId)) lessonDone = false;
     const stage = stageByLesson.get(lesson.id);
-    if (lessonDone && stage && !completedStageIds.has(stage.id)) lessonDone = false;
+    if (lessonDone && stage && !completedStageIds.has(stage.id)) {
+      // Khoá bật unlock_on_submit (vd 3 HỘP PRO): nộp đủ ảnh là đi tiếp, không đợi mentor chấm
+      const submitted = !!unlockOnSubmit && !!imageCounts && hasSubmittedEnough(stage, imageCounts);
+      if (!submitted) lessonDone = false;
+    }
 
     // Đã qua chặng phủ bài này → xong, bất kể đã xem bao nhiêu
     if (index <= completedThroughIndex) lessonDone = true;
