@@ -4,7 +4,7 @@
 // sách chính là nút "MỘT việc kế tiếp" trên trang nhà.
 // SQL đi kèm: supabase-daily-todo.sql (cột profiles.learning_pace)
 import { supabase } from "./supabase";
-import { isLessonWatched, type RoadmapStage } from "./roadmap";
+import { isLessonWatched, lessonWatchThresholds, type RoadmapStage } from "./roadmap";
 import type { StudentUnlockData } from "./api-student";
 
 export type LearningPace = "fast" | "steady";
@@ -91,6 +91,7 @@ export function buildDailyTodo(
 
   const items: TodoItem[] = [];
   const maxItems = PACE_INFO[pace].perDay;
+  const watchThresholds = lessonWatchThresholds(stages);
 
   for (const lesson of lessons) {
     if (items.length >= maxItems) break;
@@ -100,7 +101,8 @@ export function buildDailyTodo(
     const href = `/student/courses/${courseId}/${lesson.id}`;
     const watched = isLessonWatched(
       { id: lesson.id, duration_sec: lesson.duration_sec, order_index: 0 },
-      watchedSeconds
+      watchedSeconds,
+      watchThresholds.get(lesson.id)
     );
     if (!watched) {
       items.push({ kind: "watch", title: lesson.title, detail: "Xem video bài học", href });

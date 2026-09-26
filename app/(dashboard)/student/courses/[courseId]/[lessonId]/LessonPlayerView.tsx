@@ -31,6 +31,7 @@ import {
 import {
   checkAndCompleteStages,
   flushWatchProgress,
+  lessonWatchThresholds,
   WORK_WATCH_THRESHOLD,
   type RoadmapStage,
 } from "@/lib/roadmap";
@@ -285,14 +286,17 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   const watchedRatio = lesson.duration_sec
     ? Math.min(1, watchedSeconds / lesson.duration_sec)
     : 1;
-  const workGatePassed = watchedRatio >= WORK_WATCH_THRESHOLD;
+  // Chặng nhóm video có ngưỡng xem thấp hơn (vd Video hoàn thiện 30%) → mở quiz theo ngưỡng đó luôn
+  const groupThreshold = lessonWatchThresholds(data.stages).get(lessonId);
+  const workThreshold = groupThreshold ? Math.min(WORK_WATCH_THRESHOLD, groupThreshold) : WORK_WATCH_THRESHOLD;
+  const workGatePassed = watchedRatio >= workThreshold;
   const watchedPercent = Math.round(watchedRatio * 100);
-  const gatePercent = Math.round(WORK_WATCH_THRESHOLD * 100);
+  const gatePercent = Math.round(workThreshold * 100);
   // Còn bao nhiêu nữa mới mở — làm tròn LÊN để không bao giờ hiện "còn 0%" mà vẫn khoá
-  const remainPercent = Math.max(1, Math.ceil((WORK_WATCH_THRESHOLD - watchedRatio) * 100));
+  const remainPercent = Math.max(1, Math.ceil((workThreshold - watchedRatio) * 100));
   const remainSec = Math.max(
     0,
-    Math.ceil((lesson.duration_sec || 0) * WORK_WATCH_THRESHOLD) - watchedSeconds
+    Math.ceil((lesson.duration_sec || 0) * workThreshold) - watchedSeconds
   );
   // formatDuration làm tròn phút nên dưới 1 phút sẽ ra "0 phút" — đếm giây cho rõ
   const remainText = remainSec < 60 ? `${remainSec} giây` : formatDuration(remainSec);

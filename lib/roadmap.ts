@@ -29,6 +29,8 @@ export interface RoadmapStage {
   quiz_id: string | null;
   required_correct_images: number;
   form_id: string | null;
+  // Ngưỡng xem riêng (%) cho video của chặng nhóm video (lesson_group); null/thiếu = WATCH_THRESHOLD
+  min_watch_pct?: number | null;
 }
 
 export interface StageProgressRow {
@@ -137,10 +139,29 @@ export interface UnlockState {
   firstLockedLessonId: string | null;
 }
 
-export function isLessonWatched(lesson: LessonLite, watchedSeconds: Map<string, number>): boolean {
+export function isLessonWatched(
+  lesson: LessonLite,
+  watchedSeconds: Map<string, number>,
+  threshold: number = WATCH_THRESHOLD
+): boolean {
   const watched = watchedSeconds.get(lesson.id) || 0;
   if (!lesson.duration_sec) return watched > 0; // duration chưa có: nới, tránh khoá oan
-  return watched >= lesson.duration_sec * WATCH_THRESHOLD;
+  return watched >= lesson.duration_sec * threshold;
+}
+
+/** Ngưỡng xem để tính "xong" video của 1 chặng (vd chặng Video hoàn thiện chỉ cần 30%). */
+export function stageWatchThreshold(stage: RoadmapStage): number {
+  const pct = stage.min_watch_pct;
+  return pct && pct > 0 && pct <= 100 ? pct / 100 : WATCH_THRESHOLD;
+}
+
+/** lesson_id → ngưỡng xem riêng, lấy từ các chặng nhóm video có đặt min_watch_pct. */
+export function lessonWatchThresholds(stages: RoadmapStage[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const s of stages)
+    if (s.completion_type === "lesson_group" && s.min_watch_pct)
+      for (const id of s.lesson_ids || []) map.set(id, stageWatchThreshold(s));
+  return map;
 }
 
 export function computeUnlockState(input: UnlockInput): UnlockState {
@@ -151,6 +172,7 @@ export function computeUnlockState(input: UnlockInput): UnlockState {
   const stageByLesson = new Map<string, RoadmapStage>();
   for (const s of stages)
     if (s.completion_type === "assignment_quiz" && s.lesson_id) stageByLesson.set(s.lesson_id, s);
+  const thresholds = lessonWatchThresholds(stages);
 
   // Vị trí bài học của chặng XA NHẤT đã hoàn thành — mọi bài từ đó trở về trước coi như xong.
   // Chặng nào chưa nối lesson_id thì không tính được, bỏ qua (không khoá oan ai).
@@ -173,7 +195,7 @@ export function computeUnlockState(input: UnlockInput): UnlockState {
     if (previousAllDone) unlocked.add(lesson.id);
     else if (firstLocked === null) firstLocked = lesson.id;
 
-    let lessonDone = isLessonWatched(lesson, watchedSeconds);
+    let lessonDone = isLessonWatched(lesson, watchedSeconds, thresholds.get(lesson.id));
     const quizId = lessonQuizMap.get(lesson.id);
     if (lessonDone && quizId && !passedQuizIds.has(quizId)) lessonDone = false;
     const stage = stageByLesson.get(lesson.id);
@@ -266,7 +288,7 @@ function isStageConditionMet(stage: RoadmapStage, ctx: StageCheckContext): boole
       if (ids.length === 0) return false;
       return ids.every((id) => {
         const lesson = ctx.lessons.find((l) => l.id === id);
-        if (!lesson || !isLessonWatched(lesson, ctx.watchedSeconds)) return false;
+        if (!lesson || !isLessonWatched(lesson, ctx.watchedSeconds, stageWatchThreshold(stage))) return false;
         const quizId = ctx.lessonQuizMap.get(id);
         return quizId ? ctx.passedQuizIds.has(quizId) : true;
       });
