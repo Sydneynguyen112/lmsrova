@@ -8,8 +8,9 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ratingMax, ratingScale, isAnswered } from "@/lib/form-question-meta";
+import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther } from "@/lib/form-question-meta";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
+import { FormOtherOption } from "@/components/shared/FormOtherOption";
 
 interface Form {
   id: string;
@@ -101,12 +102,12 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
 
     // Create answers
     const answerRows = questions
-      .filter((q) => answers[q.id]?.trim())
       .map((q) => ({
         response_id: response.id,
         question_id: q.id,
-        answer_value: answers[q.id],
-      }));
+        answer_value: cleanAnswer(q, answers[q.id]),
+      }))
+      .filter((row) => row.answer_value.trim());
 
     if (answerRows.length > 0) {
       await supabase.from("form_answers").insert(answerRows);
@@ -247,6 +248,9 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
                       {opt}
                     </label>
                   ))}
+                  {allowsOther(q) && (
+                    <FormOtherOption question={q} value={answers[q.id] || ""} onChange={(v) => setAnswer(q.id, v)} />
+                  )}
                 </div>
               )}
 
@@ -264,6 +268,9 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
                       </label>
                     );
                   })}
+                  {allowsOther(q) && (
+                    <FormOtherOption question={q} value={answers[q.id] || ""} onChange={(v) => setAnswer(q.id, v)} />
+                  )}
                 </div>
               )}
 

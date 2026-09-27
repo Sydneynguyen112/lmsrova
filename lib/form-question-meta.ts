@@ -1,6 +1,8 @@
 // Thiết lập riêng theo loại câu hỏi, lưu trong form_questions.meta (JSONB):
 //   - "rating": meta.ratingMax = số sao tối đa (1–10, thiếu thì 5)
 //   - "grid"  : options = các CỘT, meta.gridRows = các HÀNG; mỗi hàng chọn 1 cột
+//   - "radio" / "checkbox": meta.allowOther = true → có thêm tuỳ chọn "Khác" để tự ghi,
+//     câu trả lời lưu dạng "Khác: <nội dung>"
 // Câu trả lời lưới lưu trong 1 chuỗi "Hàng: Cột", ngăn cách "|||" (giống checkbox)
 // để trang phản hồi + CSV đọc được ngay.
 // Mirror: rova-ops/lib/form-question-meta.ts — sửa một bên phải sửa bên kia.
@@ -63,8 +65,48 @@ export function setGridAnswer(
     .join(MULTI_SEP);
 }
 
-// Đã trả lời đủ chưa — câu lưới phải chọn đủ mọi hàng
+// ─── Tuỳ chọn "Khác" (tự ghi) ───
+
+export const OTHER_LABEL = "Khác";
+const OTHER_PREFIX = `${OTHER_LABEL}: `;
+
+export function allowsOther(q: QuestionLike): boolean {
+  return (q.question_type === "radio" || q.question_type === "checkbox") && metaOf(q).allowOther === true;
+}
+
+function answerParts(q: QuestionLike, value: string): string[] {
+  if (!value) return [];
+  return q.question_type === "checkbox" ? value.split(MULTI_SEP) : [value];
+}
+
+function isOtherPart(q: QuestionLike, part: string): boolean {
+  return part.startsWith(`${OTHER_LABEL}:`) && !(q.options || []).includes(part);
+}
+
+// Nội dung ô "Khác" đang ghi — null khi học viên không chọn "Khác"
+export function otherText(q: QuestionLike, value: string): string | null {
+  const part = answerParts(q, value).find((p) => isOtherPart(q, p));
+  return part === undefined ? null : part.slice(OTHER_PREFIX.length);
+}
+
+// Chọn / sửa / bỏ chọn (text = null) tuỳ chọn "Khác" → chuỗi câu trả lời mới
+export function setOtherText(q: QuestionLike, value: string, text: string | null): string {
+  const picked = text === null ? [] : [OTHER_PREFIX + text];
+  if (q.question_type !== "checkbox") return picked[0] ?? "";
+  return [...answerParts(q, value).filter((p) => !isOtherPart(q, p)), ...picked].join(MULTI_SEP);
+}
+
+// Câu trả lời để lưu: bỏ tuỳ chọn "Khác" đã chọn mà chưa ghi gì
+export function cleanAnswer(q: QuestionLike, value: string | undefined): string {
+  if (!value || !allowsOther(q)) return value || "";
+  return answerParts(q, value)
+    .filter((p) => !isOtherPart(q, p) || p.slice(OTHER_PREFIX.length).trim() !== "")
+    .join(MULTI_SEP);
+}
+
+// Đã trả lời đủ chưa — câu lưới phải chọn đủ mọi hàng, chọn "Khác" thì phải ghi nội dung
 export function isAnswered(q: QuestionLike, value: string | undefined): boolean {
+  value = cleanAnswer(q, value);
   if (!value?.trim()) return false;
   if (q.question_type !== "grid") return true;
   const columns = q.options || [];
