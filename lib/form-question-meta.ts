@@ -3,7 +3,8 @@
 //   - "grid"  : options = các CỘT, meta.gridRows = các HÀNG; mỗi hàng chọn 1 cột
 //   - "radio" / "checkbox": meta.allowOther = true → có thêm tuỳ chọn "Khác" để tự ghi,
 //     câu trả lời lưu dạng "Khác: <nội dung>"
-//   - "text": meta.profileField = "full_name" → câu "Họ và tên", ghi vào hồ sơ học viên (form tốt nghiệp)
+//   - "text": meta.profileField = "full_name" | "phone" → câu "Họ và tên" / "Số điện thoại",
+//     ghi vào hồ sơ học viên khi nộp form tốt nghiệp
 // Câu trả lời lưới lưu trong 1 chuỗi "Hàng: Cột", ngăn cách "|||" (giống checkbox)
 // để trang phản hồi + CSV đọc được ngay.
 // Mirror: rova-ops/lib/form-question-meta.ts — sửa một bên phải sửa bên kia.
@@ -114,29 +115,50 @@ export function isAnswered(q: QuestionLike, value: string | undefined): boolean 
   return gridRows(q).every((r) => gridSelected(value, r, columns) !== null);
 }
 
-// ─── Câu "Họ và tên" của form tốt nghiệp ───
-// meta.profileField = "full_name": câu trả lời được ghi vào họ tên trong hồ sơ học viên khi nộp form
+// ─── Câu "Họ và tên" / "Số điện thoại" của form tốt nghiệp ───
+// meta.profileField = "full_name" | "phone": câu trả lời được ghi vào hồ sơ học viên khi nộp form
 
-export function isProfileNameQuestion(q: { question_type: string; meta?: unknown }): boolean {
-  return q.question_type === "text" && metaOf(q).profileField === "full_name";
+export type ProfileField = "full_name" | "phone";
+
+export const PROFILE_FIELD_LABELS: Record<ProfileField, string> = {
+  full_name: "Họ và tên",
+  phone: "Số điện thoại",
+};
+
+export function profileFieldOf(q: { question_type: string; meta?: unknown }): ProfileField | null {
+  const f = metaOf(q).profileField;
+  return q.question_type === "text" && (f === "full_name" || f === "phone") ? f : null;
 }
 
 // Gọn khoảng trắng + viết hoa chữ đầu mỗi từ ("nguyễn  đình HIẾU" → "Nguyễn Đình Hiếu")
 export function cleanPersonName(raw: string): string {
   return raw
     .trim()
-    .split(/s+/)
+    .split(/\s+/)
     .filter(Boolean)
     .map((w) => w.charAt(0).toLocaleUpperCase("vi") + w.slice(1).toLocaleLowerCase("vi"))
     .join(" ");
 }
 
-// Họ tên học viên tự ghi trong form — null khi form không có câu này hoặc ghi quá ngắn
-export function profileNameFrom(
+// Về dạng 10 số bắt đầu bằng 0 như hồ sơ đang lưu ("+84 985.308.982" → "0985308982"); "" khi không phải số hợp lệ
+export function cleanPhone(raw: string): string {
+  let d = raw.replace(/\D/g, "");
+  if (d.length === 11 && d.startsWith("84")) d = "0" + d.slice(2);
+  return /^0\d{9}$/.test(d) ? d : "";
+}
+
+// Thông tin hồ sơ học viên tự ghi trong form — trường nào form không hỏi hoặc ghi không hợp lệ thì không có
+export function profileFieldsFrom(
   questions: { id: string; question_type: string; meta?: unknown }[],
   answers: Record<string, string | undefined>
-): string | null {
-  const q = questions.find(isProfileNameQuestion);
-  const name = q ? cleanPersonName(answers[q.id] || "") : "";
-  return name.length >= 2 ? name : null;
+): Partial<Record<ProfileField, string>> {
+  const out: Partial<Record<ProfileField, string>> = {};
+  for (const q of questions) {
+    const field = profileFieldOf(q);
+    if (!field || out[field]) continue;
+    const raw = answers[q.id] || "";
+    const value = field === "phone" ? cleanPhone(raw) : cleanPersonName(raw);
+    if (value.length >= 2) out[field] = value;
+  }
+  return out;
 }

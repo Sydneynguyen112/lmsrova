@@ -11,8 +11,8 @@ import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { type FormQuestionRow, GRADUATION_PASS_GRADE } from "@/lib/api-forms";
-import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther, profileNameFrom } from "@/lib/form-question-meta";
-import { saveProfileNameFromForm } from "@/lib/graduation-link";
+import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther, profileFieldsFrom } from "@/lib/form-question-meta";
+import { saveProfileFromForm } from "@/lib/graduation-link";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 import { FormOtherOption } from "@/components/shared/FormOtherOption";
 import {
@@ -156,6 +156,7 @@ export function GraduationView({ courseId }: Props) {
     }
 
     setSubmitting(true);
+    const typed = profileFieldsFrom(questions, answers);
 
     // Form tốt nghiệp = khảo sát cảm nhận, không chấm điểm: nộp là tốt nghiệp.
     // grade = GRADUATION_PASS_GRADE để engine lộ trình + view SQL nhận là đã qua chặng.
@@ -164,9 +165,9 @@ export function GraduationView({ courseId }: Props) {
       .insert({
         form_id: form.id,
         user_id: currentUser.id,
-        respondent_name: profileNameFrom(questions, answers) || currentUser.full_name,
+        respondent_name: typed.full_name || currentUser.full_name,
         respondent_email: currentUser.email,
-        respondent_phone: currentUser.phone,
+        respondent_phone: typed.phone || currentUser.phone,
         score_pct: null,
         grade: GRADUATION_PASS_GRADE,
       })
@@ -190,7 +191,7 @@ export function GraduationView({ courseId }: Props) {
       await supabase.from("form_answers").insert(answerRows);
     }
 
-    await saveProfileNameFromForm(currentUser.id, questions, answers);
+    await saveProfileFromForm(currentUser.id, questions, answers);
 
     // Qua chặng + gắn tag tốt nghiệp (máy) + đóng enrollment
     await checkAndCompleteStages(currentUser.id, courseId);

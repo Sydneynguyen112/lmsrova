@@ -8,11 +8,11 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther, profileNameFrom } from "@/lib/form-question-meta";
+import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther, profileFieldsFrom } from "@/lib/form-question-meta";
 import { useRouter } from "next/navigation";
 import { useCurrentUserState } from "@/lib/auth";
 import { GRADUATION_PASS_GRADE } from "@/lib/api-forms";
-import { graduateByForm, saveProfileNameFromForm } from "@/lib/graduation-link";
+import { graduateByForm, saveProfileFromForm } from "@/lib/graduation-link";
 import { signInHref } from "@/lib/return-to";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 import { FormOtherOption } from "@/components/shared/FormOtherOption";
@@ -115,6 +115,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
     }
 
     setSubmitting(true);
+    const typed = profileFieldsFrom(questions, answers);
 
     // Create response
     const { data: response, error: respErr } = await supabase
@@ -125,9 +126,9 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
               // Nộp là tốt nghiệp — grade để engine lộ trình + view SQL nhận là đã qua chặng
               form_id: formId,
               user_id: user.id,
-              respondent_name: profileNameFrom(questions, answers) || user.full_name,
+              respondent_name: typed.full_name || user.full_name,
               respondent_email: user.email,
-              respondent_phone: user.phone,
+              respondent_phone: typed.phone || user.phone,
               score_pct: null,
               grade: GRADUATION_PASS_GRADE,
             }
@@ -160,7 +161,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
       await supabase.from("form_answers").insert(answerRows);
     }
     if (needLogin && user) {
-      await saveProfileNameFromForm(user.id, questions, answers);
+      await saveProfileFromForm(user.id, questions, answers);
       await graduateByForm(user.id, formId);
     }
 
