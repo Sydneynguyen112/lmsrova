@@ -20,12 +20,13 @@ export interface FormQuestionRow {
   id: string;
   form_id: string;
   question_text: string;
-  question_type: "text" | "textarea" | "radio" | "checkbox" | "select" | "rating";
+  question_type: "text" | "textarea" | "radio" | "checkbox" | "select" | "rating" | "grid";
   options: string[];
   correct_option: number | null; // index trong options — chỉ radio/select
   points: number; // điểm câu hỏi — text/textarea luôn 0
   required: boolean;
   order_index: number;
+  meta?: unknown; // thiết lập theo loại câu — xem lib/form-question-meta.ts
 }
 
 // Form tốt nghiệp là khảo sát cảm nhận — kiến thức đã kiểm qua bài tập + quiz trong lộ trình.

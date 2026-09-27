@@ -8,6 +8,8 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ratingMax, ratingScale, isAnswered } from "@/lib/form-question-meta";
+import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 
 interface Form {
   id: string;
@@ -24,6 +26,7 @@ interface Question {
   options: string[];
   required: boolean;
   order_index: number;
+  meta?: unknown;
 }
 
 export default function PublicFormPage({ params }: { params: Promise<{ formId: string }> }) {
@@ -70,8 +73,8 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
 
     // Validate required
     for (const q of questions) {
-      if (q.required && !answers[q.id]?.trim()) {
-        setError(`Vui lòng trả lời câu hỏi "${q.question_text}"`);
+      if (q.required && !isAnswered(q, answers[q.id])) {
+        setError(`Vui lòng trả lời ${q.question_type === "grid" ? "đủ mọi hàng của " : ""}câu hỏi "${q.question_text}"`);
         return;
       }
     }
@@ -276,13 +279,17 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
               )}
 
               {q.question_type === "rating" && (
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((s) => (
+                <div className="flex flex-wrap gap-1">
+                  {ratingScale(q).map((s) => (
                     <button key={s} type="button" onClick={() => setAnswer(q.id, String(s))}>
-                      <Star className={cn("h-8 w-8 transition-colors", parseInt(answers[q.id] || "0") >= s ? "text-amber-400 fill-amber-400" : "text-muted-foreground/30")} />
+                      <Star className={cn("transition-colors", ratingMax(q) > 5 ? "h-6 w-6 sm:h-8 sm:w-8" : "h-8 w-8", parseInt(answers[q.id] || "0") >= s ? "text-amber-400 fill-amber-400" : "text-muted-foreground/30")} />
                     </button>
                   ))}
                 </div>
+              )}
+
+              {q.question_type === "grid" && (
+                <FormGridQuestion question={q} value={answers[q.id] || ""} onChange={(v) => setAnswer(q.id, v)} />
               )}
             </motion.div>
           ))}

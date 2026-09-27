@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowLeft, Loader2, Stethoscope, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ratingMax, ratingScale } from "@/lib/form-question-meta";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { getStoredUserId, type Profile } from "@/lib/auth";
@@ -410,12 +411,13 @@ export default function OnboardingPage() {
           )}
 
           {plainQuestion && question?.question_type === "rating" && (
-            <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map((s) => (
+            <div className="flex flex-wrap gap-1">
+              {ratingScale(question).map((s) => (
                 <button key={s} type="button" onClick={() => setAnswer(question.id, String(s))}>
                   <Star
                     className={cn(
-                      "h-8 w-8 transition-colors",
+                      "transition-colors",
+                      ratingMax(question) > 5 ? "h-6 w-6 sm:h-8 sm:w-8" : "h-8 w-8",
                       parseInt(answers[question.id] || "0") >= s
                         ? "text-amber-400 fill-amber-400"
                         : "text-muted-foreground/30"
