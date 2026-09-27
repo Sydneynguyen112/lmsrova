@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signInWithGoogle, signUpWithPassword } from "@/lib/auth";
 import { detectInAppBrowser, inAppGoogleMessage } from "@/lib/in-app-browser";
+import { rememberReturnTo, takeReturnTo } from "@/lib/return-to";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,6 +26,8 @@ export default function RegisterPage() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => rememberReturnTo(), []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -40,7 +43,7 @@ export default function RegisterPage() {
         setLoading(false);
         return;
       }
-      router.push("/student");
+      router.push(takeReturnTo() || "/student");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Không thể tạo tài khoản. Thử lại sau."

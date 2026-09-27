@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signInWithPassword, signInWithGoogle, requestPasswordReset } from "@/lib/auth";
 import { detectInAppBrowser, inAppGoogleMessage } from "@/lib/in-app-browser";
+import { rememberReturnTo, takeReturnTo } from "@/lib/return-to";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -16,6 +17,8 @@ export default function SignInPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => rememberReturnTo(), []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +28,10 @@ export default function SignInPage() {
     try {
       const profile = await signInWithPassword(form.email, form.password);
       setLoading(false);
-      if (profile.role === "admin" || profile.role === "super_admin" || profile.role === "mentor") {
+      const returnTo = takeReturnTo();
+      if (returnTo) {
+        router.push(returnTo);
+      } else if (profile.role === "admin" || profile.role === "super_admin" || profile.role === "mentor") {
         // Khu quản trị đã dời sang app riêng
         window.location.href = "https://rova-ops.vercel.app";
       } else {

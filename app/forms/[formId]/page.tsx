@@ -9,7 +9,11 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther } from "@/lib/form-question-meta";
-import { graduateByPublicResponse } from "@/lib/graduation-link";
+import { useRouter } from "next/navigation";
+import { useCurrentUserState } from "@/lib/auth";
+import { GRADUATION_PASS_GRADE } from "@/lib/api-forms";
+import { graduateByForm } from "@/lib/graduation-link";
+import { signInHref } from "@/lib/return-to";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 import { FormOtherOption } from "@/components/shared/FormOtherOption";
 
@@ -41,6 +45,33 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const router = useRouter();
+  const { user, status } = useCurrentUserState();
+
+  // Form tốt nghiệp: bắt buộc đăng nhập để bài gắn đúng tài khoản; đăng nhập xong quay lại đúng form này
+  const needLogin = form?.form_type === "graduation";
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (needLogin && status === "signed-out") router.replace(signInHref(`/forms/${formId}`));
+  }, [needLogin, status, formId, router]);
+
+  // Đã nộp form này rồi thì không nộp lần hai
+  useEffect(() => {
+    if (!needLogin || !userId) return;
+    let cancelled = false;
+    supabase
+      .from("form_responses")
+      .select("id")
+      .eq("form_id", formId)
+      .eq("user_id", userId)
+      .in("grade", ["tot", "xuat_sac"])
+      .limit(1)
+      .then(({ data }) => {
+        if (!cancelled && data && data.length > 0) setSubmitted(true);
+      });
+    return () => { cancelled = true; };
+  }, [needLogin, userId, formId]);
 
   useEffect(() => {
     async function load() {
@@ -73,11 +104,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
     e.preventDefault();
     setError("");
 
-    // Form tốt nghiệp: cần email để gắn bài vào đúng tài khoản học viên
-    if (form?.form_type === "graduation" && !info.email.trim()) {
-      setError("Vui lòng nhập email bạn dùng để đăng nhập ROVA.");
-      return;
-    }
+    if (needLogin && !user) return;
 
     // Validate required
     for (const q of questions) {
@@ -92,12 +119,25 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
     // Create response
     const { data: response, error: respErr } = await supabase
       .from("form_responses")
-      .insert({
-        form_id: formId,
-        respondent_name: info.name || null,
-        respondent_email: info.email || null,
-        respondent_phone: info.phone || null,
-      })
+      .insert(
+        needLogin && user
+          ? {
+              // Nộp là tốt nghiệp — grade để engine lộ trình + view SQL nhận là đã qua chặng
+              form_id: formId,
+              user_id: user.id,
+              respondent_name: user.full_name,
+              respondent_email: user.email,
+              respondent_phone: user.phone,
+              score_pct: null,
+              grade: GRADUATION_PASS_GRADE,
+            }
+          : {
+              form_id: formId,
+              respondent_name: info.name || null,
+              respondent_email: info.email || null,
+              respondent_phone: info.phone || null,
+            }
+      )
       .select()
       .single();
 
@@ -119,9 +159,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
     if (answerRows.length > 0) {
       await supabase.from("form_answers").insert(answerRows);
     }
-    if (form?.form_type === "graduation") {
-      await graduateByPublicResponse(response.id, formId, info.email);
-    }
+    if (needLogin && user) await graduateByForm(user.id, formId);
 
     setSubmitting(false);
     setSubmitted(true);
@@ -162,6 +200,15 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
             </Button>
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  // Chưa biết ai đang đăng nhập / đang chuyển sang trang đăng nhập
+  if (needLogin && !user) {
+    return (
+      <div className="min-h-screen bg-[var(--neutral-bg)] dark:bg-[var(--dark-bg)] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--gold-primary)]" />
       </div>
     );
   }
@@ -207,6 +254,13 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
           </div>
 
           {/* Contact info */}
+          {needLogin && user ? (
+            <div className="rounded-2xl bg-white dark:bg-[var(--dark-surface)] border border-[var(--border-light)] dark:border-[var(--dark-border)] p-6 space-y-1">
+              <p className="text-xs text-muted-foreground">Bạn đang làm bài bằng tài khoản</p>
+              <p className="text-sm font-medium text-foreground">{user.full_name}</p>
+              <p className="text-sm text-muted-foreground break-all">{user.email}</p>
+            </div>
+          ) : (
           <div className="rounded-2xl bg-white dark:bg-[var(--dark-surface)] border border-[var(--border-light)] dark:border-[var(--dark-border)] p-6 space-y-4">
             <p className="text-sm font-medium text-foreground">Thông tin của bạn</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -215,13 +269,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
                 <Input value={info.name} onChange={(e) => setInfo({ ...info, name: e.target.value })} placeholder="Nguyễn Văn A" className="mt-1" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">
-                  {form.form_type === "graduation" ? (
-                    <>Email đăng nhập ROVA <span className="text-red-400">*</span></>
-                  ) : (
-                    "Email"
-                  )}
-                </label>
+                <label className="text-xs text-muted-foreground">Email</label>
                 <Input type="email" value={info.email} onChange={(e) => setInfo({ ...info, email: e.target.value })} placeholder="email@example.com" className="mt-1" />
               </div>
             </div>
@@ -230,6 +278,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
               <Input value={info.phone} onChange={(e) => setInfo({ ...info, phone: e.target.value })} placeholder="0901234567" className="mt-1" />
             </div>
           </div>
+          )}
 
           {/* Questions */}
           {questions.map((q, i) => (

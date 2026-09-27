@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ensureProfile } from "@/lib/auth";
+import { takeReturnTo } from "@/lib/return-to";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -22,7 +23,10 @@ export default function AuthCallbackPage() {
         const { profile, isNewUser } = result;
         setStatus(`Xin chào ${profile.full_name}! Đang chuyển hướng...`);
 
-        if (isNewUser && profile.role === "student") {
+        const returnTo = takeReturnTo();
+        if (returnTo) {
+          router.push(returnTo);
+        } else if (isNewUser && profile.role === "student") {
           router.push("/student");
         } else if (profile.role === "admin" || profile.role === "super_admin" || profile.role === "mentor") {
           // Khu quản trị đã dời sang app riêng
