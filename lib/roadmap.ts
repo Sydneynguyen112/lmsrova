@@ -319,6 +319,24 @@ function isStageConditionMet(stage: RoadmapStage, ctx: StageCheckContext): boole
   }
 }
 
+// Nộp form tốt nghiệp = tốt nghiệp (chủ dự án chốt 27/9/2026): học viên chưa quen nền tảng nộp bài tập
+// qua Zalo cho mentor rồi được gửi link form, nên các chặng còn dở được đóng luôn, không xét điều kiện.
+// Chỉ tính lượt nộp SAU khi ghi danh khoá này — form dùng chung nhiều khoá thì lượt nộp của khoá trước
+// không làm tốt nghiệp khoá sau.
+export function hasGraduatedByForm(
+  stages: RoadmapStage[],
+  passingResponses: { form_id: string; submitted_at: string }[],
+  enrolledAts: (string | null)[]
+): boolean {
+  const formIds = new Set(
+    stages.filter((s) => s.completion_type === "graduation_form" && s.form_id).map((s) => s.form_id as string)
+  );
+  if (formIds.size === 0) return false;
+  const times = enrolledAts.filter(Boolean).map((t) => new Date(t as string).getTime());
+  const since = times.length ? Math.max(...times) : -Infinity;
+  return passingResponses.some((r) => formIds.has(r.form_id) && new Date(r.submitted_at).getTime() >= since);
+}
+
 // Gọi sau MỌI sự kiện học: video đạt 50%, quiz pass, mentor chấm ảnh, nộp survey, nộp form.
 // Lặp complete các chặng đã đủ điều kiện (phòng import/backfill), mở chặng kế, refresh status.
 export async function checkAndCompleteStages(userId: string, courseId: string): Promise<void> {
@@ -329,7 +347,7 @@ export async function checkAndCompleteStages(userId: string, courseId: string): 
   if (stages.length === 0) return;
   if (progress.length === 0) await initStudentRoadmap(userId, courseId);
 
-  const [{ data: profile }, lessonsRes, watchedRes, imageCounts, passedQuizIds, gradRes] =
+  const [{ data: profile }, lessonsRes, watchedRes, imageCounts, passedQuizIds, gradRes, enrRes] =
     await Promise.all([
       supabase.from("profiles").select("onboarding_survey").eq("id", userId).single(),
       supabase
@@ -341,9 +359,10 @@ export async function checkAndCompleteStages(userId: string, courseId: string): 
       getPassedQuizIds(userId),
       supabase
         .from("form_responses")
-        .select("form_id, grade")
+        .select("form_id, grade, submitted_at")
         .eq("user_id", userId)
         .in("grade", ["tot", "xuat_sac"]),
+      supabase.from("enrollments").select("enrolled_at").eq("user_id", userId).eq("course_id", courseId),
     ]);
 
   type LessonRow = { id: string; duration_sec: number; order_index: number; modules: { order_index: number } };
@@ -370,10 +389,16 @@ export async function checkAndCompleteStages(userId: string, courseId: string): 
   const currentProgress = await getStageProgress(userId);
   const completedIds = new Set(currentProgress.filter((p) => p.completed_at).map((p) => p.stage_id));
 
+  const graduated = hasGraduatedByForm(
+    stages,
+    gradRes.data || [],
+    (enrRes.data || []).map((e) => e.enrolled_at as string | null)
+  );
+
   for (const stage of stages) {
     if (completedIds.has(stage.id)) continue;
     await openStage(userId, stage); // đảm bảo có dòng progress (idempotent)
-    if (!isStageConditionMet(stage, ctx)) break; // chặng đầu tiên chưa đạt = chặng hiện tại
+    if (!graduated && !isStageConditionMet(stage, ctx)) break; // chặng đầu tiên chưa đạt = chặng hiện tại
     await markStageComplete(userId, stage.id);
     completedIds.add(stage.id);
   }

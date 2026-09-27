@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther } from "@/lib/form-question-meta";
+import { graduateByPublicResponse } from "@/lib/graduation-link";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 import { FormOtherOption } from "@/components/shared/FormOtherOption";
 
@@ -72,6 +73,12 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
     e.preventDefault();
     setError("");
 
+    // Form tốt nghiệp: cần email để gắn bài vào đúng tài khoản học viên
+    if (form?.form_type === "graduation" && !info.email.trim()) {
+      setError("Vui lòng nhập email bạn dùng để đăng nhập ROVA.");
+      return;
+    }
+
     // Validate required
     for (const q of questions) {
       if (q.required && !isAnswered(q, answers[q.id])) {
@@ -111,6 +118,9 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
 
     if (answerRows.length > 0) {
       await supabase.from("form_answers").insert(answerRows);
+    }
+    if (form?.form_type === "graduation") {
+      await graduateByPublicResponse(response.id, formId, info.email);
     }
 
     setSubmitting(false);
@@ -205,7 +215,13 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
                 <Input value={info.name} onChange={(e) => setInfo({ ...info, name: e.target.value })} placeholder="Nguyễn Văn A" className="mt-1" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Email</label>
+                <label className="text-xs text-muted-foreground">
+                  {form.form_type === "graduation" ? (
+                    <>Email đăng nhập ROVA <span className="text-red-400">*</span></>
+                  ) : (
+                    "Email"
+                  )}
+                </label>
                 <Input type="email" value={info.email} onChange={(e) => setInfo({ ...info, email: e.target.value })} placeholder="email@example.com" className="mt-1" />
               </div>
             </div>
