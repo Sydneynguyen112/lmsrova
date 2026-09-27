@@ -106,6 +106,12 @@ export interface CourseProgress {
   pct: number;
 }
 
+// Tiến độ để HIỂN THỊ: khoá đã hoàn thành (tốt nghiệp) luôn là 100%, kể cả khi chưa xem
+// hết video. Số bài đã xong thật (5/12 bài học) vẫn hiện nguyên. Mirror rova-ops lib/api.ts.
+export function shownProgressPct(status: string | null | undefined, pct: number): number {
+  return status === "completed" ? 100 : pct || 0;
+}
+
 export function isLessonCompleted(lp: LessonProgressLite | undefined): boolean {
   return lp?.status === "completed" || lp?.completed === true;
 }

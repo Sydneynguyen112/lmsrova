@@ -18,7 +18,7 @@ import {
 import Link from "next/link";
 
 import { supabase } from "@/lib/supabase";
-import { getCourseProgressMap, type CourseProgress } from "@/lib/api-student";
+import { getCourseProgressMap, shownProgressPct, type CourseProgress } from "@/lib/api-student";
 import { cn, formatPrice, formatDate, formatDuration } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -248,6 +248,7 @@ export default function StudentCoursesPage() {
               const course = courses.find((c) => c.id === enrollment.course_id);
               if (!course) return null;
               const prog = progressByCourse.get(course.id);
+              const shownPct = shownProgressPct(enrollment.status, prog?.pct ?? 0);
 
               return (
                 <motion.div
@@ -291,9 +292,9 @@ export default function StudentCoursesPage() {
                           </div>
                           {enrollment.status !== "dropped" && (
                             <div className="flex items-center gap-3 mt-2">
-                              <Progress value={prog?.pct ?? 0} className="flex-1" />
+                              <Progress value={shownPct} className="flex-1" />
                               <span className="text-xs text-gold font-medium w-10 text-right">
-                                {prog?.pct ?? 0}%
+                                {shownPct}%
                               </span>
                             </div>
                           )}

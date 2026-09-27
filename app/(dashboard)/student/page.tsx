@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { shownProgressPct } from "@/lib/api-student";
 import { formatPrice } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
 import { getSubmissionsByUser } from "@/lib/api";
@@ -210,7 +211,7 @@ export default function StudentDashboardPage() {
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               </div>
               <p className="text-2xl font-bold mt-2">
-                {Math.round(activeEnrollments.reduce((s, e) => s + e.progress_pct, 0) / activeEnrollments.length || 0)}%
+                {Math.round(activeEnrollments.reduce((s, e) => s + shownProgressPct(e.status, e.progress_pct), 0) / activeEnrollments.length || 0)}%
               </p>
               <p className="text-[11px] text-muted-foreground">Tiến độ</p>
             </CardContent>
@@ -282,9 +283,9 @@ export default function StudentDashboardPage() {
                       <p className="font-semibold text-foreground">{course.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{course.description}</p>
                       <div className="flex items-center gap-3 mt-2">
-                        <Progress value={enrollment.progress_pct} className="flex-1" />
+                        <Progress value={shownProgressPct(enrollment.status, enrollment.progress_pct)} className="flex-1" />
                         <span className="text-xs text-gold font-medium w-10 text-right">
-                          {Math.round(enrollment.progress_pct)}%
+                          {Math.round(shownProgressPct(enrollment.status, enrollment.progress_pct))}%
                         </span>
                       </div>
                     </div>

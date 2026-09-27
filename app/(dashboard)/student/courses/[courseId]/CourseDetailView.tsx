@@ -23,6 +23,7 @@ import {
   loadStudentUnlockData,
   firstOpenLessonId,
   isLessonCompleted,
+  shownProgressPct,
   type StudentUnlockData,
   type CourseLessonRow,
 } from "@/lib/api-student";
@@ -57,6 +58,8 @@ interface Props {
 export function CourseDetailView({ courseId }: Props) {
   const currentUser = useCurrentUser("student");
   const [isEnrolled, setIsEnrolled] = useState<boolean | null>(null);
+  // Khoá đã hoàn thành (tốt nghiệp) → vòng tiến độ hiện 100%
+  const [isCourseCompleted, setIsCourseCompleted] = useState(false);
   const [course, setCourse] = useState<DbCourse | null>(null);
   const [courseModules, setCourseModules] = useState<DbModule[]>([]);
   const [unlockData, setUnlockData] = useState<StudentUnlockData | null>(null);
@@ -91,7 +94,7 @@ export function CourseDetailView({ courseId }: Props) {
         await Promise.all([
           supabase
             .from("enrollments")
-            .select("id")
+            .select("id, status")
             .eq("user_id", currentUser!.id)
             .eq("course_id", courseId)
             .limit(1),
@@ -103,6 +106,7 @@ export function CourseDetailView({ courseId }: Props) {
 
       const enrolled = (enrollData ?? []).length > 0;
       setIsEnrolled(enrolled);
+      setIsCourseCompleted(enrollData?.[0]?.status === "completed");
       if (courseData) setCourse(courseData);
       setCourseModules(modulesData || []);
       setUnlockData(data);
@@ -177,7 +181,10 @@ export function CourseDetailView({ courseId }: Props) {
 
   const completedCount = data.lessons.filter((l) => isCompleted(l.id)).length;
   const totalCount = data.lessons.length;
-  const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const progressPct = shownProgressPct(
+    isCourseCompleted ? "completed" : null,
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+  );
   const currentOpenLessonId = firstOpenLessonId(data);
 
   // CTA bài tốt nghiệp: mở ngay khi xong chặng video cuối của khoá
@@ -246,7 +253,9 @@ export function CourseDetailView({ courseId }: Props) {
               {completedCount}/{totalCount} bài học
             </span>
             {isEnrolled ? (
-              <Badge className="bg-gold/20 text-gold">Đang học</Badge>
+              <Badge className="bg-gold/20 text-gold">
+                {isCourseCompleted ? "Hoàn thành" : "Đang học"}
+              </Badge>
             ) : (
               <Badge className="bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/30">
                 <Lock className="h-3 w-3 mr-1" />
