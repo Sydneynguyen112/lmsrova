@@ -11,7 +11,8 @@ import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { type FormQuestionRow, GRADUATION_PASS_GRADE } from "@/lib/api-forms";
-import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther } from "@/lib/form-question-meta";
+import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther, profileNameFrom } from "@/lib/form-question-meta";
+import { saveProfileNameFromForm } from "@/lib/graduation-link";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 import { FormOtherOption } from "@/components/shared/FormOtherOption";
 import {
@@ -163,7 +164,7 @@ export function GraduationView({ courseId }: Props) {
       .insert({
         form_id: form.id,
         user_id: currentUser.id,
-        respondent_name: currentUser.full_name,
+        respondent_name: profileNameFrom(questions, answers) || currentUser.full_name,
         respondent_email: currentUser.email,
         respondent_phone: currentUser.phone,
         score_pct: null,
@@ -188,6 +189,8 @@ export function GraduationView({ courseId }: Props) {
     if (answerRows.length > 0) {
       await supabase.from("form_answers").insert(answerRows);
     }
+
+    await saveProfileNameFromForm(currentUser.id, questions, answers);
 
     // Qua chặng + gắn tag tốt nghiệp (máy) + đóng enrollment
     await checkAndCompleteStages(currentUser.id, courseId);

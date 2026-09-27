@@ -3,6 +3,22 @@
 // đóng chặng, gắn tag, đóng ghi danh.
 import { supabase } from "./supabase";
 import { checkAndCompleteStages } from "./roadmap";
+import { profileNameFrom } from "./form-question-meta";
+
+/**
+ * Ghi họ tên học viên tự điền trong form tốt nghiệp (câu có meta.profileField = "full_name") vào hồ sơ —
+ * tên lúc đăng ký thường là biệt danh / tên Google. Form không có câu này thì không làm gì.
+ */
+export async function saveProfileNameFromForm(
+  userId: string,
+  questions: { id: string; question_type: string; meta?: unknown }[],
+  answers: Record<string, string | undefined>
+): Promise<void> {
+  const name = profileNameFrom(questions, answers);
+  if (!name) return;
+  const { error } = await supabase.from("profiles").update({ full_name: name }).eq("id", userId);
+  if (error) console.error("saveProfileNameFromForm:", error.message);
+}
 
 /** Trả false khi học viên không ghi danh khoá nào dùng form này (bài vẫn lưu, không ai được tốt nghiệp). */
 export async function graduateByForm(userId: string, formId: string): Promise<boolean> {

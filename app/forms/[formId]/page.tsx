@@ -8,11 +8,11 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther } from "@/lib/form-question-meta";
+import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther, profileNameFrom } from "@/lib/form-question-meta";
 import { useRouter } from "next/navigation";
 import { useCurrentUserState } from "@/lib/auth";
 import { GRADUATION_PASS_GRADE } from "@/lib/api-forms";
-import { graduateByForm } from "@/lib/graduation-link";
+import { graduateByForm, saveProfileNameFromForm } from "@/lib/graduation-link";
 import { signInHref } from "@/lib/return-to";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 import { FormOtherOption } from "@/components/shared/FormOtherOption";
@@ -125,7 +125,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
               // Nộp là tốt nghiệp — grade để engine lộ trình + view SQL nhận là đã qua chặng
               form_id: formId,
               user_id: user.id,
-              respondent_name: user.full_name,
+              respondent_name: profileNameFrom(questions, answers) || user.full_name,
               respondent_email: user.email,
               respondent_phone: user.phone,
               score_pct: null,
@@ -159,7 +159,10 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
     if (answerRows.length > 0) {
       await supabase.from("form_answers").insert(answerRows);
     }
-    if (needLogin && user) await graduateByForm(user.id, formId);
+    if (needLogin && user) {
+      await saveProfileNameFromForm(user.id, questions, answers);
+      await graduateByForm(user.id, formId);
+    }
 
     setSubmitting(false);
     setSubmitted(true);

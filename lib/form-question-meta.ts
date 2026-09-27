@@ -3,6 +3,7 @@
 //   - "grid"  : options = các CỘT, meta.gridRows = các HÀNG; mỗi hàng chọn 1 cột
 //   - "radio" / "checkbox": meta.allowOther = true → có thêm tuỳ chọn "Khác" để tự ghi,
 //     câu trả lời lưu dạng "Khác: <nội dung>"
+//   - "text": meta.profileField = "full_name" → câu "Họ và tên", ghi vào hồ sơ học viên (form tốt nghiệp)
 // Câu trả lời lưới lưu trong 1 chuỗi "Hàng: Cột", ngăn cách "|||" (giống checkbox)
 // để trang phản hồi + CSV đọc được ngay.
 // Mirror: rova-ops/lib/form-question-meta.ts — sửa một bên phải sửa bên kia.
@@ -111,4 +112,31 @@ export function isAnswered(q: QuestionLike, value: string | undefined): boolean 
   if (q.question_type !== "grid") return true;
   const columns = q.options || [];
   return gridRows(q).every((r) => gridSelected(value, r, columns) !== null);
+}
+
+// ─── Câu "Họ và tên" của form tốt nghiệp ───
+// meta.profileField = "full_name": câu trả lời được ghi vào họ tên trong hồ sơ học viên khi nộp form
+
+export function isProfileNameQuestion(q: { question_type: string; meta?: unknown }): boolean {
+  return q.question_type === "text" && metaOf(q).profileField === "full_name";
+}
+
+// Gọn khoảng trắng + viết hoa chữ đầu mỗi từ ("nguyễn  đình HIẾU" → "Nguyễn Đình Hiếu")
+export function cleanPersonName(raw: string): string {
+  return raw
+    .trim()
+    .split(/s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toLocaleUpperCase("vi") + w.slice(1).toLocaleLowerCase("vi"))
+    .join(" ");
+}
+
+// Họ tên học viên tự ghi trong form — null khi form không có câu này hoặc ghi quá ngắn
+export function profileNameFrom(
+  questions: { id: string; question_type: string; meta?: unknown }[],
+  answers: Record<string, string | undefined>
+): string | null {
+  const q = questions.find(isProfileNameQuestion);
+  const name = q ? cleanPersonName(answers[q.id] || "") : "";
+  return name.length >= 2 ? name : null;
 }
