@@ -446,5 +446,16 @@ export async function flushWatchProgress(
     { onConflict: "user_id,lesson_id" }
   );
 
+  // Nhật ký xem theo giờ (biểu đồ nhịp ở rova-ops). Chưa chạy supabase-lesson-watch-log.sql thì
+  // lệnh này lỗi — chỉ bỏ qua, không được làm hỏng việc lưu tiến độ.
+  const seconds = Math.max(0, Math.round(addedSeconds));
+  if (seconds > 0) {
+    try {
+      await supabase.rpc("log_lesson_watch", { p_user: userId, p_lesson: lessonId, p_seconds: seconds });
+    } catch {
+      // mất mạng giữa chừng: bỏ qua
+    }
+  }
+
   return { justCompleted };
 }
