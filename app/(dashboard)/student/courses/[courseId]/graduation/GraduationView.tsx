@@ -12,7 +12,7 @@ import { useCurrentUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { type FormQuestionRow, GRADUATION_PASS_GRADE } from "@/lib/api-forms";
 import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther, profileFieldsFrom } from "@/lib/form-question-meta";
-import { saveProfileFromForm } from "@/lib/graduation-link";
+import { saveProfileFromForm } from "@/lib/profile-from-form";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 import { FormOtherOption } from "@/components/shared/FormOtherOption";
 import {
@@ -165,7 +165,7 @@ export function GraduationView({ courseId }: Props) {
       .insert({
         form_id: form.id,
         user_id: currentUser.id,
-        respondent_name: typed.full_name || currentUser.full_name,
+        respondent_name: typed.student_name || currentUser.full_name,
         respondent_email: currentUser.email,
         respondent_phone: typed.phone || currentUser.phone,
         score_pct: null,

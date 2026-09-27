@@ -12,7 +12,8 @@ import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther, profileFi
 import { useRouter } from "next/navigation";
 import { useCurrentUserState } from "@/lib/auth";
 import { GRADUATION_PASS_GRADE } from "@/lib/api-forms";
-import { graduateByForm, saveProfileFromForm } from "@/lib/graduation-link";
+import { graduateByForm } from "@/lib/graduation-link";
+import { saveProfileFromForm } from "@/lib/profile-from-form";
 import { signInHref } from "@/lib/return-to";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 import { FormOtherOption } from "@/components/shared/FormOtherOption";
@@ -126,7 +127,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
               // Nộp là tốt nghiệp — grade để engine lộ trình + view SQL nhận là đã qua chặng
               form_id: formId,
               user_id: user.id,
-              respondent_name: typed.full_name || user.full_name,
+              respondent_name: typed.student_name || user.full_name,
               respondent_email: user.email,
               respondent_phone: typed.phone || user.phone,
               score_pct: null,

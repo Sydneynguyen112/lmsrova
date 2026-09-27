@@ -3,8 +3,8 @@
 //   - "grid"  : options = các CỘT, meta.gridRows = các HÀNG; mỗi hàng chọn 1 cột
 //   - "radio" / "checkbox": meta.allowOther = true → có thêm tuỳ chọn "Khác" để tự ghi,
 //     câu trả lời lưu dạng "Khác: <nội dung>"
-//   - "text": meta.profileField = "full_name" | "phone" → câu "Họ và tên" / "Số điện thoại",
-//     ghi vào hồ sơ học viên khi nộp form tốt nghiệp
+//   - "text": meta.profileField = "student_name" | "phone" → câu "Họ và tên" / "Số điện thoại",
+//     ghi vào hồ sơ học viên khi nộp form tốt nghiệp / form onboarding
 // Câu trả lời lưới lưu trong 1 chuỗi "Hàng: Cột", ngăn cách "|||" (giống checkbox)
 // để trang phản hồi + CSV đọc được ngay.
 // Mirror: rova-ops/lib/form-question-meta.ts — sửa một bên phải sửa bên kia.
@@ -115,19 +115,20 @@ export function isAnswered(q: QuestionLike, value: string | undefined): boolean 
   return gridRows(q).every((r) => gridSelected(value, r, columns) !== null);
 }
 
-// ─── Câu "Họ và tên" / "Số điện thoại" của form tốt nghiệp ───
-// meta.profileField = "full_name" | "phone": câu trả lời được ghi vào hồ sơ học viên khi nộp form
+// ─── Câu "Họ và tên" / "Số điện thoại" của form tốt nghiệp + form onboarding ───
+// meta.profileField = "student_name" | "phone": câu trả lời được ghi vào cột cùng tên của profiles khi nộp form.
+// Họ tên ghi vào student_name ("Tên học viên"), KHÔNG ghi đè full_name ("Tên hồ sơ" = tên tài khoản lúc đăng ký).
 
-export type ProfileField = "full_name" | "phone";
+export type ProfileField = "student_name" | "phone";
 
 export const PROFILE_FIELD_LABELS: Record<ProfileField, string> = {
-  full_name: "Họ và tên",
+  student_name: "Tên học viên",
   phone: "Số điện thoại",
 };
 
 export function profileFieldOf(q: { question_type: string; meta?: unknown }): ProfileField | null {
   const f = metaOf(q).profileField;
-  return q.question_type === "text" && (f === "full_name" || f === "phone") ? f : null;
+  return q.question_type === "text" && (f === "student_name" || f === "phone") ? f : null;
 }
 
 // Gọn khoảng trắng + viết hoa chữ đầu mỗi từ ("nguyễn  đình HIẾU" → "Nguyễn Đình Hiếu")

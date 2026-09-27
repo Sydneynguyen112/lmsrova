@@ -4,6 +4,8 @@ import { supabase } from "./supabase";
 import type { Profile } from "./auth";
 import type { FormRow } from "./api-forms";
 import { initStudentRoadmap, checkAndCompleteStages } from "./roadmap";
+import { profileFieldsFrom } from "./form-question-meta";
+import { saveProfileFromForm } from "./profile-from-form";
 import {
   computeIntake,
   buildLegacyOnboardingBlob,
@@ -126,7 +128,8 @@ export async function hasIntakeResult(userId: string): Promise<boolean> {
  * 2. Tính điểm client-side
  * 3. Upsert intake_results
  * 4. Update profiles: classification, care_group, date_of_birth,
- *    onboarding_survey (blob legacy — thiếu là học viên kẹt stage 1)
+ *    onboarding_survey (blob legacy — thiếu là học viên kẹt stage 1);
+ *    tên học viên / số điện thoại tự ghi (câu có meta.profileField) ghi riêng, lỗi không chặn
  * 5. initStudentRoadmap → checkAndCompleteStages (y hệt onboarding cũ)
  *
  * formId = null khi dùng bộ câu hỏi fallback (không ghi form_responses).
@@ -138,6 +141,8 @@ export async function submitIntake(
   answers: Record<string, string>
 ): Promise<{ computed: IntakeComputed; error: string | null }> {
   const computed = computeIntake(questions, answers);
+  // Tên học viên / số điện thoại tự ghi trong form
+  const typed = profileFieldsFrom(questions, answers);
 
   let responseId: string | null = null;
   if (formId) {
@@ -146,9 +151,9 @@ export async function submitIntake(
       .insert({
         form_id: formId,
         user_id: profile.id,
-        respondent_name: profile.full_name,
+        respondent_name: typed.student_name || profile.full_name,
         respondent_email: profile.email,
-        respondent_phone: profile.phone,
+        respondent_phone: typed.phone || profile.phone,
         score_pct: computed.student_visible.trading_dimensions.length > 0
           ? computed.student_visible.trading_dimensions.reduce((s, d) => s + d.pct, 0) /
             computed.student_visible.trading_dimensions.length
@@ -227,6 +232,9 @@ export async function submitIntake(
     })
     .eq("id", profile.id);
   if (profileError) return { computed, error: profileError.message };
+
+  // Ghi riêng khỏi lệnh trên: blob onboarding là bắt buộc, không để một cột phụ làm hỏng
+  await saveProfileFromForm(profile.id, questions, answers);
 
   // Học viên tự chọn mentor trong form → vào thẳng dashboard của mentor đó
   // (rova-ops lọc học viên theo profiles.mentor_id). Chỉ gán khi CHƯA có mentor:
