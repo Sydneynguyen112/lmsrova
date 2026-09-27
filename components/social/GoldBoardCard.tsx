@@ -27,11 +27,7 @@ export function GoldBoardCard({ gold }: Props) {
           )}
         </div>
 
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            Tháng này chưa có ai về đích. Cái tên đầu tiên có thể là bạn.
-          </p>
-        ) : (
+        {items.length === 0 ? null : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {items.map((item, i) => (
               <div

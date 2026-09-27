@@ -1,6 +1,6 @@
 "use client";
 
-// "Đoàn người cùng đi" — dòng tin máy viết 100%, chỉ tin vui.
+// "Những người đồng hành cùng bạn" — dòng tin máy viết 100%, chỉ tin vui.
 // Không nút đăng bài, không like, không comment (biên bản chốt logic).
 import { Flag, GraduationCap, Award, Megaphone, type LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,9 +23,14 @@ export function ProgressFeed({ items }: Props) {
   return (
     <Card className="border-gold/20">
       <CardContent className="py-5 space-y-1">
-        <div className="flex items-center gap-2 pb-3">
-          <Megaphone className="h-5 w-5 text-gold" />
-          <h3 className="font-semibold text-foreground">Đoàn người cùng đi</h3>
+        <div className="pb-3">
+          <div className="flex items-center gap-2">
+            <Megaphone className="h-5 w-5 text-gold" />
+            <h3 className="font-semibold text-foreground">Những người đồng hành cùng bạn</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Bảng vinh danh tiến độ Học viên ROVA
+          </p>
         </div>
 
         {items.length === 0 ? (

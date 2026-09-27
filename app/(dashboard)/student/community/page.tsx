@@ -1,29 +1,24 @@
 "use client";
 
-// Màn "Cộng đồng" — mọi thứ về ĐOÀN: dòng tin → 2 bảng đua → Bảng vàng.
-// Thứ tự dọc có chủ đích (biên bản chốt logic 02-09-2026).
+// Màn "Cộng đồng" — mọi thứ về ĐOÀN: Bảng vàng → 2 bảng đua (bục top 3 + danh sách 4-10).
 // Scope "Lớp của tôi" CHƯA render — bật khi MASTER lên LMS (RPC đã nhận p_course sẵn).
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Users, Zap, Flame } from "lucide-react";
 import { useCurrentUser } from "@/lib/auth";
 import {
-  getFeed,
   getLeaderboardEffort,
   getLeaderboardStreak,
   getGoldBoard,
-  type FeedItem,
   type Leaderboard,
   type GoldBoard,
 } from "@/lib/api-social";
 import { PageTransition } from "@/components/shared/PageTransition";
-import { ProgressFeed } from "@/components/social/ProgressFeed";
 import { LeaderboardCard } from "@/components/social/LeaderboardCard";
 import { GoldBoardCard } from "@/components/social/GoldBoardCard";
 
 export default function CommunityPage() {
   const currentUser = useCurrentUser("student");
-  const [feed, setFeed] = useState<FeedItem[]>([]);
   const [effortBoard, setEffortBoard] = useState<Leaderboard | null>(null);
   const [streakBoard, setStreakBoard] = useState<Leaderboard | null>(null);
   const [gold, setGold] = useState<GoldBoard | null>(null);
@@ -35,14 +30,12 @@ export default function CommunityPage() {
 
     async function load() {
       const userId = currentUser!.id;
-      const [f, e, s, g] = await Promise.all([
-        getFeed(5),
+      const [e, s, g] = await Promise.all([
         getLeaderboardEffort(userId),
         getLeaderboardStreak(userId),
         getGoldBoard(),
       ]);
       if (cancelled) return;
-      setFeed(f);
       setEffortBoard(e);
       setStreakBoard(s);
       setGold(g);
@@ -72,7 +65,7 @@ export default function CommunityPage() {
             <span className="gold-gradient-text">Cộng đồng</span>
           </h1>
           <p className="text-muted-foreground mt-1">
-            Những người đang đi cùng bạn trên hành trình này.
+            Bạn không cần đi một mình trên hành trình này.
           </p>
         </motion.div>
 
@@ -81,7 +74,7 @@ export default function CommunityPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
         >
-          <ProgressFeed items={feed} />
+          <GoldBoardCard gold={gold} />
         </motion.div>
 
         <motion.div
@@ -106,14 +99,6 @@ export default function CommunityPage() {
             board={streakBoard}
             emptyText="Chưa ai giữ chuỗi. Học hôm nay là bạn dẫn đầu ngay."
           />
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-        >
-          <GoldBoardCard gold={gold} />
         </motion.div>
       </div>
     </PageTransition>
