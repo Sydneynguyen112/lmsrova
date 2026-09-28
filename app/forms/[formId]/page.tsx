@@ -172,18 +172,18 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--neutral-bg)] dark:bg-[var(--dark-bg)] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--gold-primary)]" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
       </div>
     );
   }
 
   if (!form) {
     return (
-      <div className="min-h-screen bg-[var(--neutral-bg)] dark:bg-[var(--dark-bg)] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <p className="text-lg font-semibold text-foreground">Biểu mẫu không tồn tại hoặc chưa được xuất bản.</p>
-          <Link href="/" className="text-sm text-[var(--gold-primary)] hover:underline">Về trang chủ</Link>
+          <Link href="/" className="text-sm text-[var(--primary)] hover:underline">Về trang chủ</Link>
         </div>
       </div>
     );
@@ -193,14 +193,14 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
   // chấm điểm và lưu hồ sơ. Không cho nộp ẩn danh (né pipeline chấm điểm).
   if (form.form_type === "intake") {
     return (
-      <div className="min-h-screen bg-[var(--neutral-bg)] dark:bg-[var(--dark-bg)] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-4 max-w-md">
           <p className="text-lg font-semibold text-foreground">Bài test này dành cho học viên ROVA.</p>
           <p className="text-sm text-muted-foreground">
             Đăng nhập LMS để làm bài và nhận kết quả phân tích dành riêng cho bạn.
           </p>
           <Link href="/sign-in">
-            <Button variant="outline" className="border-[var(--gold-primary)]/50 text-[var(--gold-primary)]">
+            <Button variant="outline" className="border-[var(--primary)]/50 text-[var(--primary)]">
               Đăng nhập để làm bài
             </Button>
           </Link>
@@ -212,15 +212,15 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
   // Chưa biết ai đang đăng nhập / đang chuyển sang trang đăng nhập
   if (needLogin && !user) {
     return (
-      <div className="min-h-screen bg-[var(--neutral-bg)] dark:bg-[var(--dark-bg)] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--gold-primary)]" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
       </div>
     );
   }
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[var(--neutral-bg)] dark:bg-[var(--dark-bg)] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-6 max-w-md">
           <div className="w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center mx-auto">
             <CheckCircle2 className="h-10 w-10 text-emerald-500" />
@@ -230,7 +230,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
             <p className="text-muted-foreground mt-2">Câu trả lời của bạn đã được ghi nhận. Cảm ơn bạn đã dành thời gian.</p>
           </div>
           <Link href="/">
-            <Button variant="outline" className="border-[var(--gold-primary)]/50 text-[var(--gold-primary)]">Về trang chủ ROVA</Button>
+            <Button variant="outline" className="border-[var(--primary)]/50 text-[var(--primary)]">Về trang chủ ROVA</Button>
           </Link>
         </motion.div>
       </div>
@@ -238,11 +238,11 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
   }
 
   return (
-    <div className="min-h-screen bg-[var(--neutral-bg)] dark:bg-[var(--dark-bg)]">
+    <div className="min-h-screen bg-background">
       {/* Top bar */}
-      <div className="border-b border-[var(--border-light)] dark:border-[var(--dark-border)] bg-white/80 dark:bg-[var(--dark-surface)]/80 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="text-lg font-bold" style={{ color: "var(--gold-primary)" }}>ROVA</Link>
+          <Link href="/" className="text-lg font-bold" style={{ color: "var(--primary)" }}>ROVA</Link>
           <span className="text-xs text-muted-foreground">Biểu mẫu khảo sát</span>
         </div>
       </div>
@@ -251,8 +251,8 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
       <div className="max-w-2xl mx-auto px-4 py-8">
         <motion.form onSubmit={handleSubmit} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
           {/* Header */}
-          <div className="rounded-2xl border-t-4 bg-white dark:bg-[var(--dark-surface)] border border-[var(--border-light)] dark:border-[var(--dark-border)] p-6 space-y-2"
-            style={{ borderTopColor: "var(--gold-primary)" }}>
+          <div className="rounded-2xl border-t-4 bg-card border border-border p-6 space-y-2"
+            style={{ borderTopColor: "var(--primary)" }}>
             <h1 className="text-2xl font-bold text-foreground">{form.title}</h1>
             {form.description && <p className="text-sm text-muted-foreground">{form.description}</p>}
             <p className="text-xs text-red-400">* Bắt buộc</p>
@@ -260,13 +260,13 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
 
           {/* Contact info */}
           {needLogin && user ? (
-            <div className="rounded-2xl bg-white dark:bg-[var(--dark-surface)] border border-[var(--border-light)] dark:border-[var(--dark-border)] p-6 space-y-1">
+            <div className="rounded-2xl bg-card border border-border p-6 space-y-1">
               <p className="text-xs text-muted-foreground">Bạn đang làm bài bằng tài khoản</p>
               <p className="text-sm font-medium text-foreground">{user.full_name}</p>
               <p className="text-sm text-muted-foreground break-all">{user.email}</p>
             </div>
           ) : (
-          <div className="rounded-2xl bg-white dark:bg-[var(--dark-surface)] border border-[var(--border-light)] dark:border-[var(--dark-border)] p-6 space-y-4">
+          <div className="rounded-2xl bg-card border border-border p-6 space-y-4">
             <p className="text-sm font-medium text-foreground">Thông tin của bạn</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
@@ -288,7 +288,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
           {/* Questions */}
           {questions.map((q, i) => (
             <motion.div key={q.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-              className="rounded-2xl bg-white dark:bg-[var(--dark-surface)] border border-[var(--border-light)] dark:border-[var(--dark-border)] p-6 space-y-3">
+              className="rounded-2xl bg-card border border-border p-6 space-y-3">
               <label className="text-sm font-medium text-foreground">
                 {q.question_text} {q.required && <span className="text-red-400">*</span>}
               </label>
@@ -303,7 +303,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
                   onChange={(e) => setAnswer(q.id, e.target.value)}
                   placeholder="Câu trả lời của bạn"
                   rows={4}
-                  className="w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--gold-primary)] focus:outline-none resize-none"
+                  className="w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[var(--primary)] focus:outline-none resize-none"
                 />
               )}
 
@@ -312,9 +312,9 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
                   {q.options?.map((opt, j) => (
                     <label key={j} className={cn(
                       "flex items-center gap-3 rounded-xl border p-3 text-sm cursor-pointer transition-all",
-                      answers[q.id] === opt ? "border-[var(--gold-primary)] bg-[var(--gold-primary)]/10" : "border-border hover:border-[var(--gold-primary)]/30"
+                      answers[q.id] === opt ? "border-[var(--primary)] bg-[var(--primary)]/10" : "border-border hover:border-[var(--primary)]/30"
                     )}>
-                      <input type="radio" name={q.id} value={opt} checked={answers[q.id] === opt} onChange={() => setAnswer(q.id, opt)} className="accent-[var(--gold-primary)]" />
+                      <input type="radio" name={q.id} value={opt} checked={answers[q.id] === opt} onChange={() => setAnswer(q.id, opt)} className="accent-[var(--primary)]" />
                       {opt}
                     </label>
                   ))}
@@ -331,9 +331,9 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
                     return (
                       <label key={j} className={cn(
                         "flex items-center gap-3 rounded-xl border p-3 text-sm cursor-pointer transition-all",
-                        checked ? "border-[var(--gold-primary)] bg-[var(--gold-primary)]/10" : "border-border hover:border-[var(--gold-primary)]/30"
+                        checked ? "border-[var(--primary)] bg-[var(--primary)]/10" : "border-border hover:border-[var(--primary)]/30"
                       )}>
-                        <input type="checkbox" checked={checked} onChange={() => toggleCheckbox(q.id, opt)} className="accent-[var(--gold-primary)]" />
+                        <input type="checkbox" checked={checked} onChange={() => toggleCheckbox(q.id, opt)} className="accent-[var(--primary)]" />
                         {opt}
                       </label>
                     );
@@ -348,7 +348,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
                 <select
                   value={answers[q.id] || ""}
                   onChange={(e) => setAnswer(q.id, e.target.value)}
-                  className="w-full rounded-lg border border-border bg-card p-2.5 text-sm text-foreground focus:border-[var(--gold-primary)] focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-card p-2.5 text-sm text-foreground focus:border-[var(--primary)] focus:outline-none"
                 >
                   <option value="">Chọn...</option>
                   {q.options?.map((opt, j) => <option key={j} value={opt}>{opt}</option>)}
@@ -380,7 +380,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
           )}
 
           {/* Submit */}
-          <Button type="submit" disabled={submitting} className="bg-[var(--gold-primary)] hover:opacity-90 text-black font-semibold py-6 rounded-xl text-base w-full">
+          <Button type="submit" disabled={submitting} className="bg-[var(--primary)] hover:opacity-90 text-black font-semibold py-6 rounded-xl text-base w-full">
             {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
             {submitting ? "Đang gửi..." : "Gửi câu trả lời"}
           </Button>
