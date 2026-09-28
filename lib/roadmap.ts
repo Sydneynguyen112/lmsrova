@@ -323,10 +323,14 @@ function isStageConditionMet(stage: RoadmapStage, ctx: StageCheckContext): boole
 // qua Zalo cho mentor rồi được gửi link form, nên các chặng còn dở được đóng luôn, không xét điều kiện.
 // Chỉ tính lượt nộp SAU khi ghi danh khoá này — form dùng chung nhiều khoá thì lượt nộp của khoá trước
 // không làm tốt nghiệp khoá sau.
+// Ngoại lệ (28/9/2026): học viên nộp form TRƯỚC khi được ghi danh lần đầu (mentor gửi link trước, admin
+// ghi danh sau) → lượt nộp đó tính cho lượt ghi danh ĐẦU TIÊN sau nó. formEnrolledAts = ngày ghi danh
+// của học viên ở mọi khoá dùng chung form tốt nghiệp này (getGraduationFormEnrolledAts).
 export function hasGraduatedByForm(
   stages: RoadmapStage[],
   passingResponses: { form_id: string; submitted_at: string }[],
-  enrolledAts: (string | null)[]
+  enrolledAts: (string | null)[],
+  formEnrolledAts: (string | null)[] = []
 ): boolean {
   const formIds = new Set(
     stages.filter((s) => s.completion_type === "graduation_form" && s.form_id).map((s) => s.form_id as string)
@@ -334,7 +338,36 @@ export function hasGraduatedByForm(
   if (formIds.size === 0) return false;
   const times = enrolledAts.filter(Boolean).map((t) => new Date(t as string).getTime());
   const since = times.length ? Math.max(...times) : -Infinity;
-  return passingResponses.some((r) => formIds.has(r.form_id) && new Date(r.submitted_at).getTime() >= since);
+  const allTimes = [...times, ...formEnrolledAts.filter(Boolean).map((t) => new Date(t as string).getTime())];
+  const first = allTimes.length ? Math.min(...allTimes) : -Infinity;
+  return passingResponses.some((r) => {
+    if (!formIds.has(r.form_id)) return false;
+    const t = new Date(r.submitted_at).getTime();
+    return t >= since || (t < first && since === first);
+  });
+}
+
+export async function getGraduationFormEnrolledAts(
+  userId: string,
+  stages: RoadmapStage[]
+): Promise<(string | null)[]> {
+  const formIds = stages
+    .filter((s) => s.completion_type === "graduation_form" && s.form_id)
+    .map((s) => s.form_id as string);
+  if (formIds.length === 0) return [];
+  const { data: sameForm } = await supabase
+    .from("roadmap_stages")
+    .select("course_id")
+    .eq("completion_type", "graduation_form")
+    .in("form_id", formIds);
+  const courseIds = [...new Set((sameForm || []).map((s) => s.course_id as string))];
+  if (courseIds.length === 0) return [];
+  const { data } = await supabase
+    .from("enrollments")
+    .select("enrolled_at")
+    .eq("user_id", userId)
+    .in("course_id", courseIds);
+  return (data || []).map((e) => e.enrolled_at as string | null);
 }
 
 // Gọi sau MỌI sự kiện học: video đạt 50%, quiz pass, mentor chấm ảnh, nộp survey, nộp form.
@@ -392,7 +425,8 @@ export async function checkAndCompleteStages(userId: string, courseId: string): 
   const graduated = hasGraduatedByForm(
     stages,
     gradRes.data || [],
-    (enrRes.data || []).map((e) => e.enrolled_at as string | null)
+    (enrRes.data || []).map((e) => e.enrolled_at as string | null),
+    await getGraduationFormEnrolledAts(userId, stages)
   );
 
   for (const stage of stages) {
