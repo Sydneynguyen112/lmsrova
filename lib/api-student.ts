@@ -297,6 +297,44 @@ export async function incrementWatchCount(userId: string, lessonId: string): Pro
     .eq("id", data.id);
 }
 
+// ─── Ảnh nộp → bucket submission-images (tạo bằng supabase-submission-images-bucket.sql ở rova-ops) ───
+// Trước đây ảnh dán lưu thẳng base64 vào image_url (~100-150KB/ảnh) làm bảng phình, truy vấn quá giờ.
+const SUBMISSION_IMAGE_BUCKET = "submission-images";
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const comma = dataUrl.indexOf(",");
+  const mime = /^data:([^;]+);base64$/.exec(dataUrl.slice(0, comma))?.[1] || "image/jpeg";
+  const bin = atob(dataUrl.slice(comma + 1));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+/**
+ * Tải ảnh dán (data URL) lên Storage, trả link công khai cố định. Không phải data URL (link ngoài) thì trả nguyên.
+ * Lỗi (bucket chưa tạo vì chưa chạy SQL, mạng...) → trả lại data URL để học viên vẫn nộp được như cũ.
+ */
+export async function storeSubmissionImage(dataUrl: string, userId: string): Promise<string> {
+  if (!dataUrl.startsWith("data:")) return dataUrl;
+  try {
+    const blob = dataUrlToBlob(dataUrl);
+    if (blob.size === 0) throw new Error("ảnh rỗng");
+    const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+    // đuôi ngẫu nhiên: dán nhiều ảnh cùng lúc không trùng tên
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage
+      .from(SUBMISSION_IMAGE_BUCKET)
+      .upload(path, blob, { contentType: blob.type, upsert: false });
+    if (error) throw error;
+    const { data } = supabase.storage.from(SUBMISSION_IMAGE_BUCKET).getPublicUrl(path);
+    if (!data?.publicUrl) throw new Error("không lấy được link công khai");
+    return data.publicUrl;
+  } catch (err) {
+    console.warn("Không tải được ảnh lên Storage, tạm lưu base64 như cũ:", err);
+    return dataUrl;
+  }
+}
+
 // ─── Nộp bài tập theo ảnh: 1 lần nộp = 1 dòng submissions + MỖI ẢNH 1 dòng submission_images ───
 
 export interface SubmissionImageRow {

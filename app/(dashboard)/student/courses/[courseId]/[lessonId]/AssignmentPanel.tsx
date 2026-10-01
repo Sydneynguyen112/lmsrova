@@ -36,6 +36,7 @@ import {
   getSubmissionImagesForAssignment,
   getSubmissionImageUrls,
   getSubmissionsForAssignment,
+  storeSubmissionImage,
   type SubmissionImageRow,
   type QuizRow,
 } from "@/lib/api-student";
@@ -87,8 +88,9 @@ interface TimelineEntry {
 const URL_RE = /^https?:\/\/\S+$/i;
 const IMAGE_URL_RE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)(\?|#|$)/i;
 
-// Resize ảnh về data URL (jpeg) — pattern giống upload avatar trong ProfileEditor
-function resizeToDataUrl(file: File, maxSize = 1280): Promise<string> {
+// Resize ảnh về data URL (jpeg) để xem trước; lúc nộp mới tải lên Storage (storeSubmissionImage).
+// 1600px giống ảnh sửa của mentor — chữ nhỏ trên chart còn đọc được; không còn lo phình bảng.
+function resizeToDataUrl(file: File, maxSize = 1600): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Không đọc được file ảnh"));
@@ -443,11 +445,13 @@ export function AssignmentPanel({
     setSubmitting(true);
     setComposerError("");
     try {
+      // Ảnh dán → tải lên Storage lấy link cố định (bucket chưa có thì tự lùi về base64 như cũ)
+      const imageUrls = await Promise.all(attachments.map((a) => storeSubmissionImage(a.url, userId)));
       // 1 lần nộp = 1 dòng submissions + MỖI ẢNH 1 dòng submission_images (verdict pending)
       await createSubmissionWithImages({
         assignmentId: assignment.id,
         userId,
-        imageUrls: attachments.map((a) => a.url),
+        imageUrls,
         redoOfImageIds: attachments.map((a) => a.redoOf?.id || null),
         note: note.trim() || undefined,
       });
