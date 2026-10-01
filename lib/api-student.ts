@@ -355,13 +355,53 @@ export async function createSubmissionWithImages(input: {
   return submission;
 }
 
-export async function getSubmissionImagesByUser(
-  userId: string
+// Ảnh học viên dán là base64 lưu thẳng trong image_url (~100-150KB/ảnh). Học viên chăm (200+ ảnh)
+// mà kéo cả cột này của MỌI bài một lượt là vài chục MB → Postgres cắt vì quá giờ (statement timeout),
+// trang chỉ còn ô nộp bài, không thấy ảnh đã chấm. Vì vậy: chỉ lấy ảnh của ĐÚNG bài tập đang mở,
+// dòng nhẹ (không image_url) trước, rồi tải ảnh từng cụm bằng getSubmissionImageUrls.
+const IMAGE_COLS_LIGHT =
+  "id, submission_id, user_id, assignment_id, verdict, feedback, fix_url, fix_image_url, redo_of_image_id, graded_at, created_at";
+
+export async function getSubmissionImagesForAssignment(
+  userId: string,
+  assignmentId: string
 ): Promise<SubmissionImageRow[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("submission_images")
-    .select("*")
+    .select(IMAGE_COLS_LIGHT)
     .eq("user_id", userId)
+    .eq("assignment_id", assignmentId)
     .order("created_at", { ascending: false });
-  return (data as SubmissionImageRow[] | null) || [];
+  if (error) throw error;
+  return ((data as Omit<SubmissionImageRow, "image_url">[] | null) || []).map((r) => ({
+    ...r,
+    image_url: "",
+  }));
+}
+
+/** Lấy image_url của một cụm ảnh (gọi theo từng cụm nhỏ để ảnh về dần, không đợi cả bài). */
+export async function getSubmissionImageUrls(imageIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (imageIds.length === 0) return map;
+  const { data, error } = await supabase
+    .from("submission_images")
+    .select("id, image_url")
+    .in("id", imageIds);
+  if (error) throw error;
+  for (const r of (data as { id: string; image_url: string | null }[] | null) || []) {
+    map.set(r.id, r.image_url || "");
+  }
+  return map;
+}
+
+// Lần nộp của RIÊNG một bài tập, dòng nhẹ: không kéo image_urls (bản sao base64 của ảnh — cùng lý do trên)
+export async function getSubmissionsForAssignment(userId: string, assignmentId: string) {
+  const { data, error } = await supabase
+    .from("submissions")
+    .select("id, assignment_id, user_id, note, mentor_feedback, graded_at, submitted_at")
+    .eq("user_id", userId)
+    .eq("assignment_id", assignmentId)
+    .order("submitted_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
 }

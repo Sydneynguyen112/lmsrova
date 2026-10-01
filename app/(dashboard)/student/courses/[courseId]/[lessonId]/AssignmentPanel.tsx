@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   ImagePlus,
+  Image as ImageIcon,
   X,
   Send,
   CheckCircle2,
@@ -30,10 +31,11 @@ import {
   ZoomIn,
 } from "lucide-react";
 
-import { getSubmissionsByUser } from "@/lib/api";
 import {
   createSubmissionWithImages,
-  getSubmissionImagesByUser,
+  getSubmissionImagesForAssignment,
+  getSubmissionImageUrls,
+  getSubmissionsForAssignment,
   type SubmissionImageRow,
   type QuizRow,
 } from "@/lib/api-student";
@@ -126,16 +128,47 @@ function orderImages(imgs: SubmissionImageRow[]): SubmissionImageRow[] {
   });
 }
 
-// Toàn bộ ảnh + lần nộp của RIÊNG bài tập này
+// Toàn bộ ảnh + lần nộp của RIÊNG bài tập này — lọc ngay ở DB, dòng nhẹ (image_url rỗng),
+// ảnh tải sau theo cụm nhỏ (xem hydrateImageUrls). Trước đây kéo cả ảnh base64 của MỌI bài một lượt:
+// học viên 200+ ảnh là vài chục MB → DB cắt vì quá giờ, lỗi bị nuốt, trang chỉ còn ô nộp bài.
 async function fetchHistory(userId: string, assignmentId: string) {
   const [images, submissions] = await Promise.all([
-    getSubmissionImagesByUser(userId),
-    getSubmissionsByUser(userId),
+    getSubmissionImagesForAssignment(userId, assignmentId),
+    getSubmissionsForAssignment(userId, assignmentId),
   ]);
-  return {
-    images: images.filter((img) => img.assignment_id === assignmentId),
-    submissions: (submissions as SubmissionRow[]).filter((s) => s.assignment_id === assignmentId),
-  };
+  return { images, submissions: submissions as SubmissionRow[] };
+}
+
+// Mỗi lượt tải ảnh lấy bấy nhiêu ảnh (~100-150KB/ảnh) — nhỏ để lần nộp mới nhất hiện ngay
+const URL_CHUNK = 6;
+
+// Thứ tự tải ảnh: lần nộp mới nhất trước (đang mở sẵn), trong một lần nộp theo #1..#n
+function hydrateOrder(images: SubmissionImageRow[], submissions: SubmissionRow[]): string[] {
+  const rank = new Map<string, number>();
+  [...submissions]
+    .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime())
+    .forEach((s, i) => rank.set(s.id, i));
+  return orderImages(images)
+    .sort((a, b) => (rank.get(a.submission_id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.submission_id) ?? Number.MAX_SAFE_INTEGER))
+    .map((i) => i.id);
+}
+
+function historyErrorMessage(err: unknown) {
+  const detail = err instanceof Error && err.message ? ` (${err.message})` : "";
+  return `Không tải được các lần nộp và nhận xét của mentor — kiểm tra mạng rồi bấm Tải lại${detail}. Nếu vẫn lỗi, chụp màn hình này gửi mentor.`;
+}
+
+// Ảnh đã nộp: dòng nhẹ về trước, image_url về sau → chưa có thì hiện khung chờ thay vì ảnh vỡ
+function SubmissionThumb({ src, alt, className }: { src: string; alt: string; className: string }) {
+  if (!src) {
+    return (
+      <div className={cn(className, "flex items-center justify-center bg-muted/40 animate-pulse")}>
+        <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
+      </div>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} loading="lazy" className={className} />;
 }
 
 function VerdictIcon({ verdict, className }: { verdict: SubmissionImageRow["verdict"]; className?: string }) {
@@ -193,25 +226,77 @@ export function AssignmentPanel({
   // Chế độ so sánh: mặc định bật khi ảnh có ảnh sửa; học viên tắt/bật thì nhớ theo id ảnh đó
   const [compareOverride, setCompareOverride] = useState<{ id: string; value: boolean } | null>(null);
 
+  // Lịch sử nộp: đang tải / lỗi (trước đây lỗi bị nuốt → học viên tưởng chưa có bài chấm)
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
+  // image_url đã tải, theo id — nộp xong tải lại lịch sử thì ảnh cũ không phải tải lại
+  const urlCacheRef = useRef(new Map<string, string>());
+  // Lượt tải ảnh đang chạy; đổi bài / tải lại lịch sử thì lượt cũ dừng ghi state
+  const hydrateRef = useRef(0);
+
+  const hydrateImageUrls = useCallback(async (images: SubmissionImageRow[], subs: SubmissionRow[]) => {
+    const token = ++hydrateRef.current;
+    const ids = hydrateOrder(images.filter((i) => !i.image_url), subs);
+    for (let k = 0; k < ids.length; k += URL_CHUNK) {
+      let urls: Map<string, string>;
+      try {
+        urls = await getSubmissionImageUrls(ids.slice(k, k + URL_CHUNK));
+      } catch (err) {
+        console.error("Không tải được ảnh đã nộp:", err);
+        continue;
+      }
+      if (token !== hydrateRef.current) return;
+      urls.forEach((u, id) => urlCacheRef.current.set(id, u));
+      setAllImages((prev) => prev.map((i) => (urls.has(i.id) ? { ...i, image_url: urls.get(i.id)! } : i)));
+    }
+  }, []);
+
+  const applyHistory = useCallback(
+    (h: { images: SubmissionImageRow[]; submissions: SubmissionRow[] }) => {
+      const images = h.images.map((i) =>
+        i.image_url ? i : { ...i, image_url: urlCacheRef.current.get(i.id) || "" }
+      );
+      setAllImages(images);
+      setSubmissions(h.submissions);
+      void hydrateImageUrls(images, h.submissions);
+    },
+    [hydrateImageUrls]
+  );
+
   const loadHistory = useCallback(async () => {
-    const h = await fetchHistory(userId, assignment.id);
-    setAllImages(h.images);
-    setSubmissions(h.submissions);
-  }, [userId, assignment.id]);
+    setHistoryError("");
+    try {
+      applyHistory(await fetchHistory(userId, assignment.id));
+    } catch (err) {
+      console.error("Không tải được lịch sử nộp bài:", err);
+      setHistoryError(historyErrorMessage(err));
+    }
+    setHistoryLoading(false);
+  }, [userId, assignment.id, applyHistory]);
 
   useEffect(() => {
     let cancelled = false;
+    const hydrate = hydrateRef;
     async function load() {
-      const h = await fetchHistory(userId, assignment.id);
-      if (cancelled) return;
-      setAllImages(h.images);
-      setSubmissions(h.submissions);
+      setHistoryLoading(true);
+      setHistoryError("");
+      try {
+        const h = await fetchHistory(userId, assignment.id);
+        if (cancelled) return;
+        applyHistory(h);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Không tải được lịch sử nộp bài:", err);
+        setHistoryError(historyErrorMessage(err));
+      }
+      if (!cancelled) setHistoryLoading(false);
     }
     load();
     return () => {
       cancelled = true;
+      hydrate.current++; // lượt tải ảnh của bài cũ dừng ghi state
     };
-  }, [userId, assignment.id]);
+  }, [userId, assignment.id, applyHistory]);
 
   // Dòng thời gian lần nộp, mới nhất trước
   const timeline: TimelineEntry[] = useMemo(() => {
@@ -550,8 +635,7 @@ export function AssignmentPanel({
                     className="relative shrink-0 rounded-md overflow-hidden border border-red-500/40 cursor-zoom-in group"
                     title="Phóng to"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img.image_url} alt="Ảnh cần làm lại" className="w-full sm:w-40 h-28 object-cover" />
+                    <SubmissionThumb src={img.image_url} alt="Ảnh cần làm lại" className="w-full sm:w-40 h-28 object-cover" />
                     <span className="absolute top-1 left-1 rounded bg-black/70 text-white text-[11px] font-semibold px-1.5 py-0.5">
                       {loc ? `#${loc.img + 1}` : ""}
                     </span>
@@ -819,6 +903,24 @@ export function AssignmentPanel({
           </Card>
         ))}
 
+      {/* ─── Lịch sử nộp không tải được: nói rõ + cho tải lại, không im lặng như chưa nộp gì ─── */}
+      {historyError && (
+        <Card className="border-red-500/40 bg-red-500/[0.03]">
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+            <p className="text-sm text-foreground flex-1 min-w-[12rem]">{historyError}</p>
+            <Button variant="outline" size="sm" onClick={() => loadHistory()}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1" /> Tải lại
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {historyLoading && !historyError && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Đang tải các lần nộp và nhận xét của mentor…
+        </p>
+      )}
+
       {/* ─── Dòng thời gian lần nộp: mới nhất trước ─── */}
       {timeline.length > 0 && (
         <div className="space-y-3">
@@ -916,11 +1018,9 @@ export function AssignmentPanel({
                                 className="relative block w-full cursor-zoom-in group"
                                 title={`${verdictLabel(img.verdict)} — bấm để phóng to`}
                               >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <SubmissionThumb
                                   src={img.image_url}
                                   alt={`Ảnh ${iIdx + 1}`}
-                                  loading="lazy"
                                   className="w-full h-32 object-cover"
                                 />
                                 <span className="absolute top-1 left-1 rounded bg-black/70 text-white text-[11px] font-semibold px-1.5 py-0.5">
@@ -1094,8 +1194,7 @@ export function AssignmentPanel({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-[94vw]" onClick={(e) => e.stopPropagation()}>
               <div className="space-y-1">
                 <p className="text-xs text-white/70 font-medium">Ảnh của bạn</p>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={lbImage.image_url} alt="Ảnh của bạn" className="w-full max-h-[56vh] object-contain rounded-lg border border-white/20" />
+                <SubmissionThumb src={lbImage.image_url} alt="Ảnh của bạn" className="w-full max-h-[56vh] min-h-[12rem] object-contain rounded-lg border border-white/20" />
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-gold font-medium">Ảnh sửa của mentor</p>
@@ -1103,7 +1202,7 @@ export function AssignmentPanel({
                 <img src={lbImage.fix_image_url} alt="Ảnh sửa của mentor" className="w-full max-h-[56vh] object-contain rounded-lg border border-gold/50" />
               </div>
             </div>
-          ) : (
+          ) : lbImage.image_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={lbImage.image_url}
@@ -1111,6 +1210,13 @@ export function AssignmentPanel({
               onClick={(e) => e.stopPropagation()}
               className="max-h-[60vh] max-w-[94vw] object-contain rounded-lg"
             />
+          ) : (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="h-[40vh] w-[90vw] max-w-xl flex items-center justify-center gap-2 rounded-lg bg-white/5 text-white/70 text-sm animate-pulse"
+            >
+              <ImageIcon className="h-5 w-5" /> Đang tải ảnh…
+            </div>
           )}
 
           {/* Ghi chú mentor + hành động */}

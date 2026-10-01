@@ -100,7 +100,7 @@ export default function StudentDashboardPage() {
       ]);
       setCourses((c || []) as Course[]);
       setEnrollments((e || []) as Enrollment[]);
-      setMySubmissions(submissions as SubmissionRow[]);
+      setMySubmissions(submissions as unknown as SubmissionRow[]); // dòng nhẹ (getSubmissionsByUser), không kéo ảnh
 
       setLoading(false);
     }

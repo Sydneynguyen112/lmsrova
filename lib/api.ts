@@ -65,8 +65,18 @@ export async function getAssignmentsByCourse(courseId: string) {
 }
 
 // ─── SUBMISSIONS ───
+// Không kéo image_urls: đó là bản sao base64 của ảnh nộp (~100-150KB/ảnh), học viên chăm có vài chục MB
+// → Postgres cắt truy vấn vì quá giờ và trang chủ mất số bài nộp. Ảnh xem ở trang bài tập (tải theo cụm).
+const SUBMISSION_COLS_LIGHT =
+  "id, assignment_id, user_id, metadata, mentor_feedback, graded_at, submitted_at, note";
+
 export async function getSubmissionsByUser(userId: string) {
-  const { data } = await supabase.from("submissions").select("*").eq("user_id", userId).order("submitted_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("submissions")
+    .select(SUBMISSION_COLS_LIGHT)
+    .eq("user_id", userId)
+    .order("submitted_at", { ascending: false });
+  if (error) console.error("getSubmissionsByUser:", error.message);
   return data || [];
 }
 
