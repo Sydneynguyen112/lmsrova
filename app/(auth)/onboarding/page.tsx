@@ -52,6 +52,8 @@ export default function OnboardingPage() {
   const [visible, setVisible] = useState<StudentVisibleResult | null>(null);
   const [nextStep, setNextStep] = useState<IntakeNextStep | null>(null);
   const [pace, setPace] = useState<LearningPace | null>(null);
+  // Đã được duyệt lúc nộp bài chưa (admin gán khoá trước) — quyết định nút cuối màn kết quả
+  const [approved, setApproved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,11 +78,8 @@ export default function OnboardingPage() {
         router.replace("/student");
         return;
       }
-      // Được duyệt (mentor/admin gán khoá) rồi mới làm bài test
-      if (!(await isApproved(userId))) {
-        router.replace("/student");
-        return;
-      }
+      // KHÔNG chặn theo duyệt: học viên làm bài test TRƯỚC, tự chọn mentor trong
+      // form → mentor thấy trong rova-ops rồi mới mở khoá học (= duyệt).
       setProfile(p as Profile);
       if (intakeForm && intakeForm.questions.length > 0) {
         setFormId(intakeForm.form.id);
@@ -175,9 +174,15 @@ export default function OnboardingPage() {
     }
     // Gợi ý bước kế tiếp — chạy song song với màn "đang phân tích".
     // Tự nuốt lỗi, không có thì màn kết quả chỉ ẩn khối gợi ý.
-    const nextStepPromise = D.showNextStep
-      ? getIntakeNextStep(profile.id, computed.classification)
-      : Promise.resolve(null);
+    // Chưa được duyệt thì chưa có bài nào mở → không gợi ý, nút cuối về màn chờ duyệt.
+    const nextStepPromise = isApproved(profile.id)
+      .catch(() => false)
+      .then((ok) => {
+        setApproved(ok);
+        return ok && D.showNextStep
+          ? getIntakeNextStep(profile.id, computed.classification)
+          : null;
+      });
 
     // Giữ màn "đang phân tích" tối thiểu computingMinMs cho cảm giác được "khám" thật
     const elapsed = Date.now() - startedAt;
@@ -262,6 +267,7 @@ export default function OnboardingPage() {
     return (
       <IntakeResultScreen
         visible={visible}
+        doneLabel={approved ? undefined : INTAKE_COPY.result.doneButtonPending}
         nextStep={nextStep}
         pace={pace}
         onPickPace={handlePickPace}

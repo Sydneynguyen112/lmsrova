@@ -2,8 +2,8 @@
 
 // Màn đầu tiên sau đăng nhập: "Khoá học bạn đã đăng ký" — học viên chọn PRO
 // hay MASTER. Chỉ là khai báo; mentor/admin vẫn duyệt (gán enrollment) bên
-// rova-ops. Chọn xong → /student (popup chờ duyệt); duyệt rồi OnboardingGate
-// mới dẫn PRO qua video + bài test, MASTER vào thẳng.
+// rova-ops. Chọn xong → /student: OnboardingGate dẫn PRO qua video + bài test
+// ngay (chưa duyệt cũng làm), xong mới thấy popup chờ duyệt; MASTER chờ duyệt luôn.
 // ?change=1 — đổi lựa chọn (từ modal chờ duyệt), không tự redirect đi.
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";

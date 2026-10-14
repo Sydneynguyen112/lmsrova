@@ -57,8 +57,8 @@ export function PendingApprovalModal({
               Tài khoản đang chờ ROVA duyệt
             </h2>
             <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-              Chào {firstName}, tài khoản đã tạo xong. ROVA cần duyệt tay thì các bước tiếp
-              theo (video hướng dẫn, bài test đầu vào, khoá học) mới mở.
+              Chào {firstName}, ROVA đã nhận đủ thông tin của bạn. ROVA cần duyệt tay thì
+              khoá học mới mở.
             </p>
           </div>
         </div>

@@ -3,14 +3,14 @@
 // Học viên đi qua các cửa theo thứ tự trước khi vào bất kỳ trang dashboard nào —
 // kể cả khi CHƯA được duyệt. Chặn ở layout để gõ thẳng URL cũng không lọt.
 //   1. Chưa khai khoá đã đăng ký (PRO/MASTER)      → /choose-course
-//   2. Chưa được duyệt (chưa có enrollment active)  → dashboard, /student hiện popup chờ duyệt
-//   3. Đã duyệt, khoá cần bài test (PRO) mà chưa làm → /onboarding-video → /onboarding
-//   4. Qua hết → dashboard.
+//   2. Khoá cần bài test (PRO) mà chưa làm          → /onboarding-video → /onboarding
+//      (KHÔNG đợi duyệt: làm bài test xong mới chờ duyệt — câu "Ai là mentor của bạn?"
+//      trong bài test gán mentor_id, nhờ vậy mentor bên rova-ops mới thấy để duyệt)
+//   3. Qua hết → dashboard; chưa được duyệt thì /student hiện popup chờ duyệt.
 // Học viên cũ đã làm bài test thì bỏ qua cửa 1, không bắt khai lại.
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUserState } from "@/lib/auth";
-import { isApproved } from "@/lib/approval";
 import { choiceRequiresIntake } from "@/lib/course-choice";
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
@@ -29,27 +29,12 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
 
   const hasSurvey = !!currentUser?.onboarding_survey;
   const needsChoice = !!currentUser && !hasSurvey && !currentUser.requested_course_id;
-  // Khoá cần bài test mà chưa làm → phải biết đã duyệt chưa mới quyết được
-  const needsIntakeCheck =
+  // Khoá cần bài test mà chưa làm → làm ngay, chưa duyệt cũng làm
+  const pendingIntake =
     !!currentUser &&
     !hasSurvey &&
     !needsChoice &&
     choiceRequiresIntake(currentUser.requested_course_id);
-  const [approved, setApproved] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!currentUser || !needsIntakeCheck) return;
-    let cancelled = false;
-    isApproved(currentUser.id).then((ok) => {
-      if (!cancelled) setApproved(ok);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser, needsIntakeCheck]);
-
-  const checkingApproval = needsIntakeCheck && approved === null;
-  const pendingIntake = needsIntakeCheck && approved === true;
 
   useEffect(() => {
     if (!currentUser) return;
@@ -57,7 +42,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     else if (pendingIntake) router.replace("/onboarding-video");
   }, [currentUser, needsChoice, pendingIntake, router]);
 
-  if (needsChoice || checkingApproval || pendingIntake) {
+  if (needsChoice || pendingIntake) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />

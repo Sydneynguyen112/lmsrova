@@ -40,6 +40,8 @@ interface IntakeResultScreenProps {
   visible: StudentVisibleResult;
   /** Bỏ trống = chế độ xem lại: không pháo giấy, không nút "Bắt đầu học ngay" */
   onDone?: () => void;
+  /** Chữ trên nút cuối; bỏ trống = "Bắt đầu học ngay" */
+  doneLabel?: string;
   saving?: boolean;
   /** null = chưa tải xong hoặc khoá chưa có lộ trình → ẩn khối gợi ý */
   nextStep?: IntakeNextStep | null;
@@ -51,6 +53,7 @@ interface IntakeResultScreenProps {
 export function IntakeResultScreen({
   visible,
   onDone,
+  doneLabel,
   saving,
   nextStep,
   pace,
@@ -307,7 +310,7 @@ export function IntakeResultScreen({
           disabled={saving}
           className="bg-gold hover:bg-gold/90 text-black font-semibold py-6 rounded-xl text-base w-full"
         >
-          {C.doneButton}
+          {doneLabel ?? C.doneButton}
         </Button>
       )}
     </motion.div>

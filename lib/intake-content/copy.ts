@@ -48,6 +48,8 @@ export const INTAKE_COPY = {
     dimensionsTitle: "Nền tảng giao dịch hiện tại",
     adviceTitle: "Lời khuyên dành riêng cho bạn",
     doneButton: "Bắt đầu học ngay →",
+    // Làm bài test xong mà chưa được duyệt (chưa có khoá) → nút cuối về màn chờ duyệt
+    doneButtonPending: "Xong — chờ ROVA duyệt →",
   },
 
   // Khối gợi ý bước học kế tiếp — phần ý nghĩa onboarding gộp vào bài khám bệnh
