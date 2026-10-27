@@ -21,6 +21,7 @@ import { supabase } from "@/lib/supabase";
 import { getCourseProgressMap, shownProgressPct, type CourseProgress } from "@/lib/api-student";
 import { cn, formatPrice, formatDate, formatDuration } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
+import { isStaffRole } from "@/lib/staff";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -200,8 +201,25 @@ export default function StudentCoursesPage() {
         getCourseProgressMap(currentUser!.id),
       ]);
       if (cancelled) return;
-      setCourses((c || []) as Course[]);
-      setEnrollments((e || []) as Enrollment[]);
+      const allCourses = (c || []) as Course[];
+      const own = (e || []) as Enrollment[];
+      // Đội ngũ (mentor / admin): mọi khoá hiện ở "đang học" — khoá chưa ghi danh thì dựng dòng tạm, không ghi DB
+      if (isStaffRole(currentUser!.role)) {
+        const has = new Set(own.map((x) => x.course_id));
+        for (const course of allCourses) {
+          if (has.has(course.id)) continue;
+          own.push({
+            id: `staff-${course.id}`,
+            course_id: course.id,
+            status: "active",
+            progress_pct: 0,
+            enrolled_at: new Date().toISOString(),
+            completed_at: null,
+          });
+        }
+      }
+      setCourses(allCourses);
+      setEnrollments(own);
       setProgressByCourse(progress);
       setLoading(false);
     }

@@ -38,6 +38,7 @@ import {
 import { cn, formatDuration } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import { isStaffRole } from "@/lib/staff";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -101,7 +102,8 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
       if (cancelled) return;
 
       const enrolled = (enrollData ?? []).length > 0;
-      setIsEnrolled(enrolled);
+      // Đội ngũ (mentor / admin) xem như đã ghi danh mọi khoá
+      setIsEnrolled(enrolled || isStaffRole(currentUser!.role));
       if (courseData) setDbCourse(courseData);
 
       const lesson = data.lessons.find((l) => l.id === lessonId);
@@ -289,7 +291,9 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
   // Chặng nhóm video có ngưỡng xem thấp hơn (vd Video hoàn thiện 30%) → mở quiz theo ngưỡng đó luôn
   const groupThreshold = lessonWatchThresholds(data.stages).get(lessonId);
   const workThreshold = groupThreshold ? Math.min(WORK_WATCH_THRESHOLD, groupThreshold) : WORK_WATCH_THRESHOLD;
-  const workGatePassed = watchedRatio >= workThreshold;
+  // Đội ngũ mở sẵn tab Quiz / Bài tập, không cần xem video trước
+  const isStaff = isStaffRole(currentUser.role);
+  const workGatePassed = isStaff || watchedRatio >= workThreshold;
   const watchedPercent = Math.round(watchedRatio * 100);
   const gatePercent = Math.round(workThreshold * 100);
   // Còn bao nhiêu nữa mới mở — làm tròn LÊN để không bao giờ hiện "còn 0%" mà vẫn khoá
@@ -499,6 +503,7 @@ export function LessonPlayerView({ courseId, lessonId }: Props) {
                 stageQuiz={stageQuiz}
                 stageQuizPassed={stageQuizPassed}
                 userId={currentUser.id}
+                staffView={isStaff}
                 onProgress={handleStageProgress}
               />
             )}

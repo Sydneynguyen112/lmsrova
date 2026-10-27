@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
+import { isStaffRole } from "@/lib/staff";
 import { cn } from "@/lib/utils";
 import { type FormQuestionRow, GRADUATION_PASS_GRADE } from "@/lib/api-forms";
 import { ratingMax, ratingScale, isAnswered, cleanAnswer, allowsOther, profileFieldsFrom } from "@/lib/form-question-meta";
@@ -82,7 +83,8 @@ export function GraduationView({ courseId }: Props) {
       const videoDone = videoStage
         ? progress.some((p) => p.stage_id === videoStage.id && p.completed_at)
         : false;
-      if (!videoDone) { setPageState("locked"); return; }
+      // Đội ngũ (mentor / admin) xem form ngay, không đợi xong chặng video
+      if (!videoDone && !isStaffRole(currentUser!.role)) { setPageState("locked"); return; }
 
       if (!gradStage?.form_id) { setPageState("no_form"); return; }
 
@@ -145,7 +147,8 @@ export function GraduationView({ courseId }: Props) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!currentUser || !form) return;
+    // Đội ngũ chỉ xem — nộp sẽ gắn tag tốt nghiệp + đóng ghi danh trên hồ sơ của chính họ
+    if (!currentUser || !form || isStaffRole(currentUser.role)) return;
     setError("");
 
     for (const q of questions) {
@@ -439,11 +442,17 @@ export function GraduationView({ courseId }: Props) {
             </motion.div>
           )}
 
-          {/* Submit */}
-          <Button type="submit" disabled={submitting} className="bg-gold hover:bg-gold/90 text-black font-semibold py-6 rounded-xl text-base w-full">
-            {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
-            {submitting ? "Đang gửi..." : "Gửi cảm nhận & tốt nghiệp"}
-          </Button>
+          {/* Submit — đội ngũ chỉ xem form */}
+          {isStaffRole(currentUser.role) ? (
+            <p className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3 text-center text-sm text-muted-foreground">
+              Tài khoản đội ngũ ROVA chỉ xem form, không gửi.
+            </p>
+          ) : (
+            <Button type="submit" disabled={submitting} className="bg-gold hover:bg-gold/90 text-black font-semibold py-6 rounded-xl text-base w-full">
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
+              {submitting ? "Đang gửi..." : "Gửi cảm nhận & tốt nghiệp"}
+            </Button>
+          )}
         </motion.form>
       </div>
     </PageTransition>

@@ -15,6 +15,7 @@ import { GRADUATION_PASS_GRADE } from "@/lib/api-forms";
 import { graduateByForm } from "@/lib/graduation-link";
 import { saveProfileFromForm } from "@/lib/profile-from-form";
 import { signInHref } from "@/lib/return-to";
+import { isStaffRole } from "@/lib/staff";
 import { FormGridQuestion } from "@/components/shared/FormGridQuestion";
 import { FormOtherOption } from "@/components/shared/FormOtherOption";
 
@@ -52,6 +53,8 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
   // Form tốt nghiệp: bắt buộc đăng nhập để bài gắn đúng tài khoản; đăng nhập xong quay lại đúng form này
   const needLogin = form?.form_type === "graduation";
   const userId = user?.id;
+  // Đội ngũ (mentor / admin) mở form tốt nghiệp để xem — không gửi, tránh gắn tag tốt nghiệp lên hồ sơ của họ
+  const staffViewOnly = needLogin && isStaffRole(user?.role);
 
   useEffect(() => {
     if (needLogin && status === "signed-out") router.replace(signInHref(`/forms/${formId}`));
@@ -106,6 +109,7 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
     setError("");
 
     if (needLogin && !user) return;
+    if (staffViewOnly) return;
 
     // Validate required
     for (const q of questions) {
@@ -380,10 +384,16 @@ export default function PublicFormPage({ params }: { params: Promise<{ formId: s
           )}
 
           {/* Submit */}
-          <Button type="submit" disabled={submitting} className="bg-[var(--primary)] hover:opacity-90 text-black font-semibold py-6 rounded-xl text-base w-full">
-            {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
-            {submitting ? "Đang gửi..." : "Gửi câu trả lời"}
-          </Button>
+          {staffViewOnly ? (
+            <p className="rounded-xl border border-[var(--primary)]/30 px-4 py-3 text-center text-sm text-muted-foreground">
+              Tài khoản đội ngũ ROVA chỉ xem form, không gửi.
+            </p>
+          ) : (
+            <Button type="submit" disabled={submitting} className="bg-[var(--primary)] hover:opacity-90 text-black font-semibold py-6 rounded-xl text-base w-full">
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Send className="h-5 w-5 mr-2" />}
+              {submitting ? "Đang gửi..." : "Gửi câu trả lời"}
+            </Button>
+          )}
         </motion.form>
       </div>
     </div>

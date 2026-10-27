@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { shownProgressPct } from "@/lib/api-student";
 import { formatPrice } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth";
+import { isStaffRole } from "@/lib/staff";
 import { getSubmissionsByUser } from "@/lib/api";
 import { PageTransition } from "@/components/shared/PageTransition";
 import { LockedFeature } from "@/components/shared/LockedFeature";
@@ -120,6 +121,20 @@ export default function StudentDashboardPage() {
   const enrolledCourseIds = new Set(enrollments.map((e) => e.course_id));
   const unenrolledCourses = courses.filter((c) => !enrolledCourseIds.has(c.id));
   const hasEnrollments = activeEnrollments.length > 0;
+
+  // Đội ngũ (mentor / admin) chưa ghi danh khoá nào: không phải học viên chờ duyệt → chỉ đường sang Phòng học
+  if (!hasEnrollments && isStaffRole(currentUser.role)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center p-6">
+        <p className="text-muted-foreground">
+          Tài khoản đội ngũ ROVA — mọi khoá học, bài tập và form đều mở sẵn ở Phòng học.
+        </p>
+        <Link href="/student/courses">
+          <Button className="bg-gold hover:bg-gold/90 text-black font-semibold">Vào Phòng học</Button>
+        </Link>
+      </div>
+    );
+  }
 
   if (!hasEnrollments) {
     return (

@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useCurrentUserState } from "@/lib/auth";
 import { choiceRequiresIntake } from "@/lib/course-choice";
 import { signInHref } from "@/lib/return-to";
+import { isStaffRole } from "@/lib/staff";
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -30,7 +31,8 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     router.replace(signInHref(window.location.pathname + window.location.search));
   }, [status, router]);
 
-  const hasSurvey = !!currentUser?.onboarding_survey;
+  // Đội ngũ (mentor / admin) vào xem phòng học — không đi qua các cửa đăng ký / bài test
+  const hasSurvey = !!currentUser?.onboarding_survey || isStaffRole(currentUser?.role);
   const needsChoice = !!currentUser && !hasSurvey && !currentUser.requested_course_id;
   // Khoá cần bài test mà chưa làm → làm ngay, chưa duyệt cũng làm
   const pendingIntake =

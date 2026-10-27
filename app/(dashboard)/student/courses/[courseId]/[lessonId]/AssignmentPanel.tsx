@@ -191,6 +191,8 @@ interface Props {
   stageQuiz: QuizRow | null;
   stageQuizPassed: boolean;
   userId: string;
+  /** Tài khoản đội ngũ (mentor / admin) — quiz chặng hiện sẵn, không đợi đủ ảnh đúng */
+  staffView?: boolean;
   /** Nộp xong / quiz chặng đạt → cha load lại unlock data (bộ đếm + mở bài kế) */
   onProgress: () => void;
 }
@@ -203,6 +205,7 @@ export function AssignmentPanel({
   stageQuiz,
   stageQuizPassed,
   userId,
+  staffView = false,
   onProgress,
 }: Props) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -516,7 +519,7 @@ export function AssignmentPanel({
       : !!lbImage.fix_image_url
     : false;
 
-  const quizUnlocked = counts.correct >= stage.required_correct_images;
+  const quizUnlocked = staffView || counts.correct >= stage.required_correct_images;
 
   function imageRef(img: SubmissionImageRow) {
     const loc = locate(img.id);

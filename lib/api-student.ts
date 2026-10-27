@@ -1,6 +1,7 @@
 // Query bổ sung phía HỌC VIÊN cho Phase 02 (tracking engine).
 // Luật mở khoá/qua chặng nằm ở lib/roadmap.ts — file này CHỈ fetch + gói dữ liệu.
 import { supabase } from "./supabase";
+import { isStaffRole } from "./staff";
 import {
   computeUnlockState,
   getImageCountsByAssignment,
@@ -172,7 +173,7 @@ export async function loadStudentUnlockData(
     getImageCountsByAssignment(userId),
     // select("*") để bản code này chạy được cả khi cột lock_lessons / unlock_on_submit chưa được thêm (SQL chạy tay sau)
     supabase.from("courses").select("*").eq("id", courseId).single(),
-    supabase.from("profiles").select("unlock_all_lessons").eq("id", userId).single(),
+    supabase.from("profiles").select("unlock_all_lessons, role").eq("id", userId).single(),
   ]);
   const lessonQuizMap = await getLessonQuizMap(lessons.map((l) => l.id));
 
@@ -207,11 +208,12 @@ export async function loadStudentUnlockData(
   //   - khoá miễn phí, hoặc
   //   - khoá học đang để chế độ "mở toàn bộ" (courses.lock_lessons = false, admin bật/tắt ở
   //     rova-ops /admin/courses), hoặc
-  //   - học viên được cấp quyền mở khoá toàn bộ (khách mời/VIP, bật từ SQL Editor)
-  const p = profileRow.data as { unlock_all_lessons: boolean | null } | null;
+  //   - học viên được cấp quyền mở khoá toàn bộ (khách mời/VIP, bật từ SQL Editor), hoặc
+  //   - tài khoản đội ngũ (mentor / admin) vào xem phòng học
+  const p = profileRow.data as { unlock_all_lessons: boolean | null; role: string | null } | null;
   const isFreeCourse = !!c && !c.price && c.price_label === "Miễn phí";
   const courseLocked = c?.lock_lessons === true;
-  if (isFreeCourse || !courseLocked || p?.unlock_all_lessons) {
+  if (isFreeCourse || !courseLocked || p?.unlock_all_lessons || isStaffRole(p?.role)) {
     unlock.unlockedLessonIds = new Set(lessons.map((l) => l.id));
     unlock.firstLockedLessonId = null;
   }

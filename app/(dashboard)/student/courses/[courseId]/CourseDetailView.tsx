@@ -19,6 +19,7 @@ import { cn, formatDuration } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/lib/auth";
 import { checkAndCompleteStages } from "@/lib/roadmap";
+import { isStaffRole } from "@/lib/staff";
 import {
   loadStudentUnlockData,
   firstOpenLessonId,
@@ -105,7 +106,8 @@ export function CourseDetailView({ courseId }: Props) {
       if (cancelled) return;
 
       const enrolled = (enrollData ?? []).length > 0;
-      setIsEnrolled(enrolled);
+      // Đội ngũ (mentor / admin) xem như đã ghi danh mọi khoá
+      setIsEnrolled(enrolled || isStaffRole(currentUser!.role));
       setIsCourseCompleted(enrollData?.[0]?.status === "completed");
       if (courseData) setCourse(courseData);
       setCourseModules(modulesData || []);
@@ -193,7 +195,9 @@ export function CourseDetailView({ courseId }: Props) {
     ? data.stageProgress.some((p) => p.stage_id === videoStage.id && p.completed_at)
     : false;
   const hasGradStage = data.stages.some((s) => s.stage_key === "tot_nghiep");
-  const showGraduationCta = !!isEnrolled && hasGradStage && videoStageDone;
+  // Đội ngũ thấy CTA ngay để xem form, không đợi xong chặng video
+  const showGraduationCta =
+    !!isEnrolled && hasGradStage && (videoStageDone || isStaffRole(currentUser.role));
 
   return (
     <div className="space-y-6 p-6">
