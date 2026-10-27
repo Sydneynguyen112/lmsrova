@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUserState } from "@/lib/auth";
 import { choiceRequiresIntake } from "@/lib/course-choice";
+import { signInHref } from "@/lib/return-to";
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -22,9 +23,11 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   // currentUser null cũng chính là trạng thái "chưa đăng nhập" — thiếu chốt này
   // thì người chưa đăng nhập (máy mới, phiên hết hạn) kẹt ở "Đang tải…" vĩnh viễn.
   // Phải đợi status khác "checking", nếu không sẽ đá nhầm người đang đăng nhập.
+  // Mang theo ?next= để đăng nhập xong quay lại đúng trang (vd mentor bấm "Phòng học" từ rova-ops —
+  // thiếu next thì tài khoản mentor bị đẩy về rova-ops thay vì vào phòng học).
   useEffect(() => {
     if (status !== "signed-out") return;
-    router.replace("/sign-in");
+    router.replace(signInHref(window.location.pathname + window.location.search));
   }, [status, router]);
 
   const hasSurvey = !!currentUser?.onboarding_survey;
