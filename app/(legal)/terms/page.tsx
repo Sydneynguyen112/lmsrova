@@ -58,7 +58,7 @@ const sections: LegalSection[] = [
         type: "list",
         items: [
           "ROVA có thể cập nhật, bổ sung hoặc điều chỉnh nội dung khoá học, lộ trình học và tính năng của nền tảng để nâng cao chất lượng.",
-          "Một số tính năng (nộp bài, quiz, chat mentor, form tốt nghiệp) có thể yêu cầu bạn hoàn thành các bước trước đó trong lộ trình.",
+          "Một số tính năng (nộp bài, quiz, chat mentor, form Feedback trải nghiệm chương trình) có thể yêu cầu bạn hoàn thành các bước trước đó trong lộ trình.",
           "ROVA nỗ lực duy trì Dịch vụ hoạt động ổn định nhưng không cam kết Dịch vụ không bị gián đoạn do bảo trì, sự cố kỹ thuật hoặc các nguyên nhân ngoài tầm kiểm soát.",
         ],
       },

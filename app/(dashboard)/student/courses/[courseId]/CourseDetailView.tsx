@@ -311,16 +311,16 @@ export function CourseDetailView({ courseId }: Props) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-foreground">
-                {gradPassed ? "Bạn đã tốt nghiệp khoá này" : "Bài tốt nghiệp đã mở"}
+                {gradPassed ? "Bạn đã tốt nghiệp khoá này" : "Form Feedback trải nghiệm chương trình đã mở"}
               </p>
               <p className="text-sm text-muted-foreground">
                 {gradPassed
                   ? "Xem lại kết quả và xếp loại của bạn."
-                  : "Bạn đã hoàn thành các video của khoá — làm bài để kết thúc lộ trình."}
+                  : "Bạn đã hoàn thành các video của khoá — điền form để kết thúc lộ trình."}
               </p>
             </div>
             <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-gold">
-              {gradPassed ? "Xem kết quả" : "Làm bài"}
+              {gradPassed ? "Xem kết quả" : "Điền form"}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </span>
           </Link>

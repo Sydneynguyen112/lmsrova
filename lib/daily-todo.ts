@@ -145,7 +145,7 @@ export function buildDailyTodo(
   if (items.length === 0 && currentStage?.completion_type === "graduation_form") {
     items.push({
       kind: "graduation",
-      title: "Form tốt nghiệp",
+      title: "Form Feedback trải nghiệm chương trình",
       detail: "Điền form để hoàn thành lộ trình",
       href: `/student/courses/${courseId}/graduation`,
     });

@@ -230,10 +230,10 @@ export function GraduationView({ courseId }: Props) {
               <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center">
                 <Lock className="h-7 w-7 text-gold" />
               </div>
-              <h1 className="text-xl font-bold text-foreground">Bài Tốt nghiệp chưa mở</h1>
+              <h1 className="text-xl font-bold text-foreground">Form Feedback trải nghiệm chương trình chưa mở</h1>
               <p className="text-sm text-muted-foreground">
-                Hoàn thành các video của khoá để mở bài tốt nghiệp. Bạn cần xong chặng
-                "Video hoàn thiện" (tâm lý · quản lý vốn · nhật ký) trước khi làm bài.
+                Hoàn thành các video của khoá để mở Form Feedback trải nghiệm chương trình. Bạn cần xong chặng
+                "Video hoàn thiện" (tâm lý · quản lý vốn · nhật ký) trước khi điền form.
               </p>
               <Link href={courseHref}>
                 <Button variant="outline" className="border-gold/50 text-gold hover:bg-gold/10">
@@ -256,9 +256,9 @@ export function GraduationView({ courseId }: Props) {
               <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center">
                 <GraduationCap className="h-7 w-7 text-gold" />
               </div>
-              <h1 className="text-xl font-bold text-foreground">Bài Tốt nghiệp đang được chuẩn bị</h1>
+              <h1 className="text-xl font-bold text-foreground">Form Feedback trải nghiệm chương trình đang được chuẩn bị</h1>
               <p className="text-sm text-muted-foreground">
-                Bài tốt nghiệp của khoá chưa được thiết lập. Vui lòng quay lại sau hoặc liên hệ mentor của bạn.
+                Form Feedback trải nghiệm chương trình của khoá chưa được thiết lập. Vui lòng quay lại sau hoặc liên hệ mentor của bạn.
               </p>
               <Link href={courseHref}>
                 <Button variant="ghost">← Về khoá học</Button>
@@ -285,7 +285,7 @@ export function GraduationView({ courseId }: Props) {
               <p className="text-muted-foreground">
                 {pageState === "result_pass"
                   ? "Cảm ơn bạn đã chia sẻ cảm nhận. Bạn đã hoàn thành toàn bộ lộ trình khoá học — cả đội ROVA tự hào về bạn!"
-                  : "Bạn đã gửi cảm nhận tốt nghiệp và kết thúc lộ trình khoá học."}
+                  : "Bạn đã gửi Form Feedback trải nghiệm chương trình và kết thúc lộ trình khoá học."}
               </p>
             </div>
             <div className="flex items-center justify-center gap-2">
@@ -320,7 +320,7 @@ export function GraduationView({ courseId }: Props) {
           <div className="rounded-2xl border-t-4 border-t-gold bg-card border border-border p-6 space-y-2">
             <div className="flex items-center gap-2">
               <GraduationCap className="h-6 w-6 text-gold" />
-              <h1 className="text-2xl font-bold gold-gradient-text">{form?.title || "Bài Tốt nghiệp"}</h1>
+              <h1 className="text-2xl font-bold gold-gradient-text">{form?.title || "Form Feedback trải nghiệm chương trình"}</h1>
             </div>
             {form?.description && <p className="text-sm text-muted-foreground">{form.description}</p>}
             <p className="text-xs text-muted-foreground">

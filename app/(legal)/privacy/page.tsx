@@ -34,7 +34,7 @@ const sections: LegalSection[] = [
           "Thông tin tài khoản: họ tên, địa chỉ email, số điện thoại, mật khẩu (được mã hoá — chúng tôi không thể đọc mật khẩu gốc của bạn).",
           "Thông tin từ Google khi bạn đăng nhập bằng Google OAuth: tên, email, ảnh đại diện theo phạm vi bạn cho phép.",
           "Thông tin khảo sát đầu vào (onboarding): kinh nghiệm giao dịch, mục tiêu học tập và các câu trả lời bạn cung cấp.",
-          "Dữ liệu học tập: tiến độ xem bài giảng, bài tập đã nộp, kết quả quiz, ghi chú, form tốt nghiệp và tương tác với mentor (bao gồm tin nhắn trao đổi trong nền tảng).",
+          "Dữ liệu học tập: tiến độ xem bài giảng, bài tập đã nộp, kết quả quiz, ghi chú, form Feedback trải nghiệm chương trình và tương tác với mentor (bao gồm tin nhắn trao đổi trong nền tảng).",
           "Thông tin giao dịch: khoá học đã mua, thời điểm thanh toán và trạng thái xác nhận. ROVA không lưu trữ số thẻ hay thông tin đăng nhập ngân hàng của bạn.",
           "Dữ liệu kỹ thuật: loại thiết bị, trình duyệt, dữ liệu cookie/bộ nhớ cục bộ (localStorage) phục vụ duy trì phiên đăng nhập và cải thiện trải nghiệm.",
         ],
